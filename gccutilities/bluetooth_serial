@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#sdptool search sp
+rfcomm release 1
+sleep 1
+echo "Connecting"
+rfcomm connect 1 00:06:66:42:1F:A0 1 &
+
+sleep 12
+
+picocom --send-cmd "ascii-xfr -s -c 0" -b230400 /dev/rfcomm1
+rfcomm release 1

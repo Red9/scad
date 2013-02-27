@@ -1,0 +1,81 @@
+#!/bin/bash
+
+
+#To use, run the following
+# >$./run_all
+# >$./run_all -e          #load eeprom
+# >$./run_all -t baud     #start terminal with baud
+# >$./run_all -e -t baud  #load eeprom and start terminal
+
+
+baud=""
+loadeeprom=""
+
+#Parse parameters:
+while getopts ":et:" opt; do
+	case $opt in
+		e)
+#			echo "Load EEPROM."
+			loadeeprom="-e"
+			;;
+		t)
+#			echo "Start Terminal with baud $OPTARG"
+			baud="-t$OPTARG"
+			;;
+		\?)
+			echo "Invalid option: -$OPTARG"
+			exit 1
+			;;
+		:)
+			echo "Option -$OPTARG requires an argument."
+			exit 1
+			;;
+	esac
+done
+
+make clean
+clear
+
+echo Calculate path to Root folder.
+
+root=$(pwd)
+#Calculate the path to the propgcc "root" folder
+while [ "$(basename $root)" != "propgcc" ]; do
+	root=$(dirname $root)
+done 
+
+echo root == $root
+
+#Generate the Unity test file, if there is a *.test.cpp file.
+test=$( ls *.test.cpp)
+if [ "$test" != "" ]; then
+	#Extract the test filename without extension:
+	filename=$(basename $test)
+	extension=${filename##*.}
+	filename=${filename%.test.*}
+
+	#echo item: $filename.$extension
+	#echo filename: $filename
+	#echo extension: $extension
+
+	#Generate the .generate file and compile it
+	ruby $root/gccutilities/generate_test_runner.rb $filename.test.$extension $filename.generate.$extension
+	make Unit ROOT=$root/ 
+	
+	#Cleanup
+	rm -f *.generate.*
+else
+	make ROOT=$root/
+#	echo No Unity.
+fi
+
+#Print out the date FYI
+date
+#Download
+propeller-load -r $loadeeprom $baud main.elf
+#propeller-load -r -t460800 main.elf
+
+#port=$(ls /dev/*USB* 2> /dev/null)
+#picocom --send-cmd "ascii-xfr -s -c 0" -b $baud $port
+
+

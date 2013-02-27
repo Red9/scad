@@ -1,0 +1,9 @@
+#!/bin/bash
+/opt/parallax/bin/propeller-load -r -e main.elf
+
+#baud="115200"
+baud="230400"
+
+port=$(ls /dev/*USB* 2> /dev/null)
+
+picocom --send-cmd "ascii-xfr -s -c 0" -b $baud $port
