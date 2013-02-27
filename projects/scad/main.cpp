@@ -23,17 +23,23 @@
 
 //TODO(SRLM): Change ELUM to something more generic...
 
+//TODO(SRLM): check pointers for null, and so on (be safe!).
+
 /**
 
 Cog Usage:
 0: Main
-1: Serial (debug)
-2: GPS
+1: GPS
+2: I2C datalog
 3: SD
-4: I2C datalog
-5: Debug datalog
-6: LCD debug
-7: LCD debug Control
+4:
+5:
+6:
+7:
+*/
+
+#define EXTERNAL_IMU
+
 
 /*
 Beta 2 Pins
@@ -87,8 +93,10 @@ const int kPIN_USB_RX = 31; //Rx to the Propeller
 /*
 Redifinitions of Pins
 */
+#ifdef EXTERNAL_IMU
 const int kPIN_I2C_SCL_2 = kPIN_USER_5;
 const int kPIN_I2C_SDA_2 = kPIN_USER_6;
+#endif
 
 const int kPIN_BLUETOOTH_TX = kPIN_USER_1;
 const int kPIN_BLUETOOTH_RX = kPIN_USER_2;
@@ -131,9 +139,11 @@ PCF8523 * rtc;
 MAX17048 * fuel;
 GPSParser * gps;
 
+#ifdef EXTERNAL_IMU
 i2c * bus2;
 LSM303DLHC * lsm2;
 L3GD20 * l3g2;
+#endif
 
 
 /*
@@ -399,31 +409,31 @@ void ReadFuel(){
 	fuel_rate    = fuel->GetChargeRate();
 }
 
+#ifdef EXTERNAL_IMU
+void ReadGyro2(void){
+	int x, y, z;
+	l3g2->ReadGyro(x, y, z);
+	gyro2_x = x;
+	gyro2_y = y;
+	gyro2_z = z;
+}
 
-//void ReadGyro2(void){
-//	int x, y, z;
-//	l3g2->ReadGyro(x, y, z);
-//	gyro2_x = x;
-//	gyro2_y = y;
-//	gyro2_z = z;
-//}
+void ReadAccl2(void){
+	int x,y,z;
+	lsm2->ReadAccl(x, y, z);
+	accl2_x = x;
+	accl2_y = y;
+	accl2_z = z;
+}
 
-//void ReadAccl2(void){
-//	int x,y,z;
-//	lsm2->ReadAccl(x, y, z);
-//	accl2_x = x;
-//	accl2_y = y;
-//	accl2_z = z;
-//}
-
-//void ReadMagn2(void){
-//	int x, y, z;
-//	lsm2->ReadMagn(x, y, z);
-//	magn2_x = x;
-//	magn2_y = y;
-//	magn2_z = z;
-//}
-
+void ReadMagn2(void){
+	int x, y, z;
+	lsm2->ReadMagn(x, y, z);
+	magn2_x = x;
+	magn2_y = y;
+	magn2_z = z;
+}
+#endif
 
 
 	
@@ -439,10 +449,12 @@ void ReadI2C(void * parameter){
 	Scheduler magnScheduler(25);
 	Scheduler fuelScheduler(1);
 	Scheduler timeScheduler(4);
-	
-//	Scheduler accl2Scheduler(150);
-//	Scheduler gyro2Scheduler(100);
-//	Scheduler magn2Scheduler(25);
+
+#ifdef EXTERNAL_IMU	
+	Scheduler accl2Scheduler(150);
+	Scheduler gyro2Scheduler(100);
+	Scheduler magn2Scheduler(25);
+#endif
 	
 	char * gpsString = new char[90];
 	
@@ -485,26 +497,28 @@ void ReadI2C(void * parameter){
 			freeReadCycles = 0;
 			PutIntoBuffer(buffer, 'P', CNT, gpsString, '\n');
 		}
-		
-//		if(acclScheduler.Run()){
-//			freeReadCycles = 0;
-//			ReadAccl2();
-//			PutIntoBuffer(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
-//		}
-//		
-//		if(gyroScheduler.Run()){
-//			freeReadCycles = 0;
-//			ReadGyro2();
-//			PutIntoBuffer(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
-//		}
 
-//		if(magnScheduler.Run()){
-//			freeReadCycles = 0;
-//			ReadMagn2();
-//			PutIntoBuffer(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
-//		}
-//		
-//		
+
+#ifdef EXTERNAL_IMU
+		if(accl2Scheduler.Run()){
+			freeReadCycles = 0;
+			ReadAccl2();
+			PutIntoBuffer(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+		}
+		
+		if(gyro2Scheduler.Run()){
+			freeReadCycles = 0;
+			ReadGyro2();
+			PutIntoBuffer(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+		}
+
+		if(magn2Scheduler.Run()){
+			freeReadCycles = 0;
+			ReadMagn2();
+			PutIntoBuffer(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+		}
+#endif
+		
 
 		if(freeReadCycles > freeReadCyclesMax){
 			freeReadCyclesMax = freeReadCycles;
@@ -582,22 +596,22 @@ int main(void)
 	
 	
 	
-	
+#ifdef EXTERNAL_IMU
 //Second Bus for additional sensors.
-//	bus2 = new i2c();
-//	//bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
-//	bus2->Initialize(kPIN_I2C_SCL_2, kPIN_I2C_SDA_2);       //For Beta2 Boards
-//	
-//	lsm2 = new LSM303DLHC;
-//	if(!lsm2->Init(bus2)){
-////		debug->Put("Failed to initialize the LSM303DLHC.\n\r");
-//	}
-//	
-//	l3g2 = new L3GD20;
-//	if(!l3g2->Init(bus2)){
-////		debug->Put("Failed to initialize the L3GD20.\n\r");
-//	}
-//	
+	bus2 = new i2c();
+	//bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
+	bus2->Initialize(kPIN_I2C_SCL_2, kPIN_I2C_SDA_2);       //For Beta2 Boards
+	
+	lsm2 = new LSM303DLHC;
+	if(!lsm2->Init(bus2)){
+//		debug->Put("Failed to initialize the LSM303DLHC.\n\r");
+	}
+	
+	l3g2 = new L3GD20;
+	if(!l3g2->Init(bus2)){
+//		debug->Put("Failed to initialize the L3GD20.\n\r");
+	}
+#endif
 	
 	
 	
