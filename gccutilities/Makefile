@@ -1,7 +1,8 @@
 #
-# The following two parameters can be defined:
+# The following parameters can be defined:
 # ROOT: the path to the Propeller GCC folder (propgcc, most likely)
 # MODEL: the memory model to use.
+# DEFINEFLAGS: ... ???
 
 
 
@@ -13,6 +14,11 @@ endif
 ifndef ROOT
 ROOT = ../
 endif
+
+ifndef DEFINEFLAGS
+DEFINEFLAGS =
+endif
+
 
 SRCS=$(wildcard *.cpp) #$(wildcard *.S)
 OBJS=$(subst .cpp,.o,$(SRCS))
@@ -31,7 +37,7 @@ DEBUGFLAGS = #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
 CXX = propeller-elf-g++
 CLD = propeller-elf-ld
 #-Wall
-CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} -Os -m32bit-doubles -mfcache -fno-exceptions -fno-rtti -fpermissive -ffunction-sections -fno-strict-aliasing -std=gnu++0x
+CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} -Os -m32bit-doubles -mfcache -fno-exceptions -fno-rtti -fpermissive -ffunction-sections -fno-strict-aliasing -std=gnu++0x
 CLDFLAGS = -Wl,--script=${GCCUTILITIESPATH}main.ld -Wl,--gc-sections #-Wl,--print-gc-sections
 
 Debug:
