@@ -38,7 +38,7 @@ Cog Usage:
 7:
 */
 
-#define EXTERNAL_IMU
+//#define EXTERNAL_IMU
 
 
 /*
@@ -153,7 +153,6 @@ volatile bool datalogging = false;
 volatile bool sdPresent = false;
 
 volatile int SDBufferFree = 999; //large number for before we start...
-//volatile int debugBufferFree = 999;
 
 volatile int fuel_soc = 0;
 volatile int fuel_rate = 0;
@@ -172,7 +171,11 @@ volatile int magn2_x, magn2_y, magn2_z;
 volatile int freeReadCycles = 0;
 volatile int freeReadCyclesMax = 0;
 
-volatile char currentFilename[] = "(filename)"; //"            "; //Length = 12;
+volatile char currentFilename[] = ""; //"            "; //Length = 12;
+
+
+volatile int unitNumber;
+volatile int boardVersion;
 
 int stacksize = sizeof(_thread_state_t)+sizeof(int)*3 + sizeof(int)*100;
 
@@ -224,14 +227,17 @@ void DisplayStatus(DisplayState state){
 }
 
 /**
-  * Scans the SD card and searches for filenames of the type "red9log#.csv",
-  * where # is any size number. Actually, it uses the FILENAME and FILEEXT const
-  * section variables for the filename. It starts scanning at filenumber 0, and
-  * continues until it doesn't find a file of that number on the SD card. It
-  * then opens the file for writing, and then this function returns.
+Scans the SD card and searches for filenames of the type "red9log#.csv",
+where # is any size number. Actually, it uses the FILENAME and FILEEXT const
+section variables for the filename. It starts scanning at filenumber 0, and
+continues until it doesn't find a file of that number on the SD card. It
+then opens the file for writing, and then this function returns.
+
+@param sd
+@param identifier The unit number to store in the first part of the filename.
+
   */
-void OpenFile(SecureDigitalCard * sd, int unitNumber)
-{
+void OpenFile(SecureDigitalCard * sd, int identifier){
     char buffer[12];
 //    char buff2[4];
     for(int i = 0; i < 1000; i++)
@@ -245,7 +251,7 @@ void OpenFile(SecureDigitalCard * sd, int unitNumber)
 
 //This version is B###F###.EXT
 		strcat(buffer, "B");
-		strcat(buffer, Numbers::Dec(unitNumber));
+		strcat(buffer, Numbers::Dec(identifier));
 		strcat(buffer, "F");
 		strcat(buffer, Numbers::Dec(i));
 		strcat(buffer, ".RNB");
@@ -283,7 +289,8 @@ void SdDatalog(SecureDigitalCard * sd){
 		sd->Put(data);
 		serial->Put(data);
 		SDBufferFree = sdBuffer->GetFree();
-
+		
+		//TODO(SRLM): What does this do?
 		i++;
 		if(i > 16000){
 			DisplayStatus(kDatalogging);
@@ -338,6 +345,14 @@ void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 
 /**
 String version of @a PutIntoBuffer()
+
+@param buffer     
+@param identifier 
+@param cnt        
+@param string     
+@param terminator All the characters in @a string are put into @a buffer until
+                  the terminator character is found.
+
 */
 void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 		const char * string, char terminator){
@@ -359,12 +374,29 @@ void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 	
 }
 
-//Log the things that only need to be logged once 	
-void DatalogSpecial(ConcurrentBuffer * buffer){
-	//PutIntoBuffer(buffer, 'X', CNT, __DATE__, '\0');
-	//PutIntoBuffer(buffer, 'Y', CNT, __TIME__, '\0');
+void LogVString(ConcurrentBuffer * buffer){
+	char string [200];
+	string[0] = '\0';
+	
+	strcat(string, __DATE__);
+	strcat(string, " ");
+	
+	strcat(string, __TIME__);
+	strcat(string, " ");
+	
+	strcat(string, Numbers::Dec(unitNumber));
+	strcat(string, " ");
+	
+	strcat(string, Numbers::Hex(boardVersion, 8));
+	strcat(string, " ");
+
+	PutIntoBuffer(buffer, 'V', CNT, string, '\0');
+
 }
 
+void LogRString(ConcurrentBuffer * buffer){
+	PutIntoBuffer(buffer, 'R', CNT, currentFilename, '\0');
+}
 
 void ReadDateTime(void){
 	//Have to do these antics because year, month, etc. are volatile
@@ -441,8 +473,9 @@ void ReadI2C(void * parameter){
 //WARNING: Must be called in it's own cog! (it has a cogstop at the end).
 
 	ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
-	DatalogSpecial(buffer);
+	
+	LogRString(buffer);
+	LogVString(buffer);
 
 	Scheduler acclScheduler(150);
 	Scheduler gyroScheduler(100);
@@ -562,8 +595,8 @@ int main(void)
 
 //EEPROM
 	eeprom = new Eeprom;
-	int unitNumber = eeprom->Get(kEepromUnitAddress, 4);
-	int boardVersion = eeprom->Get(kEepromBoardAddress, 4);
+	unitNumber = eeprom->Get(kEepromUnitAddress, 4);
+	boardVersion = eeprom->Get(kEepromBoardAddress, 4);
 	
 //I2C
 	bus = new i2c();
