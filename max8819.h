@@ -1,32 +1,21 @@
-/* Max8819.h - Max8819 class to allow access to single pins
+/** Max8819.h - Max8819 class to allow access to single pins
 
-Copyright (c) 2012 David Michael Betz
+The low level interface code is based on Pins.h from David Michael Betz.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software
-and associated documentation files (the "Software"), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge, publish, distribute,
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+@todo Add support (is it neccessary?) For the "timer fault" condition (figure 3,
+page 18 of datasheet) when CHG outputs a 2Hz square wave.
 
-The above copyright notice and this permission notice shall be included in all copies or
-substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+@author SRLM (srlm@srlmproductions.com)
+@date 1-1-2013
 
 */
+#ifndef __SRLM_PROPGCC_MAX8819_H__
+#define __SRLM_PROPGCC_MAX8819_H__
 
 #include <stdint.h>
 #include <propeller.h>
 
 
-/**
-@todo Add support (is it neccessary?) For the "timer fault" condition (figure 3,
-page 18 of datasheet) when CHG outputs a 2Hz square wave.
-*/
 class Max8819 {
   private:
     uint32_t cen_mask;
@@ -37,12 +26,26 @@ class Max8819 {
   public:
   
 /**
-Turns the power on, and turns off charging.
+Create the MAX8819 object, turn the power on, and turn off charging.
+
+@warning pmic->SetCharge(Max8819::HIGH); @TODO(SRLM): There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
+
+The pins from the Propeller to the MAX8819 can be connected directly: no need
+for current limiting resistors.
+
+@param CENpin   The pin connected to Charge Enable on the MAX8819
+@param CHGPin   The pin connected to (is) Charge(ing?) pin on the MAX8819
+@param ENPin    The pin connected to Enable123 pin on the MAX8819
+@param DLIM1Pin The pin connected to DLIM1 pin on the MAX8819
+@param DLIM2Pin The pin connected to DLIM2 pin on the MAX8819
+
 */
-Max8819(int CEN_pin, int CHG_pin, int EN_pin, int DLIM1_pin, int DLIM2_pin);
+Max8819(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin);
+
 ~Max8819();
 
-/** Turn the power system on. Holds on until Off() is called.
+/** Turn the power system on. The I/O holds the power on until @a  Off() is
+called.
 */
 void On();
 
@@ -53,7 +56,7 @@ program.
 */
 void Off();
 
-/**
+/** Checks to see if the battery is being charged.
 
 @todo If SetCharge is set to off, and it's plugged in, what does GetCharge return?
 @returns the charging status of the battery. True indicates charging, false
@@ -90,13 +93,11 @@ void SetCharge(int rate);
 enum{HIGH, MEDIUM, LOW, OFF};
 };
 
-/**
-@warning pmic->SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
-*/
 
-inline Max8819::Max8819(int CEN_pin, int CHG_pin, int EN_pin, int DLIM1_pin, int DLIM2_pin) 
-	: cen_mask(1 << CEN_pin), chg_mask(1 << CHG_pin), en_mask(1 << EN_pin), 
-		dlim1_mask(1 << DLIM1_pin), dlim2_mask(1 << DLIM2_pin){
+
+inline Max8819::Max8819(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin) 
+	: cen_mask(1 << CENpin), chg_mask(1 << CHGpin), en_mask(1 << ENpin), 
+		dlim1_mask(1 << DLIM1pin), dlim2_mask(1 << DLIM2pin){
     DIRA |= cen_mask;   // Set to output
     DIRA |= en_mask;    // Set to output
     DIRA |= dlim1_mask; // Set to output
@@ -151,4 +152,4 @@ inline void Max8819::SetCharge(int rate){
     }
 }
 
-
+#endif // __SRLM_PROPGCC_MAX8819_H__

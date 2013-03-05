@@ -1,16 +1,8 @@
-/**
- * @file
- * @Author Cody Lewis (srlm@srlmproductions.com)
- * @date   (DATE)
- * @brief  (BRIEF)
- *
- * DETAILED DESCRIPTION
- */
-
 #include "gpsparser.h"
 
 GPSParser::GPSParser(int Rx_pin, int Tx_pin, int Rate)
 {
+//TODO(SRLM): Should we call gps.Stop() ?
     head = 0;
     gps.Start(Rx_pin, Tx_pin, Rate);
 }

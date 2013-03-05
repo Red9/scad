@@ -3,6 +3,7 @@
 
 MAX17048::MAX17048(i2c * newbus){
 	bus = newbus;
+	GetStatus();
 //	if(bus == NULL){
 //		status = false;
 //		return;

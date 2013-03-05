@@ -7,6 +7,12 @@ unexpected action.
 @warning Not cog-safe: do not attempt to use from multiple cogs, even if they
 don't use it simulatiously (it uses cog counters for flashing, so it won't work
 on a different cog).
+
+Some parts based on Pins.h by David Michael Betz.
+Some parts based on an example by Tracey Allen.
+
+@author SRLM (srlm@srlmproductions.com)
+@date 2013-01-01
 */
 
 #include <stdio.h>
@@ -37,19 +43,19 @@ public:
     enum patternType{kSingleSlow, kSingle, kSingleSyncopated, kDouble, kTriple, kManyFast, kJitterFast};
     
 
-/**
- * Initialize the Elum class.
- * @param RedPin the pin that the RED led is sunk to
- * @param GreenPin the pin that the GREEN led is sunk to
- * @param ButtonPin: the pin to make input to read the button. The button should
- *                   have a pullup, so that it is NC=1, and active low.
- */
+/** Initialize the Elum class.
+
+@param RedPin the pin that the RED led is sunk to
+@param GreenPin the pin that the GREEN led is sunk to
+@param ButtonPin: the pin to make input to read the button. The button should
+                  have a pullup, so that it is NC=1, and active low.
+*/
     Elum(int RedPin, int GreenPin, int ButtonPin);
     ~Elum();
     
 /**
- * @return true if button is pressed, false if it is not.
- */
+@return true if button is pressed, false if it is not.
+*/
     bool GetButton();
     
     
@@ -59,16 +65,16 @@ public:
     
     
 /**
- * Set the LED color to flash.
- *  @example 
- *     elum.Flash(Elum::GREEN, 1000, 750); //Set Green to turn on for 750ms, and off for 250ms
- *
- *  @param color     Elum::RED or Elum::GREEN
- *  @param period_ms The frequency that the color is flashed
- *  @param flash_ms  The duration of the displayed color. Must be less than period_ms
- */
+Set the LED color to flash.
+ @example 
+    elum.Flash(Elum::GREEN, 1000, 750); //Set Green to turn on for 750ms, and off for 250ms
+
+@param color     Elum::RED or Elum::GREEN
+@param period_ms The frequency that the color is flashed
+@param flash_ms  The duration of the displayed color. Must be less than period_ms
+*/
  
-    void Flash(int color, int period_ms, int flash_ms);
+void Flash(int color, int period_ms, int flash_ms);
 
 	
 
