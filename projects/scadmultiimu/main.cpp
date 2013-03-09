@@ -25,8 +25,6 @@
 
 //TODO(SRLM): check pointers for null, and so on (be safe!).
 
-//TODO(SRLM): Add date/time to file creation.
-
 /**
 
 Cog Usage:
@@ -40,7 +38,7 @@ Cog Usage:
 7:
 */
 
-//#define EXTERNAL_IMU
+#define EXTERNAL_IMU
 
 
 /*
