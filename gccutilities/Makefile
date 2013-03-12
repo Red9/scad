@@ -4,7 +4,7 @@
 # MODEL: the memory model to use.
 # DEFINEFLAGS: ... ???
 
-
+# If Unit tests are being run, the #define UNIT_TEST flag is set.
 
 ifndef MODEL
 MODEL = cmm
@@ -32,7 +32,7 @@ INCLUDE = -I${UNITYPATH} -I${GCCUTILITIESPATH} -I../
 
 
 
-DEBUGFLAGS = #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
+DEBUGFLAGS = -dM #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
 
 CXX = propeller-elf-g++
 CLD = propeller-elf-ld

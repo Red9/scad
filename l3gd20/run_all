@@ -1,6 +1,1 @@
-#!/bin/bash
-clear
-make clean
-ruby generate_test_runner.rb l3gd20.test.cpp l3gd20.generate.cpp
-make
-propeller-load -r -t main.elf
+../gccutilities/run_all

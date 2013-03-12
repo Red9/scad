@@ -246,7 +246,7 @@ void test_WhatHappensWhenACogReachesTheEndWithCogstop(void){
 	int * stackB = (int*) malloc(stacksize);		
 	int cogB = cogstart(FunctionThatEnds, NULL, stackB, stacksize);
 	
-	waitcnt(CLKFREQ/10 + CNT);
+	waitcnt(CLKFREQ/5 + CNT);
 	
 	int * stackC = (int*) malloc(stacksize);		
 	int cogC = cogstart(FunctionThatEndsWithCogstop, NULL, stackC, stacksize);

@@ -28,17 +28,20 @@ void test_GetVersion(void){
 }
 
 void test_GetVoltage(void){
-	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetVoltage(),
+//	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetVoltage(),
+	TEST_IGNORE_MESSAGE(
 		"Note: Must be manually checked. Fully charged should be about 4200.");
 }
 
 void test_GetStateOfCharge(void){
-	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetStateOfCharge(),
+//	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetStateOfCharge(),
+	TEST_IGNORE_MESSAGE(
 		"Note: Must be manually checked. Fully charged should be about 100.");
 }
 
 void test_GetChargeRate(void){
-	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetChargeRate(),
+//	TEST_ASSERT_EQUAL_INT_MESSAGE(-1, sut->GetChargeRate(),
+	TEST_IGNORE_MESSAGE(
 		"Note: Must be manually checked. Fully charged should be about 0.");
 }
 

@@ -23,8 +23,11 @@ void tearDown(void){
 void test_Warning(void){
 	printf("---------------------------------------------\r\n");
 	printf("Warning: This test suite mangles your EEPROM!\r\n");
+//Warning: Tests hang if the following %i code is included in LMM mode
+#ifdef __PROPELLER_CMM__
 	printf("Current addressOffset: %i\r\n", addressOffset);
 	printf("Current dataOffset:    %i\r\n", dataOffset);
+#endif
 	printf("---------------------------------------------\r\n");
 }
 	

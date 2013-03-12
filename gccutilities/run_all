@@ -7,12 +7,16 @@
 # >$./run_all -t baud     #start terminal with baud
 # >$./run_all -e -t baud  #load eeprom and start terminal
 
+# >$./run_all -tbaud -n #Don't output a clear screen at the beginning
 
 baud=""
 loadeeprom=""
 
+noclear=false
+
+
 #Parse parameters:
-while getopts ":et:" opt; do
+while getopts ":ent:" opt; do
 	case $opt in
 		e)
 #			echo "Load EEPROM."
@@ -30,12 +34,18 @@ while getopts ":et:" opt; do
 			echo "Option -$OPTARG requires an argument."
 			exit 1
 			;;
+		n)
+			noclear=true
+			;;
 	esac
 done
 
-make clean
-clear
+if ! $noclear ; then
+	clear
+	echo clear
+fi
 
+make clean
 echo Calculate path to Root folder.
 
 root=$(pwd)

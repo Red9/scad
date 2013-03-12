@@ -1,8 +1,12 @@
 #ifndef SRLM_PROPGCC_L3GD20_H_
 #define SRLM_PROPGCC_L3GD20_H_
 
-
+#ifndef UNIT_TEST
 #include "i2c.h"
+#else
+#include "i2cMOCK.h"
+#endif
+
 
 /*
 "Output Data Rate, in digital-output accelerometers, defines the rate at which

@@ -4,16 +4,16 @@
 #include "unity.h"
 #include "i2c.h"
 
-#include "Pin.h"
+//#include "Pin.h"
 
 //TODO(SRLM): Add test to make sure there are pullups.
 //TODO(SRLM): Add test for ping non-existent device.
 
 const int kSDAPin = 1;
-const int kSCLPin = 2;
+const int kSCLPin = 0;
 
 
-static const unsigned char EEPROM = 0b10100000;
+//static const unsigned char EEPROM = 0b10100000;
 static const unsigned char Accl   = 0b00110010;
 static const unsigned char GYRO   = 0b11010110;
 static const unsigned char Magn   = 0b00111100;
@@ -22,7 +22,7 @@ static const unsigned char Fuel   = 0b01101100;
 
 i2c sut;
 
-Pin pin(3);
+//Pin pin(3);
 
 int registerAddress = 4;
 int randomAddress = 0;
@@ -51,11 +51,11 @@ void tearDown(void)
 void test_ToggleStartPin()
 {
 	//Toggles a start pin to indicate the begining of testing to an external logic analyzer
-	pin.low();
+//	pin.low();
 	waitcnt(CLKFREQ/1000 + CNT);
-	pin.high();
+//	pin.high();
 	waitcnt(CLKFREQ/1000 + CNT);
-	pin.low();
+//	pin.low();
 	TEST_ASSERT(true)
 }
 
@@ -64,22 +64,7 @@ void test_ToggleStartPin()
 // EEPROM
 // -----------------------------------------------------------------------------
 
-void test_EEPROMPing(void)
-{
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Ping(EEPROM));
-}
-
-void test_EEPROMSendByteWrite(void)
-{
-	int data = 0xAE;
-	
-	randomAddress = 0b01011010; //&= 0x7FFF; //Set to EEPROM address range
-	
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.PutEEPROM(EEPROM, (short)randomAddress, data));
-	while(sut.Ping(EEPROM) == sut.kNak);
-	TEST_ASSERT_EQUAL_HEX8(data, sut.GetEEPROM(EEPROM, (short)randomAddress));
-
-}
+// These methods have been replaced by a dedicated EEPROM object.
 
 
 // -----------------------------------------------------------------------------
