@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <propeller.h>
 
+#include <string.h>
+
 #include "unity.h"
 #include "concurrentbuffer.h"
 
@@ -100,9 +102,7 @@ void test_CBGetFreeBasic(void){
 }
 
 void test_CBGetFreeWrapAround(void){
-
 	ConcurrentBuffer b;
-	
 	
 	//Go to halfway through the buffer
 	for(int i = 0; i < (b.GetkSize()/2); ++i){
@@ -119,11 +119,67 @@ void test_CBGetFreeWrapAround(void){
 		b.Put('c');
 	}
 	
-	TEST_ASSERT_EQUAL_INT(b.GetkSize() - (3*b.GetkSize()/4)-1, b.GetFree());
-	
-	
+	TEST_ASSERT_EQUAL_INT(b.GetkSize() - (3*b.GetkSize()/4)-1, b.GetFree());	
 }
 
+void test_CBGetArrayHeadTailEqual(void){
+	ConcurrentBuffer b;
+	volatile char * data = NULL;
+	
+	TEST_ASSERT_EQUAL_INT(0, b.Get(data));
+}
+
+void test_CBGetArrayHeadGreaterThanTail(void){
+	ConcurrentBuffer b;
+	volatile char * data = NULL;
+	
+	const char * input = "Big, long, String!";
+	
+	int input_size = strlen(input)+1; //+1 for null terminator
+	b.Put(input, input_size);
+	
+	TEST_ASSERT_EQUAL_INT(input_size, b.Get(data));
+	TEST_ASSERT_EQUAL_STRING(input, (char *)data);
+}
+
+void test_CBGetArrayHeadLessThanTail(void){
+	ConcurrentBuffer b;
+	
+	int length = 10;
+	const char * input = "What is Batman, but a masked vigilante?";
+	const int input_size = strlen(input) + 1;
+	
+	volatile char * data = NULL;
+	
+	for(int i = 0; i < ConcurrentBuffer::GetkSize() - length; i++){
+		b.Put('A');
+		b.Get();
+	}
+	
+	b.Put(input, input_size);
+	
+	TEST_ASSERT_EQUAL_INT(length, b.Get(data));
+	TEST_ASSERT_EQUAL_MEMORY(input, data, length);
+	
+	TEST_ASSERT_EQUAL_INT(input_size - length, b.Get(data));
+	TEST_ASSERT_EQUAL_MEMORY(&input[length], data, input_size - length);
+	
+
+}
+
+void test_CBGetArrayReturnsAllAvailableElements(void){
+	ConcurrentBuffer b;
+	
+	const char * input = "A Lannister always pays his debts.";
+	const int input_size = strlen(input) + 1;
+	
+	volatile char * data = NULL;
+	
+	b.Put(input, input_size);
+	b.Get(data);
+	
+	TEST_ASSERT_EQUAL_INT(0, b.Get(data));
+}
 
 
 

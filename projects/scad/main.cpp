@@ -15,7 +15,10 @@
 #include "eeprom.h"
 #include "max17048.h"
 #include "pcf8523.h"
-#include "gpsparser.h"
+//#include "gpsparser.h"
+#include "mtk3339.h"
+
+#include "pin.h"
 
 #include "stdlib.h"
 
@@ -27,14 +30,16 @@
 
 //TODO(SRLM): Add date/time to file creation.
 
+//TODO(SRLM): Check that R element is logged correctly.
+
 /**
 
 Cog Usage:
-0: Main
+0: Main (inc. datalog controller)
 1: GPS
-2: I2C datalog
-3: SD
-4:
+2: I2C Getter
+3: SD driver
+4: Serial (USB/Bluetooth)
 5:
 6:
 7:
@@ -116,10 +121,6 @@ const int kBLUETOOTH_BAUD = 115200;
 const int kGPS_BAUD = 9600;
 
 
-
-//static const char FILENAME [] = "SCAD";
-//static const char FILEEXT  [] = ".TXT";
-
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
 
@@ -139,13 +140,16 @@ L3GD20 * l3g;
 Eeprom * eeprom;
 PCF8523 * rtc;
 MAX17048 * fuel;
-GPSParser * gps;
+MTK3339 * gps;
+SecureDigitalCard * sd;
 
 #ifdef EXTERNAL_IMU
 i2c * bus2;
 LSM303DLHC * lsm2;
 L3GD20 * l3g2;
 #endif
+
+Pin * led;
 
 
 /*
@@ -154,7 +158,7 @@ Status Variables
 volatile bool datalogging = false;
 volatile bool sdPresent = false;
 
-volatile int SDBufferFree = 999; //large number for before we start...
+volatile int SDBufferFree = 999999; //large number for before we start...
 
 volatile int fuel_soc = 0;
 volatile int fuel_rate = 0;
@@ -173,7 +177,7 @@ volatile int magn2_x, magn2_y, magn2_z;
 volatile int freeReadCycles = 0;
 volatile int freeReadCyclesMax = 0;
 
-volatile char currentFilename[] = ""; //"            "; //Length = 12;
+volatile char currentFilename[] = "";
 
 
 volatile int unitNumber;
@@ -181,26 +185,38 @@ volatile int boardVersion;
 
 int stacksize = sizeof(_thread_state_t)+sizeof(int)*3 + sizeof(int)*100;
 
+enum LogLevel {kAll, kFatal, kError, kWarn, kInfo, kDebug};
+const char * LogLevelIdentifier[] = {"All:   ", "Fatal: ", "Error: ", "Warn:  ", "Info:  ", "Debug: "};
+
 
 //TODO(SRLM): DisplayState is a poor choice of name... It should be something like "DeviceState"
-enum DisplayState {kPowerUp, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown};
-volatile DisplayState currentState = kUnknown;
+enum DeviceState {kPowerUp, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown};
+volatile DeviceState currentState = kUnknown;
 
 
-/*
-Elum
-*/
-void DisplayStatus(DisplayState state){
+Scheduler * displayDeviceState = NULL;
+
+void DisplayDeviceStatus(DeviceState state){
+
+	//Make sure that we're keeping track of the last time display has been updated.
+	if(displayDeviceState == NULL){
+		displayDeviceState = new Scheduler(1); //0.1 Hz
+	}
 	
-	currentState = state;
+	//Exit if the state is the same, and we've updated the display recently.
+	if(currentState == state && !displayDeviceState->Run()){
+		return;
+	}
 	
-	if(state == kUnknownError){
+	currentState = state;	
+	
+	if(currentState == kUnknownError){
 		//Alternate red and green triple
 		elum->Pattern(Elum::kTriple);
-	}else if(state == kNoSD){
+	}else if(currentState == kNoSD){
 		//Alternate red and green
 		elum->Pattern(Elum::kSingle);
-	}else if(state == kCharging){
+	}else if(currentState == kCharging){
 		if(fuel_soc < 90){//pmic->GetCharge() == true){
 			//Fade LED in and out
 			elum->Fade(5);
@@ -208,7 +224,7 @@ void DisplayStatus(DisplayState state){
 			//Done charging status
 			elum->Fade(1000);
 		}		
-	}else if(state == kDatalogging){
+	}else if(currentState == kDatalogging){
 		if(fuel_soc > 25){
 			//Flash green LED
 			elum->Flash(Elum::GREEN, 1000, fuel_soc * 10);
@@ -218,7 +234,7 @@ void DisplayStatus(DisplayState state){
 			//Plus one for the 0 case.
 			elum->Flash(Elum::RED, 1000, (fuel_soc + 1) * 9);
 		}
-	}else if(state == kPowerUp){
+	}else if(currentState == kPowerUp){
 		elum->On(Elum::GREEN);
 	}else{
 		//If nothing else, then turn off LED.
@@ -239,17 +255,12 @@ then opens the file for writing, and then this function returns.
 @param identifier The unit number to store in the first part of the filename.
 
   */
-void OpenFile(SecureDigitalCard * sd, int identifier){
+void OpenFile(int identifier){
     char buffer[12];
 //    char buff2[4];
     for(int i = 0; i < 1000; i++)
     {
         buffer[0] = 0;
-//        buff1[0] = 0;
-//Commented out version below is "normal" version (FILENAME###.EXTENSION)
-//        strcat(buff1, FILENAME);
-//        strcat(buff1, Numbers::Dec(i, buff2));
-//        strcat(buff1, FILEEXT);
 
 //This version is B###F###.EXT
 		strcat(buffer, "B");
@@ -266,7 +277,6 @@ void OpenFile(SecureDigitalCard * sd, int identifier){
     	currentFilename[i] = buffer[i];
     }
     currentFilename[i] = '\0';
-//    debug->Put("Opened file: %s\r\n", currentFilename);
 }
 
 
@@ -275,45 +285,7 @@ void OpenFile(SecureDigitalCard * sd, int identifier){
 
 
 
-void SdDatalog(SecureDigitalCard * sd){
 
-	ConcurrentBuffer *sdBuffer = new ConcurrentBuffer();
-
-	const int buttonHz = 2;
-	Scheduler buttonScheduler(buttonHz);
-	int buttonCount = 0;
-	const int maxButtonCount = buttonHz * 3;
-	
-	SDBufferFree = sdBuffer->GetkSize();
-	int i = 0xFFFFFFF;
-	while(true){
-		char data = sdBuffer->Get();
-		sd->Put(data);
-		serial->Put(data);
-		SDBufferFree = sdBuffer->GetFree();
-		
-		//TODO(SRLM): What does this do?
-		i++;
-		if(i > 16000){
-			DisplayStatus(kDatalogging);
-			i = 0;
-		}
-		
-		if(buttonScheduler.Run()){
-			if(elum->GetButton()){
-				buttonCount++;
-				if(buttonCount >= maxButtonCount){
-					break;
-				}
-			}else{
-				buttonCount = 0;
-			}
-		}
-	}
-	datalogging = false;
-	sd->Close();
-	delete sdBuffer;
-}
 
 
 /**
@@ -376,7 +348,7 @@ void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 	
 }
 
-void LogVString(ConcurrentBuffer * buffer){
+void LogVElement(ConcurrentBuffer * buffer){
 	char string [200];
 	string[0] = '\0';
 	
@@ -396,9 +368,31 @@ void LogVString(ConcurrentBuffer * buffer){
 
 }
 
-void LogRString(ConcurrentBuffer * buffer){
-	PutIntoBuffer(buffer, 'R', CNT, currentFilename, '\0');
+void LogRElement(ConcurrentBuffer * buffer){
+	char filename[13];
+	for(int i = 0; currentFilename[i] != '\0'; i++){
+		filename[i] = currentFilename[i];
+	}
+	PutIntoBuffer(buffer, 'R', CNT, filename, '\0');
 }
+
+void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message){
+	char completeMessage[70];
+	completeMessage[0] = '\0';
+	strcat(completeMessage, LogLevelIdentifier[level]);
+	strcat(completeMessage, message);
+	PutIntoBuffer(buffer, 'S', CNT, completeMessage, '\0');
+}
+
+void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message, const int numberA ){
+	char completeMessage[70];
+	completeMessage[0] = '\0';
+	strcat(completeMessage, LogLevelIdentifier[level]);
+	strcat(completeMessage, message);
+	strcat(completeMessage, Numbers::Dec(numberA));
+	PutIntoBuffer(buffer, 'S', CNT, completeMessage, '\0');
+}
+
 
 void ReadDateTime(void){
 	//Have to do these antics because year, month, etc. are volatile
@@ -471,28 +465,39 @@ void ReadMagn2(void){
 
 
 	
-void ReadI2C(void * parameter){
-//WARNING: Must be called in it's own cog! (it has a cogstop at the end).
+void ReadSensors(){
+	//Had to add volatile here: for some reason, the compiler was ignoring
+	//gyroCNT and magnCNT, and logging 0 for them. Volatile seemed to fix it.
+	volatile unsigned int acclCNT = 0;
+	bool acclLog = false;
+	volatile unsigned int gyroCNT = 0xDEADBEEF;
+	bool gyroLog = false;
+	volatile unsigned int magnCNT = 0xABCDEF01;
+	bool magnLog = false;
+	
+	char * gpsString = NULL;
+	//Flush GPS buffer.
+	while( (gpsString = gps->Get()) != NULL) {/*Throw away stings*/}
+	
+
 
 	ConcurrentBuffer * buffer = new ConcurrentBuffer();
 	
-	LogRString(buffer);
-	LogVString(buffer);
+	LogRElement(buffer);
+	LogVElement(buffer);
 
-	Scheduler acclScheduler(150);
-	Scheduler gyroScheduler(100);
-	Scheduler magnScheduler(25);
-	Scheduler fuelScheduler(1);
-	Scheduler timeScheduler(4);
+	Scheduler acclScheduler(150*10);
+	Scheduler gyroScheduler(100*10);
+	Scheduler magnScheduler(25*10);
+	Scheduler fuelScheduler(1); //10 second cycle
+	Scheduler timeScheduler(1); //10 second cycle
 
 #ifdef EXTERNAL_IMU	
-	Scheduler accl2Scheduler(150);
-	Scheduler gyro2Scheduler(100);
-	Scheduler magn2Scheduler(25);
+	Scheduler accl2Scheduler(150*10);
+	Scheduler gyro2Scheduler(100*10);
+	Scheduler magn2Scheduler(25*10);
 #endif
-	
-	char * gpsString = new char[90];
-	
+
 	while(datalogging){
 		
 		//Note: each Put into the buffer must have a matching Get! Otherwise, on
@@ -502,19 +507,22 @@ void ReadI2C(void * parameter){
 		if(acclScheduler.Run()){
 			freeReadCycles = 0;
 			ReadAccl();
-			PutIntoBuffer(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+			acclCNT = CNT;
+			acclLog = true;
 		}
 		
 		if(gyroScheduler.Run()){
 			freeReadCycles = 0;
 			ReadGyro();
-			PutIntoBuffer(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+			gyroCNT = CNT;
+			gyroLog = true;
 		}
 
 		if(magnScheduler.Run()){
 			freeReadCycles = 0;
 			ReadMagn();
-			PutIntoBuffer(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+			magnCNT = CNT;
+			magnLog = true;
 		}
 		if(fuelScheduler.Run()){
 			freeReadCycles = 0;
@@ -553,22 +561,97 @@ void ReadI2C(void * parameter){
 			PutIntoBuffer(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
 		}
 #endif
-		
 
-		if(freeReadCycles > freeReadCyclesMax){
-			freeReadCyclesMax = freeReadCycles;
+
+		//----------------------------------------------------------------------
+		if(fuel_voltage < 3500){ //Dropout of 150mV@300mA, with some buffer
+			LogStatusElement(buffer, kFatal, "Low Voltage");
+			break;
 		}
-		freeReadCycles++;
+		
+		if(SDBufferFree < buffer->GetkSize() / 2){
+			led->low(); //On
+			LogStatusElement(buffer, kInfo, "SDBuffer free less than 50%!");
+		}else{
+			led->high(); //Off
+		}
+
+		//----------------------------------------------------------------------
+		if(acclLog){
+			PutIntoBuffer(buffer, 'A', acclCNT, accl_x, accl_y, accl_z);
+			acclLog = false;
+		}
+		
+		if(gyroLog){
+			PutIntoBuffer(buffer, 'G', gyroCNT, gyro_x, gyro_y, gyro_z);
+			gyroLog = false;
+		}
+		
+		if(magnLog){
+			PutIntoBuffer(buffer, 'M', magnCNT, magn_x, magn_y, magn_z);
+			magnLog = false;
+		}
+
+		
+		//----------------------------------------------------------------------
+		DisplayDeviceStatus(kDatalogging);
 
 	}
 	
-	//TODO(SRLM): Add a cogstop to stop this currently running cog if done.
 	delete buffer;
-	delete gpsString;
-	cogstop(cogid());
 }
 
+void Datalog(void * parameter){
+//WARNING: Must be called in it's own cog! (it has a cogstop at the end).
 
+	ConcurrentBuffer *sdBuffer = new ConcurrentBuffer();
+
+	const int buttonHz = 2*10;                    // 2*10 = 2Hz
+	const int maxButtonCount = (buttonHz/10) * 3; // buttonHz * number of seconds pressed
+	Scheduler buttonScheduler(buttonHz);
+	int buttonCount = 0;
+	
+	
+	
+	SDBufferFree = sdBuffer->GetkSize();
+	int i = 0xFFFFFF;
+	while(true){
+		volatile char * data;
+		const int data_size = sdBuffer->Get(data);
+	
+		sd->Put((char *)data, data_size);
+		//serial->Put(data);
+		
+		SDBufferFree = sdBuffer->GetFree();
+		
+		//Check if button has been pressed for some number of seconds.
+		if(buttonScheduler.Run()){
+			if(elum->GetButton()){
+				buttonCount++;
+				if(buttonCount >= maxButtonCount){
+					break;
+				}
+			}else{
+				buttonCount = 0;
+			}
+		}
+	}
+	
+	//Todo(SRLM): Finish up remaining bytes in buffer here.
+	
+	datalogging = false;
+	waitcnt(CLKFREQ/50 + CNT); //20 ms @80MHz
+	
+//	while((data_size = sdBuffer->Get(data)) != 0){
+//	
+//	}
+	
+	
+	sd->Close();
+	delete sdBuffer;
+	waitcnt(CLKFREQ/10 + CNT); //Let everything settle down
+	cogstop(cogid());
+}
 
 
 
@@ -580,6 +663,8 @@ int main(void)
 	pmic = new Max8819(kPIN_MAX8819_CEN, kPIN_MAX8819_CHG, kPIN_MAX8819_EN123, kPIN_MAX8819_DLIM1, kPIN_MAX8819_DLIM2);
 	pmic->SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
 
+//Buffer
+	ConcurrentBuffer * buffer = new ConcurrentBuffer();
 	
 //Serial
 	serial = new Serial;
@@ -587,13 +672,10 @@ int main(void)
 	serial->Start(kPIN_USB_RX, kPIN_USB_TX, kUSB_BAUD);
 	waitcnt(CLKFREQ/2 + CNT);
 
-	
+//DEBUG LED
+	led = new Pin(kPIN_USER_4);
+	led->high();
 
-//	debug->Put("\r\n\r\n\r\n");
-//	debug->Put("\r\n------------------------------\r\n");
-//	debug->Put("Hello, Beta 2 software!\r\n");
-//	debug->Put("Build date: %s\r\n", __DATE__);
-//	debug->Put("Build time: %s\r\n", __TIME__);
 
 //EEPROM
 	eeprom = new Eeprom;
@@ -607,24 +689,24 @@ int main(void)
 	
 	fuel = new MAX17048(bus);
 	if(fuel->GetStatus() == false){
-//		debug->Put("Failed to initialize the MAX17048\r\n");
+		LogStatusElement(buffer, kError, "Failed to initialize the MAX17048");
 	}else{
 		ReadFuel();
 	}
 	
 	lsm = new LSM303DLHC;
 	if(!lsm->Init(bus)){
-//		debug->Put("Failed to initialize the LSM303DLHC.\n\r");
+		LogStatusElement(buffer, kError, "Failed to initialize the LSM303DLHC.");
 	}
 	
 	l3g = new L3GD20;
 	if(!l3g->Init(bus)){
-//		debug->Put("Failed to initialize the L3GD20.\n\r");
+		LogStatusElement(buffer, kError, "Failed to initialize the L3GD20.");
 	}
 	
 	rtc = new PCF8523(bus, kPIN_PCF8523_SQW);
 	if(rtc->GetStatus() == false){
-//		debug->Put("Failed to initialize the PCF8523.\r\n");
+		LogStatusElement(buffer, kError, "Failed to initialize the PCF8523.");
 	}
 	
 	
@@ -634,17 +716,16 @@ int main(void)
 #ifdef EXTERNAL_IMU
 //Second Bus for additional sensors.
 	bus2 = new i2c();
-	//bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
 	bus2->Initialize(kPIN_I2C_SCL_2, kPIN_I2C_SDA_2);       //For Beta2 Boards
 	
 	lsm2 = new LSM303DLHC;
 	if(!lsm2->Init(bus2)){
-//		debug->Put("Failed to initialize the LSM303DLHC.\n\r");
+		LogStatusElement(buffer, kError, "Failed to initialize the external LSM303DLHC.");
 	}
 	
 	l3g2 = new L3GD20;
 	if(!l3g2->Init(bus2)){
-//		debug->Put("Failed to initialize the L3GD20.\n\r");
+		LogStatusElement(buffer, kError, "Failed to initialize the external L3GD20.");
 	}
 #endif
 	
@@ -654,26 +735,19 @@ int main(void)
 	
 //LEDs and Button
 	elum = new Elum(kPIN_LEDR, kPIN_LEDG, kPIN_BUTTON);
-	DisplayStatus(kPowerUp);
+	DisplayDeviceStatus(kPowerUp);
 	if(elum->GetButton()){ //User has pressed the button, and powered the device
 		 
 	}else{                 //The device has been plugged in (and hence got it's power)
-//		debug->Put("Charging. Press button to begin datalogging.\r\n");
+		LogStatusElement(buffer, kInfo, "Charging. Press button to begin datalogging.");
 		pmic->Off(); //Turn off in case it's unpluged while charging
 		while(!elum->GetButton()){
 			ReadDateTime();
 			ReadFuel();
-//			debug->Put("\r                                                               ");
-//			debug->Put("\r%2d:%2d:%2d  SOC:%d%% Voltage: %d.%3d Rate: %d.%d%%/hour",
-//				hour, minute, second, fuel_soc, fuel_voltage/1000, fuel_voltage % 1000, fuel_rate/10, fuel_rate%10);
-			DisplayStatus(kCharging);
-			
-			waitcnt(CLKFREQ/10 + CNT);
-			
+			DisplayDeviceStatus(kCharging);
 			
 		} //Delay until/if they press the button.
-//		debug->Put("\r\n------------------------------\r\n");
-		pmic->On();
+		pmic->On(); //User wants to datalog, so we should keep the power on.
 	}
 		
 	while(elum->GetButton()){} //Wait for the user to release the button
@@ -681,52 +755,56 @@ int main(void)
 	
 
 //GPS
-	gps = new GPSParser(kPIN_GPS_RX, kPIN_GPS_TX, kGPS_BAUD);
+	gps = new MTK3339(kPIN_GPS_RX, kPIN_GPS_TX, kPIN_GPS_FIX);
+	if(gps->GetStatus() == false){
+		LogStatusElement(buffer, kError, "Failed to initialize the GPS.");
+	}
+	
 	
 //SD Card
-	SecureDigitalCard * sd = new SecureDigitalCard;
+	sd = new SecureDigitalCard;
 	int mount = sd->Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
 	if(mount != 0)
 	{
 //		debug->Put("Failed to mount SD card: %i\n\r", mount);
 		sdPresent = false;
-		DisplayStatus(kNoSD);
+		DisplayDeviceStatus(kNoSD);
 	}else{
 		sdPresent = true;
 	}
 	
 	
 	if(sdPresent){
-		sdPresent = true;
 		datalogging = true;
 		//ReadConfiguration(sd);
-		OpenFile(sd, unitNumber);
+		ReadDateTime();
+		sd->SetDate(year+2000, month, day, hour, minute, second);
+		OpenFile(unitNumber);
+
+
+		//Log SD data in new cog
+		int * datalogStack = (int *) malloc(stacksize);
+		int datalogCog = cogstart(Datalog, NULL, datalogStack, stacksize);
+		
+		//Read Sensors (inc. I2C) in current cog
+		ReadSensors();
 		
 
-		//ReadI2C in new cog
-		int * i2cStack = (int*) malloc(stacksize);		
-		int i2cCog = cogstart(ReadI2C, NULL, i2cStack, stacksize);
-//		debug->Put("i2cCog: %d\r\n", i2cCog);
-		
-		//DebugDatalog in new cog
-//		int * debugStack = (int*) malloc(stacksize);
-//		int debugCog = cogstart(DebugDatalog, NULL, debugStack, stacksize);
-//		debug->Put("debugCog: %d\r\n", debugCog); Can't use: debug is not thread safe.
-		
-		//Datalog in current cog
-		SdDatalog(sd);
+//		//ReadI2C in new cog
+//		int * i2cStack = (int*) malloc(stacksize);		
+//		int i2cCog = cogstart(ReadI2C, NULL, i2cStack, stacksize);
+
+//		//Datalog in current cog
+//		SdDatalog(sd);
 		
 		//Cleanup
-		while(datalogging){};
 		waitcnt(CLKFREQ/10 + CNT); //Wait 100ms for everything to settle down.	
-//		free(debugStack);
-		free(i2cStack);
+		free(datalogStack);
 
 	}
 	
-	datalogging = false;
 	if(sdPresent){
-		DisplayStatus(kDone);
+		DisplayDeviceStatus(kDone);
 	}else{
 		waitcnt(CLKFREQ*5 + CNT); //Give the user time to see NO SD card status
 	}

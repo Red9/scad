@@ -46,7 +46,7 @@ void test_Start(void)
 {
 	sut.Stop();
 	int32_t result = sut.Start(rxpin, txpin, baud);
-	TEST_ASSERT_EQUAL_INT(-1, result);
+	TEST_ASSERT_TRUE(result);
 }
 
 
@@ -177,7 +177,7 @@ void test_GetFlushEmptyBuffer(void)
 // -----------------------------------------------------------------------------
 void test_SetBaud(void)
 {
-	TEST_ASSERT_EQUAL_INT(-1, sut.SetBaud(9600));
+	TEST_ASSERT_TRUE(sut.SetBaud(9600));
 }
 
 void test_SetBaudTooHigh(void)
@@ -199,7 +199,7 @@ void test_SetBaudTransmitAfterBaudChange(void)
 
 void test_Setbaudclock(void)
 {
-	TEST_ASSERT_EQUAL_INT(-1, sut.SetBaudClock(9600, CLKFREQ));
+	TEST_ASSERT_TRUE(sut.SetBaudClock(9600, CLKFREQ));
 }
 // -----------------------------------------------------------------------------
 

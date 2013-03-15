@@ -1,6 +1,7 @@
 #include <propeller.h>
 #include "i2cbase.h"
 
+#include <stdio.h>
 
 
 #define i2c_float_scl_high (DIRA &= ~SCLMask)
@@ -55,7 +56,8 @@ unsigned char i2cBase::ReadByte(int acknowledge)
 
 int i2cBase::SendByte(unsigned char byte)
 {
-    int count, result;
+    int count;
+    int result;
 
     /* send the byte, high bit first */
     for (count = 8; --count >= 0; ) {
@@ -74,16 +76,32 @@ int i2cBase::SendByte(unsigned char byte)
         i2c_set_scl_low;
         
      } 
+     
+//   //Experimental inline assembly version.
+//    __asm__ volatile (
+//   	"		andn dira, %[SDAMask]       \n\t" /* DIRA &= ~SDAMask (float SDA high) */ 
+//   	"		andn dira, %[SCLMask]       \n\t" /* DIRA &= ~SCLMask (float SCL high) */
+//   	"		and  ina,  %[SDAMask] wz, nr\n\t" /* If != 0, ack'd, else nack */
+//   	"if_z	mov  %[result], #1          \n\t"
+//   	"if_nz  mov  %[result], #0          \n\t"
+//   	"		or   dira, %[SCLMask]       \n\t" /* Set scl low */
+//   	"       or   dira, %[SDAMask]       \n\t" /* Set sda low */
+//   	
+//    : /* outputs */
+//    	[result]   "=r" (result)
+//    : /* inputs */
+//    	[SDAMask] "r" (SDAMask),
+//    	[SCLMask] "r" (SCLMask)
+//    );
   
-
+    
     /* receive the acknowledgement from the slave */
-    //Release SDA line
-    i2c_float_sda_high;
-  
-    //Send clock high pulse and read ACK/NAK bit
+
+    i2c_float_sda_high; //DIRA &= ~SDAMask
     i2c_float_scl_high;
+    
     result = !((INA & SDAMask) != 0);
-    i2c_set_scl_low;
+    i2c_set_scl_low;  // DIRA |= SCLMask
     
     //Pull SDA low
     i2c_set_sda_low;

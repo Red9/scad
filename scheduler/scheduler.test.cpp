@@ -24,7 +24,7 @@ void tearDown(void)
 void test_SchedulerReadPeriodIncremented(void)
 {
 	int hz = 100;
-	Scheduler scheduler(hz);
+	Scheduler scheduler(hz*10);
 	
 	CNT += 1;
 	
@@ -131,7 +131,7 @@ void test_SchedulerNotCalledForMultiplePeriods(void)
 {
 	CNT = 0x0;
 	int hz = 100;
-	Scheduler scheduler(hz);
+	Scheduler scheduler(hz*10);
 	TEST_ASSERT_FALSE(scheduler.Run());
 	CNT += (CLKFREQ/100 * 4) + 1;
 	TEST_ASSERT_TRUE(scheduler.Run());

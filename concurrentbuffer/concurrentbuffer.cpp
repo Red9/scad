@@ -50,7 +50,7 @@ bool ConcurrentBuffer::Put(char data){
 	return true;
 }
 
-bool ConcurrentBuffer::Put(char data[], int size){
+bool ConcurrentBuffer::Put(const char data[], const int size){
 	if(Lockset() == false){
 		return false;
 	}
@@ -69,6 +69,36 @@ char ConcurrentBuffer::Get(){
 		tail = 0;
 	}
 	return result;
+}
+
+int ConcurrentBuffer::Get(volatile char *& bytes){
+	//Read from tail.
+
+	//Case: head == tail
+	if(head == tail){
+		return 0;
+	}
+	
+	const int kHead = head;	
+	int difference = 0;
+	
+	if(kHead > tail){
+		difference = kHead - tail;
+	}
+	if(kHead < tail){
+		difference = kSize - tail;
+	}
+	
+	bytes = & buffer[tail];
+	tail += difference;
+	
+	if(tail == kSize){
+		tail = 0;
+	}
+	
+	return difference;
+	
+	//Case: head < tail (head has wrapped around, but tail hasn't yet.
 }
 
 void ConcurrentBuffer::ResetHead(){

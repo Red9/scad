@@ -52,7 +52,7 @@ others wait for their turn.
 @param length The number of bytes to add,
 @returns true if data is added to the buffer, false if timeout occurs
 */
-bool Put(char data[], int size);
+bool Put(const char data[], const int size);
 
 
 /**Get a byte from the buffer. Will block forever
@@ -65,6 +65,24 @@ bool Put(char data[], int size);
 */
 char Get();
 
+/** Get an array of bytes from the buffer. Will not block.
+
+Note that, if no bytes are added to the buffer, this function will return all
+bytes in at most 2 calls.
+
+@warning @Get() must be called often enough so that the get operations keep up
+         with the put() operations. Otherwise, data is lost (for this instance
+         of the class.
+         
+@warning The contents of the array may change if another thread adds too much
+         data to the buffer. If this function is used, the data must be consumed
+         as rapidly as possible.
+
+@param bytes    The pointer to redirect to point to the bytes.
+@returns        The number of valid bytes in the @a bytes array. If no bytes
+                are available, then 0 is returned.
+*/
+int Get(volatile char *& bytes);
 
 /**
 Resets Head pointer.

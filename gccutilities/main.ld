@@ -1,4 +1,4 @@
-/* Default linker script, for normal executables */
+/* Custom linker script, adjusted for linker garbage collection */
 OUTPUT_FORMAT("elf32-propeller","elf32-propeller","elf32-propeller")
 OUTPUT_ARCH(propeller)
 MEMORY
@@ -7,6 +7,9 @@ MEMORY
   cog	  : ORIGIN = 0, LENGTH = 1984 /* 496*4 */
   /* coguser is just an alias for cog, but for overlays */
   coguser : ORIGIN = 0, LENGTH = 1984 /* 496*4 */
+  /* kernel memory is where the .lmm or .xmm kernel goes */
+  kermem  : ORIGIN = 0, LENGTH = 0x6C0
+  kerextmem : ORIGIN = 0x6C0, LENGTH = 0x100
   ram     : ORIGIN = 0x20000000, LENGTH = 256M
   rom     : ORIGIN = 0x30000000, LENGTH = 256M
   /* some sections (like the .xmm kernel) are handled specially by the loader */
@@ -15,11 +18,8 @@ MEMORY
 }
 SECTIONS
 {
-  
-  /*.cogtoggle : { KEEP(*(.cogtoggle)) } > hub*/
-  
-  /*.serial.cog : { KEEP(*(.serial.cog)) } > hub*/
-  
+  .cogtoggle : { KEEP(*(.cogtoggle)) } >hub
+  /*.memory.kerext : { KEEP(*(.memory.kerext)) } >hub*/
   /* if we are not relocating (-r flag given) discard the boot section */
   /* the initial spin boot code, if any */
    .boot : { KEEP(*(.boot)) } >hub
@@ -28,7 +28,7 @@ SECTIONS
   {
     KEEP(*(.lmmkernel))
     *(.kernel)
-  } >cog AT>hub
+  } >kermem AT>hub
   /* the initial startup code (including constructors) */
   .init   :
   {
@@ -172,7 +172,7 @@ SECTIONS
   .debug_str      0 : { *(.debug_str .zdebug_str) }
   .debug_loc      0 : { *(.debug_loc .zdebug_loc) }
   .debug_macinfo  0 : { *(.debug_macinfo .zdebug_macinfo) }
-  /* provide some case-sensitive aliases */
+  /* provide some case-sensitive aliases - propeller 1 */
   PROVIDE(par = PAR) ;
   PROVIDE(cnt = CNT) ;
   PROVIDE(ina = INA) ;
@@ -189,9 +189,11 @@ SECTIONS
   PROVIDE(phsb = PHSB) ;
   PROVIDE(vcfg = VCFG) ;
   PROVIDE(vscl = VSCL) ;
+  /* provide some case-sensitive aliases - propeller 2 */
   /* this symbol is used to tell the spin boot code where the spin stack can go */
    PROVIDE(__hub_end = ADDR(.hub_heap) + 16) ;
   /* default initial stack pointer */
   PROVIDE(__stack_end = 0x8000) ;
 }
+
 

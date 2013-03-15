@@ -21,7 +21,8 @@ char * GPSParser::Get(){
 
 //TODO(SRLM): What about <LF> at the end of the sentence?
 //TODO(SRLM): It should not start recording a string until it finds a start character
-char * GPSParser::Get(char s[])
+//TODO(SRLM): It should check to make sure that a string that is too long is ignored.
+char * GPSParser::Get(char s[], const int maxBytes)
 {
     for(;;)
     {
@@ -32,7 +33,8 @@ char * GPSParser::Get(char s[])
         s[head++] = byte;
 
         //Check if it's the end of a string.
-        if (byte == '\n')
+        //or if it's too big.
+        if (byte == '\n' || (int)head-(int)s+1 >= maxBytes)
         {
             s[head] = 0; //Null terminator
             head = 0;         //Reset head

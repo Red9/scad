@@ -4,7 +4,6 @@
 //
 
 //TODO (SRLM): check for remaining int32_t, etc.
-//TODO (SRLM): Should return values really be -1?
 
 //TODO(SRLM): I think the functions with buffer in them should have "volatile"
 //in the function declaration (since the buffer can be modified by PASM).
@@ -61,8 +60,7 @@ Starts the Serial PASM engine running in a new cog.
 @param rate  the initial baud rate in bits per second.
 @return  Returns (-1) if the cog started OK
 */
-int Start(int rxpin, int txpin, int rate);
-
+bool Start(int rxpin, int txpin, int rate);
 
 /** Stops the Serial PASM engine, if it is running.
 */
@@ -73,9 +71,12 @@ void Stop(void);
 @param rate desired baud rate of the Serial engine.
 @return     -1 if the baud rate was achieved
 */
-int SetBaud(int rate);
+bool SetBaud(int rate);
 
 /** Does a live update of the baud rate in the Serial engine.
+
+@TODO(SRLM): It looks like it will do this in the middle of a transmission.
+			 Should it wait for all TX bytes to be done?
 
 Example:
 
@@ -87,7 +88,7 @@ Example:
                 using RCFAST).
 @return         -1 if the baud rate was achieved
 */
-int	SetBaudClock(int rate, int sysclock);
+bool SetBaudClock(int rate, int sysclock);
   
 
 /** Sends down a single character.
@@ -134,13 +135,12 @@ int Put(const char * format, ...);
 
 /**
 Waits for a byte to be received or a timeout to occur.
- ms : the number of milliseconds to wait for an incoming byte
- returns -1 if no byte received, $00..$FF if byte
  
 @warning This function may block indefinately if timeout is set to a negative
          value, and no data is received.
  
-@param timeout the number of milliseconds to wait. Defaults to forever wait (negative timeout)
+@param   timeout the number of milliseconds to wait. Defaults to forever wait (negative timeout)
+@return          -1 if no byte received, 0x00..0xFF if byte
 */
 int Get(int timeout = -1);
 
@@ -193,9 +193,9 @@ collection with the linker.
 */  
 static uint8_t dat[];
 
-/*
-Checks if byte is waiting in the buffer, but doesn't wait.
- returns -1 if no byte received, $00..$FF if byte
+/** Checks if byte is waiting in the buffer, but doesn't wait.
+
+@return -1 if no byte received, 0x00..0xFF if byte
 */
   int	CheckBuffer(void);
 

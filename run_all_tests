@@ -7,7 +7,7 @@ tests_run = []
 previous_line = ""
 failed_tests = False
 
-ignore_folders = ["projects", "unfinished", "unity", "max8819"]
+ignore_folders = ["projects", "unfinished", "unity", "max8819", "mtk3339"]
 
 folders = [d for d in os.listdir(os.getcwd()) if os.path.isdir(d)]
 
@@ -65,3 +65,8 @@ if failed_tests == False:
 	print "OK"
 else:
 	print "FAIL"
+
+print ""
+print ""
+print "To add all .elf files to git, run the following command: "
+print "git ls-files | grep '\.elf$' | xargs git add"

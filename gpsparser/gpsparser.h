@@ -11,6 +11,8 @@
 
 #include "serial.h"
 
+
+
 class GPSParser
 {
 
@@ -53,23 +55,41 @@ stored in the other.
 
 @param s The buffer to use. Must be at least 85 characters long (the NMEA
          string length).
+@param maxBytes The maximum number of bytes to record in this string. Defaults
+         to maximum NMEA sentence length.
 @returns NULL pointer if no string, \n and null terminated string otherwise (in buffer
 		@a s).
 */
-char * Get(char s[]);
+char * Get(char s[], const int maxBytes = kBufferSize);
 
 
 /** Passthrough to the base @a Serial::Put(char) function.
+
+@warning This function is for testing only! If you need to put something, you
+         should subclass this class, and use the serial object directly.
 @param character the byte to transmit.
 */
 void Put(char character);
 
 //TODO(SRLM): Add string Put pass through method as well.
 
-private:
+/** Get the underlying serial object.
+
+@warning This function is for testing only!
+@returns A pointer to the underlying serial object.
+*/
+Serial * getSerial(void){
+	return & gps;
+}
+
+protected:
 Serial gps;
+
+private:
+static const int kBufferSize = 85;
 int head;
-char buffer[85]; //Holds 1 NMEA string
+char buffer[kBufferSize]; //Holds 1 NMEA string
+
 
 
 };

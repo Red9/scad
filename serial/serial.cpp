@@ -44,7 +44,7 @@ uint8_t Serial::dat[] = {
 
 
 
-int Serial::Start(int Rx_pin, int Tx_pin, int Rate)
+bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
 {
  Stop();
   ((int32_t *)&dat[260])[0] = (((int32_t *)&dat[276])[0] = 0);
@@ -71,7 +71,7 @@ int Serial::Start(int Rx_pin, int Tx_pin, int Rate)
     while (write_buf_ptr_);
     return -1;
   }
-  return 0;
+  return true;
 
 
 }
@@ -85,7 +85,7 @@ void Serial::Stop(void)
 //  return 0;
 }
 
-int Serial::SetBaud(int Rate)
+bool Serial::SetBaud(int Rate)
 {
 //  int Got_rate = 0;
 //  Got_rate = SetBaudClock(Rate, CLKFREQ);
@@ -94,13 +94,12 @@ int Serial::SetBaud(int Rate)
   return SetBaudClock(Rate, CLKFREQ);
 }
 
-int Serial::SetBaudClock(int Rate, int Sysclock)
+bool Serial::SetBaudClock(int Rate, int Sysclock)
 {
   int32_t Got_rate = 0;
   Got_rate = (((Shr__(Sysclock, 1)) + (Shr__(Rate, 1))) / Rate);
   half_bit_period_ = (Max__(Got_rate, kMinimumHalfPeriod));
-  Got_rate = -(Got_rate >= kMinimumHalfPeriod);
-  return Got_rate;
+  return Got_rate >= kMinimumHalfPeriod;
 }
 
 //void Serial::PutS(const char * string_ptr)
@@ -133,35 +132,9 @@ void Serial::Put(char char_val)
 //  while (write_buf_ptr_);
 //}
 
-void Serial::GetFlush(void)
-{
-  rx_tail_ = rx_head_;
-}
 
 
 
-int Serial::Get(int timeout)
-{
-	if(timeout <= -1){ //No timeout
-		int rxbyte = 0;
-		while ((rxbyte = CheckBuffer()) < 0);
-		return (char)rxbyte;
-	}else{
-		int tout = (CLKFREQ/1000)*timeout;
-		int rxbyte;
-		int totaltime = 0;
-		int previous_cnt = CNT;
-		int current_cnt;
-		do
-		{
-			rxbyte = CheckBuffer();
-			current_cnt = CNT;
-			totaltime += current_cnt-previous_cnt;
-			previous_cnt = current_cnt;
-		}while ( rxbyte < 0 && totaltime < tout);
-		return rxbyte;
-	}
-}
 
 //char Serial::GetC(void)
 //{
@@ -290,6 +263,35 @@ int Serial::Put(const char * format, ...){
 	
 	va_end(list);
 	return bytesWritten;
+}
+
+
+void Serial::GetFlush(void)
+{
+  rx_tail_ = rx_head_;
+}
+
+int Serial::Get(int timeout)
+{
+	if(timeout <= -1){ //No timeout, wait forever
+		int rxbyte = 0;
+		while ((rxbyte = CheckBuffer()) < 0);
+		return (char)rxbyte;
+	}else{
+		int tout = (CLKFREQ/1000)*timeout;
+		int rxbyte;
+		int totaltime = 0;
+		int previous_cnt = CNT;
+		int current_cnt;
+		do
+		{
+			rxbyte = CheckBuffer();
+			current_cnt = CNT;
+			totaltime += current_cnt-previous_cnt;
+			previous_cnt = current_cnt;
+		}while ( rxbyte < 0 && totaltime < tout);
+		return rxbyte;
+	}
 }
 
 int Serial::Get(char * buffer, int length, int timeout){

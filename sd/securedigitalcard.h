@@ -5,10 +5,6 @@
 
 //TODO(SRLM): Mount_explicit seems to hang when there is no card in the slot.
 
-
-//TODO(SRLM): I can change the PutX and GetX functions to just the prefix, and
-// overload the operators instead of having a unique function name.
-
 //TODO(SRLM): I think the functions with buffer in them should have "volatile"
 //in the function declaration (since the buffer can be modified by PASM).
 
@@ -169,6 +165,9 @@ TODO(SRLM): What does it do with this date? Does it store it as read/write/modif
  
  Returns the FAT16 date format (you can safely ignore the return in all cases,
  unless you want to test the correctness of the function).
+ 
+ @param Year The year (all 4 digits!)
+
 */
   int	SetDate(int Year, int Month, int Day, int Hour, int Minute, int Second);
 

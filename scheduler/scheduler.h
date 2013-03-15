@@ -17,10 +17,15 @@ class Scheduler{
 public:
 
 /** Create a schedule keeper that returns true with the specified frequency.
-  * @todo Make this function work for something like 0.1 Hz (1 cycle every 10 seconds...)
+  * 
+  * The frequency is specified in units of 0.1Hz. So, to create a scheduler with
+  * a frequency of 150Hz you pass in 1500. To make a scheduler with a frequency
+  * of 0.5Hz (once every two seconds), you pass in 5 (0.1Hz * 5 = 0.5Hz). A
+  * scheduler with a frequency of 1Hz takes a parameter of 10.
+  *
   * @warning @a hz must be 1 or more! Setting it less will result in a runtime
   *          error.
-  * @param hz The frequency (in true return values per second).
+  * @param hz The frequency (in 10x true return values per second).
   */
 Scheduler(int hz);
 

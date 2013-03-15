@@ -2,7 +2,7 @@
 
 Scheduler::Scheduler(int hz)
 {
-	readPeriod = CLKFREQ/hz;
+	readPeriod = (CLKFREQ*10)/hz;
 	nextReadTime = CNT + readPeriod;
 }
 
