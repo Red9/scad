@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 
-
+//TODO: Add test for shadow registers being used (is that possible to test?)
 
 
 

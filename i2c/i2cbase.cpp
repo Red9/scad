@@ -25,88 +25,228 @@ void i2cBase::Stop()
 
 unsigned char i2cBase::ReadByte(int acknowledge)
 {
-    uint8_t byte = 0;
-    int count;
+	unsigned int signalMask = 1 << 18;
+	DIRA |= signalMask;
+	OUTA |= signalMask; //Set high
+	
+    int result;
+	
+	
+	//Clock delay values:
+	// 1600 == 25kHz
+	//  400 == 100kHz
+	//  100 == 400kHz
+	//   90 == 444kHz
+	//   32 == 1.25MHz
+	
+	int datamask, nextCNT, temp;
+	const int clockDelay = 200;
 
-    i2c_float_sda_high;
+	__asm__ volatile(
+	"         fcache #(GetByteEnd - GetByteStart)\n\t"
+	"         .compress off                 \n\t"
+	/* Setup for transmit loop */
+	"GetByteStart: "
+	"         andn dira, %[SDAMask]       \n\t"
+	"         mov %[datamask], #256       \n\t" /* 0x100 */
+	"         mov %[result], #0           \n\t"
+	"         mov %[nextCNT], cnt           \n\t"
+	"         add %[nextCNT], %[clockDelay] \n\t"
+	
+	/* Transmit Loop (8x) */
+	//Output bit of byte
+    "GetByteLoop: "
 
-    for (count = 8; --count >= 0; ) {
-        byte <<= 1;
-        i2c_float_scl_high;
-        waitcnt(CNT + halfCycle);
-        byte |= (INA & SDAMask) ? 1 : 0;
-        i2c_set_scl_low;
-        waitcnt(CNT + halfCycle);
-    }
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t"  
+	"         shr     %[datamask], #1           \n\t"      // Set up mask
+	
+	    //Pulse clock
+	"         andn    dira, %[SCLMask]           \n\t"    // Set SCL high
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t" 
+	"         mov     %[temp], ina                     \n\t"  //Sample the input
+	"         and     %[temp], %[SDAMask] nr,wz           \n\t"
+	"         muxnz   %[result], %[datamask]           \n\t"
+	"         or      dira, %[SCLMask]         \n\t"        // Set SCL low
+	
+	//Return for more bits
+	"         djnz %[datamask], #__LMM_FCACHE_START+(GetByteLoop-GetByteStart) nr \n\t"
+	
+	// Get ACK
 
-    // acknowledge
-    if (acknowledge)
-        i2c_set_sda_low;
-    else
-        i2c_float_sda_high;
-    //Send SCL 
-    //Clock out the ack bit
-    i2c_float_scl_high;
-    i2c_set_scl_low;
-    
-    i2c_set_sda_low;
+	"        and     %[acknowledge], #1 nr,wz    \n\t" //Output ACK
 
-    return byte;
+	"        muxnz   dira, %[SDAMask]           \n\t"
+	" if_nz  andn    dira, %[SCLMask]           \n\t"
+	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"        andn    dira, %[SCLMask]       \n\t" // SCL high (by float)
+   	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
+
+   	"        or   dira, %[SCLMask]       \n\t" // Set scl low
+   	"        or   dira, %[SDAMask]       \n\t" // Set sda low 
+	"        jmp  __LMM_RET              \n\t"
+	"GetByteEnd: "
+	"         .compress default             \n\t"
+	
+	: /* outputs */
+		[datamask] "+&r" (datamask),
+    	[result] "=&r" (result)
+
+	: /* inputs */
+		[SDAMask] "r" (SDAMask),
+		[SCLMask] "r" (SCLMask),
+		
+		[temp]        "r" (temp),
+		[acknowledge] "r" (acknowledge),
+		
+		
+		[nextCNT]  "r" (nextCNT),
+		[clockDelay] "r" (clockDelay)
+	
+	);
+	
+	OUTA &= ~ signalMask; //Set low
+
+	return result;
+
+//    uint8_t byte = 0;
+//    int count;
+
+//    i2c_float_sda_high;
+
+//    for (count = 8; --count >= 0; ) {
+//        byte <<= 1;
+//        i2c_float_scl_high;
+//        waitcnt(CNT + halfCycle);
+//        byte |= (INA & SDAMask) ? 1 : 0;
+//        i2c_set_scl_low;
+//        waitcnt(CNT + halfCycle);
+//    }
+
+//    // acknowledge
+//    if (acknowledge)
+//        i2c_set_sda_low;
+//    else
+//        i2c_float_sda_high;
+//    //Send SCL 
+//    //Clock out the ack bit
+//    i2c_float_scl_high;
+//    i2c_set_scl_low;
+//    
+//    i2c_set_sda_low;
+
+//    return byte;
 }
 
 int i2cBase::SendByte(unsigned char byte)
 {
-    int count;
+//	unsigned int signalMask = 1 << 18;
+//	DIRA |= signalMask;
+//	OUTA |= signalMask; //Set high
+	
     int result;
+	
+	
+	//Clock delay values:
+	// 1600 == 25kHz
+	//  400 == 100kHz
+	//  100 == 400kHz
+	//   90 == 444kHz
+	//   32 == 1.25MHz
+	
+	int datamask, nextCNT;
+	const int clockDelay = 200;
 
-    /* send the byte, high bit first */
-    for (count = 8; --count >= 0; ) {
-    	//Change byte while clock is low
-        if (byte & 0x80)
-            i2c_float_sda_high;
-        else
-            i2c_set_sda_low;
-            
-        //Send clock high pulse
-        i2c_float_scl_high;
-        waitcnt(CNT + halfCycle);
-		//Prepare byte for next time around
-        byte <<= 1;
+	//TODO(SRLM): Get rid of ina shadow register.
 
-        i2c_set_scl_low;
-        
-     } 
-     
-//   //Experimental inline assembly version.
-//    __asm__ volatile (
-//   	"		andn dira, %[SDAMask]       \n\t" /* DIRA &= ~SDAMask (float SDA high) */ 
-//   	"		andn dira, %[SCLMask]       \n\t" /* DIRA &= ~SCLMask (float SCL high) */
-//   	"		and  ina,  %[SDAMask] wz, nr\n\t" /* If != 0, ack'd, else nack */
-//   	"if_z	mov  %[result], #1          \n\t"
-//   	"if_nz  mov  %[result], #0          \n\t"
-//   	"		or   dira, %[SCLMask]       \n\t" /* Set scl low */
-//   	"       or   dira, %[SDAMask]       \n\t" /* Set sda low */
-//   	
-//    : /* outputs */
-//    	[result]   "=r" (result)
-//    : /* inputs */
-//    	[SDAMask] "r" (SDAMask),
-//    	[SCLMask] "r" (SCLMask)
-//    );
-  
+	__asm__ volatile(
+	"         fcache #(PutByteEnd - PutByteStart)\n\t"
+	"         .compress off                 \n\t"
+	/* Setup for transmit loop */
+	"PutByteStart: "
+	"         mov %[datamask], #256       \n\t" /* 0x100 */
+	"         mov %[result], #0             \n\t"
+	"         mov %[nextCNT], cnt           \n\t"
+	"         add %[nextCNT], %[clockDelay] \n\t"
+	
+	/* Transmit Loop (8x) */
+	//Output bit of byte
+    "PutByteLoop: "
+	"         shr %[datamask], #1           \n\t"      // Set up mask
+	"         and %[datamask], %[databyte] wz,nr \n\t" // Move the bit into Z flag
+    "         muxz dira, %[SDAMask]        \n\t"
     
-    /* receive the acknowledgement from the slave */
+    //Pulse clock
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t"  
+	"         andn dira, %[SCLMask]           \n\t"    // Set SCL high
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t" 
+	"         or dira, %[SCLMask]         \n\t"        // Set SCL low
+	
+	//Return for more bits
+	"         djnz %[datamask], #__LMM_FCACHE_START+(PutByteLoop-PutByteStart) nr \n\t"
+	
+	// Get ACK
+	"        andn dira, %[SDAMask]       \n\t" // Float SDA high (release SDA)
+	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"        andn dira, %[SCLMask]       \n\t" // SCL high (by float)
+   	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"        mov  ina,  ina              \n\t" //Sample input
+   	"        and  %[SDAMask], ina wz,nr  \n\t" // If != 0, ack'd, else nack
+	"        muxz %[result], #1          \n\t" // Set result to equal to Z flag
+   	"        or   dira, %[SCLMask]       \n\t" // Set scl low
+   	"        or   dira, %[SDAMask]       \n\t" // Set sda low 
+	"        jmp  __LMM_RET              \n\t"
+	"PutByteEnd: "
+	"         .compress default             \n\t"
+	
+	: /* outputs */
+		[datamask] "+&r" (datamask),
+    	[result]   "=&r" (result)
+	: /* inputs */
+		[SDAMask] "r" (SDAMask),
+		[SCLMask] "r" (SCLMask),
+		
+		[databyte] "r" (byte),
+		[nextCNT]  "r" (nextCNT),
+		[clockDelay] "r" (clockDelay)
+	
+	);
+	
+//	OUTA &= ~ signalMask; //Set low
 
-    i2c_float_sda_high; //DIRA &= ~SDAMask
-    i2c_float_scl_high;
-    
-    result = !((INA & SDAMask) != 0);
-    i2c_set_scl_low;  // DIRA |= SCLMask
-    
-    //Pull SDA low
-    i2c_set_sda_low;
+	return result;
 
-    return result; //Ack or NAK
+
+//    int count;
+//    /* send the byte, high bit first */
+//    for (count = 8; --count >= 0; ) {
+//    	//Change byte while clock is low
+//        if (byte & 0x80)
+//            i2c_float_sda_high;
+//        else
+//            i2c_set_sda_low;
+//            
+//        //Send clock high pulse
+//        i2c_float_scl_high;
+//        waitcnt(CNT + halfCycle);
+//		//Prepare byte for next time around
+//        byte <<= 1;
+
+//        i2c_set_scl_low;
+//        
+//     } 
+//    
+//    /* receive the acknowledgement from the slave */
+
+//    i2c_float_sda_high; //DIRA &= ~SDAMask
+//    i2c_float_scl_high;
+//    
+//    result = !((INA & SDAMask) != 0);
+//    i2c_set_scl_low;  // DIRA |= SCLMask
+//    
+//    //Pull SDA low
+//    i2c_set_sda_low;
+
+//    return result; //Ack or NAK
 
 }
 

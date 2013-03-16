@@ -20,7 +20,7 @@ DEFINEFLAGS =
 endif
 
 
-SRCS=$(wildcard *.cpp) $(wildcard *.S)
+SRCS=$(wildcard *.cpp) #$(wildcard *.S)
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 UNITYPATH = ${ROOT}unity/
