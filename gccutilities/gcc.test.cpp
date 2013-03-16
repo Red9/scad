@@ -8,7 +8,7 @@
 
 
 //TODO: Add test for shadow registers being used (is that possible to test?)
-
+//TODO: Add test for bool sized 4 bytes...
 
 
 void setUp(void){

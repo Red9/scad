@@ -1,8 +1,9 @@
+#include <string.h>
+
 #include "unity.h"
 #include "c++-alloc.h"
 
 #include "serial.h"
-
 #include "gpsparser.h"
 
 const int kPIN_USER_1 = 18;
@@ -47,31 +48,41 @@ void test_GetIncompleteString(void){
 
 void test_GetCompleteString(void){
 	const char * line =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\n");
-	TEST_ASSERT_EQUAL_STRING(line, sut->Get());
+		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+	TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line)-2);
 }
 	
 void test_GetMultipleStringsNoWait(void){
 	const char * line0 =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\n" );
+		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n" );
 	const char * line1 =
-		FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\n");
+		FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
 	const char * line2 =
-		FillBuffer("$PGTOP,11,2*6E\n");
+		FillBuffer("$PGTOP,11,2*6E\r\n");
 		
-	TEST_ASSERT_EQUAL_STRING(line0, sut->Get());
-	TEST_ASSERT_EQUAL_STRING(line1, sut->Get());
-	TEST_ASSERT_EQUAL_STRING(line2, sut->Get());
+	TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(), strlen(line0)-2);
+	TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1)-2);
+	TEST_ASSERT_EQUAL_MEMORY(line2, sut->Get(), strlen(line2)-2);
 }
 
 void test_NullAfterString(void){
 	const char * line =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\n");
+		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
 	
-	TEST_ASSERT_EQUAL_STRING(line, sut->Get());
+	TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line)-2);
 	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
 }
-					
+
+void test_GetPartialStringAtBeginning(void){
+	const char * line0 = 
+		FillBuffer(".00,N,0.00,K,N*32\r\n");
+	const char * line1 =
+		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+		
+	TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1)-2);
+	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
+	
+}
 	
 	
 

@@ -339,12 +339,14 @@ void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 	data[2] = (cnt & 0xFF00)     >> 8;
 	data[1] = (cnt & 0xFF)       >> 0;
 	
-	int i;
-	for(i = 0; string[i] != terminator; i++){
-		data[5+i] = string[i];
-	}
-	data[5+i] = '\0';
-	while(buffer->Put(data, 5+i+1) == false){}
+//	int i;
+//	for(i = 0; string[i] != terminator; i++){
+//		data[5+i] = string[i];
+//	}
+//	data[5+i] = '\0';
+
+	
+	while(buffer->Put(data, 5, string, terminator) == false){}
 	
 }
 
@@ -466,15 +468,6 @@ void ReadMagn2(void){
 
 	
 void ReadSensors(){
-	//Had to add volatile here: for some reason, the compiler was ignoring
-	//gyroCNT and magnCNT, and logging 0 for them. Volatile seemed to fix it.
-	volatile unsigned int acclCNT = 0;
-	bool acclLog = false;
-	volatile unsigned int gyroCNT = 0xDEADBEEF;
-	bool gyroLog = false;
-	volatile unsigned int magnCNT = 0xABCDEF01;
-	bool magnLog = false;
-	
 	char * gpsString = NULL;
 	//Flush GPS buffer.
 	while( (gpsString = gps->Get()) != NULL) {/*Throw away stings*/}
@@ -507,22 +500,19 @@ void ReadSensors(){
 		if(acclScheduler.Run()){
 			freeReadCycles = 0;
 			ReadAccl();
-			acclCNT = CNT;
-			acclLog = true;
+			PutIntoBuffer(buffer, 'A', CNT, accl_x, accl_y, accl_z);
 		}
 		
 		if(gyroScheduler.Run()){
 			freeReadCycles = 0;
 			ReadGyro();
-			gyroCNT = CNT;
-			gyroLog = true;
+			PutIntoBuffer(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
 		}
 
 		if(magnScheduler.Run()){
 			freeReadCycles = 0;
 			ReadMagn();
-			magnCNT = CNT;
-			magnLog = true;
+			PutIntoBuffer(buffer, 'M', CNT, magn_x, magn_y, magn_z);
 		}
 		if(fuelScheduler.Run()){
 			freeReadCycles = 0;
@@ -538,7 +528,7 @@ void ReadSensors(){
 		
 		if((gpsString = gps->Get()) != NULL){
 			freeReadCycles = 0;
-			PutIntoBuffer(buffer, 'P', CNT, gpsString, '\n');
+			PutIntoBuffer(buffer, 'P', CNT, gpsString, '\0');
 		}
 
 
@@ -574,22 +564,6 @@ void ReadSensors(){
 			LogStatusElement(buffer, kInfo, "SDBuffer free less than 50%!");
 		}else{
 			led->high(); //Off
-		}
-
-		//----------------------------------------------------------------------
-		if(acclLog){
-			PutIntoBuffer(buffer, 'A', acclCNT, accl_x, accl_y, accl_z);
-			acclLog = false;
-		}
-		
-		if(gyroLog){
-			PutIntoBuffer(buffer, 'G', gyroCNT, gyro_x, gyro_y, gyro_z);
-			gyroLog = false;
-		}
-		
-		if(magnLog){
-			PutIntoBuffer(buffer, 'M', magnCNT, magn_x, magn_y, magn_z);
-			magnLog = false;
 		}
 
 		

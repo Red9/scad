@@ -54,6 +54,11 @@ others wait for their turn.
 */
 bool Put(const char data[], const int size);
 
+/**
+Will log at least one character. Logs terminator character as final char.
+*/
+bool Put(const char data[], const int size, const char * string, char terminator = '\0');
+
 
 /**Get a byte from the buffer. Will block forever
 
@@ -96,6 +101,8 @@ static void ResetHead();
 
 @warning This only returns the number of bytes free for this instance. Other
 instances of this class may have different numbers of bytes free.
+
+@todo(SRLM): I think this should automatically account for the -1 difference...
 
 @returns the number of free bytes (corrected difference of head and tail) Note:
 if there is nothing in the buffer, then it is kSize -1 (less one because it

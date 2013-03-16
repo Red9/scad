@@ -55,12 +55,23 @@ int SendByte(unsigned char byte);
   * @param acknowledge true to acknowledge the byte received, false otherwise.
   * @returns the byte clocked in off the bus.
   */
-unsigned char ReadByte(int acknowledge);
+unsigned char ReadByte(bool acknowledge);
 
 private:
 unsigned int SCLMask;
 unsigned int SDAMask;
-int halfCycle;
+
+
+	
+	
+	//Clock delay values:
+	// 1600 == 25kHz
+	//  400 == 100kHz
+	//  100 == 400kHz
+	//   90 == 444kHz
+	//   32 == 1.25MHz
+	
+int clockDelay;
 
 };
 

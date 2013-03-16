@@ -184,8 +184,33 @@ void test_CBGetArrayReturnsAllAvailableElements(void){
 
 
 
+void test_CBPutArrayString(void){
+	ConcurrentBuffer buffer;
+	const char * a = "Alabama, Arkansas";
+	const char * b = "Baltimore, Bellingham";
+	const int a_size = strlen(a) + 1;
+	const int b_size = strlen(b) + 1;
+	
+	buffer.Put(a, a_size, b);
+	volatile char * result;
+	TEST_ASSERT_EQUAL_INT(a_size + b_size, buffer.Get(result));
+	TEST_ASSERT_EQUAL_MEMORY(a, result, a_size);
+	TEST_ASSERT_EQUAL_MEMORY(b, &(result[a_size]), b_size);
+	
+//	for(int i = 0; i < a_size; i++){
+//		TEST_ASSERT_EQUAL_INT(a[i], buffer.Get());
+//	}
+
+//	for(int i = 0; i < b_size; i++){
+//		TEST_ASSERT_EQUAL_INT(b[i], buffer.Get());
+//	}
+	
+	TEST_ASSERT_EQUAL_INT(buffer.GetkSize()-1, buffer.GetFree());
+	
+}
 
 
+//TODO Add test for CBPutArrayString with different terminator
 
 
 

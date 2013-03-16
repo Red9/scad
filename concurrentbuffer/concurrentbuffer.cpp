@@ -8,6 +8,8 @@ int           ConcurrentBuffer::lock;
 
 ConcurrentBuffer::ConcurrentBuffer(int new_timeout){
 	tail = 0;
+	
+	//TODO(SRLM): How long is this timeout?
 	timeout = (CLKFREQ/1000000)*new_timeout;
 	
 	if(!initialized){
@@ -57,6 +59,22 @@ bool ConcurrentBuffer::Put(const char data[], const int size){
 	for(int i = 0; i < size; i++){
 		StoreByte(data[i]);
 	}
+	Lockclear();
+	return true;
+}
+
+bool ConcurrentBuffer::Put(const char data[], const int size, const char * string, char terminator){
+	if(Lockset() == false){
+		return false;
+	}
+	for(int i = 0; i < size; i++){
+		StoreByte(data[i]);
+	}
+	
+	do{
+		StoreByte(*string);
+	}while(*(string++) != terminator);
+	
 	Lockclear();
 	return true;
 }

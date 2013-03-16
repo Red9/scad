@@ -38,8 +38,11 @@ GPSParser(int rxPin, int txPin, int baud);
 valid (will not be overwritten) until the next time GetStr()
 is called.
 
-The returned string includes all characters from the GPS, including the '\n' at
-the end.
+The returned string includes all characters from the GPS except for the \r and
+\n (<CR><LF>) at the end.
+
+Partial sentences may be thrown away (if a sentence is not being currently
+recorded).
 
 @returns NULL pointer if no string, null terminated string otherwise
 */
@@ -71,8 +74,6 @@ char * Get(char s[], const int maxBytes = kBufferSize);
 */
 void Put(char character);
 
-//TODO(SRLM): Add string Put pass through method as well.
-
 /** Get the underlying serial object.
 
 @warning This function is for testing only!
@@ -90,6 +91,9 @@ static const int kBufferSize = 85;
 int head;
 char buffer[kBufferSize]; //Holds 1 NMEA string
 
+bool recordingSentence;
+
+const static char sentenceStart = '$';
 
 
 };

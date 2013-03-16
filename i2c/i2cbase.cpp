@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 
+//TODO: Add assert that bool is 4 bytes (or puttable in register?).
 
 #define i2c_float_scl_high (DIRA &= ~SCLMask)
 #define i2c_set_scl_low    (DIRA |= SCLMask)
@@ -23,73 +24,59 @@ void i2cBase::Stop()
 	i2c_float_sda_high;
 }
 
-unsigned char i2cBase::ReadByte(int acknowledge)
+unsigned char i2cBase::ReadByte(bool acknowledge)
 {
-	unsigned int signalMask = 1 << 18;
-	DIRA |= signalMask;
-	OUTA |= signalMask; //Set high
 	
     int result;
-	
-	
-	//Clock delay values:
-	// 1600 == 25kHz
-	//  400 == 100kHz
-	//  100 == 400kHz
-	//   90 == 444kHz
-	//   32 == 1.25MHz
-	
 	int datamask, nextCNT, temp;
-	const int clockDelay = 200;
 
 	__asm__ volatile(
 	"         fcache #(GetByteEnd - GetByteStart)\n\t"
-	"         .compress off                 \n\t"
-	/* Setup for transmit loop */
+	"         .compress off                   \n\t"
+	/* Setup for receive loop */
 	"GetByteStart: "
-	"         andn dira, %[SDAMask]       \n\t"
-	"         mov %[datamask], #256       \n\t" /* 0x100 */
-	"         mov %[result], #0           \n\t"
-	"         mov %[nextCNT], cnt           \n\t"
-	"         add %[nextCNT], %[clockDelay] \n\t"
+	"         andn dira,        %[SDAMask]    \n\t"
+	"         mov  %[datamask], #256          \n\t" /* 0x100 */
+	"         mov  %[result],   #0            \n\t"
+	"         mov  %[nextCNT],  cnt           \n\t"
+	"         add  %[nextCNT],  %[clockDelay] \n\t"
 	
-	/* Transmit Loop (8x) */
-	//Output bit of byte
+	/* Recieve Loop (8x) */
+	//Get bit of byte
     "GetByteLoop: "
 
-	"         waitcnt %[nextCNT], %[clockDelay] \n\t"  
-	"         shr     %[datamask], #1           \n\t"      // Set up mask
+	"         waitcnt %[nextCNT],  %[clockDelay] \n\t"  
+	"         shr     %[datamask], #1            \n\t"      // Set up mask
 	
 	    //Pulse clock
-	"         andn    dira, %[SCLMask]           \n\t"    // Set SCL high
-	"         waitcnt %[nextCNT], %[clockDelay] \n\t" 
-	"         mov     %[temp], ina                     \n\t"  //Sample the input
-	"         and     %[temp], %[SDAMask] nr,wz           \n\t"
-	"         muxnz   %[result], %[datamask]           \n\t"
-	"         or      dira, %[SCLMask]         \n\t"        // Set SCL low
+	"         andn    dira,       %[SCLMask]       \n\t"    // Set SCL high
+	"         waitcnt %[nextCNT], %[clockDelay]    \n\t" 
+	"         mov     %[temp],    ina              \n\t"  //Sample the input
+	"         and     %[temp],    %[SDAMask] nr,wz \n\t"
+	"         muxnz   %[result],  %[datamask]      \n\t"
+	"         or      dira,       %[SCLMask]       \n\t"        // Set SCL low
 	
 	//Return for more bits
 	"         djnz %[datamask], #__LMM_FCACHE_START+(GetByteLoop-GetByteStart) nr \n\t"
 	
-	// Get ACK
+	// Put ACK
 
-	"        and     %[acknowledge], #1 nr,wz    \n\t" //Output ACK
+	"         and     %[acknowledge], #1 nr,wz  \n\t" //Output ACK
 
-	"        muxnz   dira, %[SDAMask]           \n\t"
-	" if_nz  andn    dira, %[SCLMask]           \n\t"
-	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
-   	"        andn    dira, %[SCLMask]       \n\t" // SCL high (by float)
-   	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
+	"         muxnz   dira,       %[SDAMask]    \n\t"
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"         andn    dira,       %[SCLMask]    \n\t" // SCL high (by float)
+   	"         waitcnt %[nextCNT], %[clockDelay] \n\t"
 
-   	"        or   dira, %[SCLMask]       \n\t" // Set scl low
-   	"        or   dira, %[SDAMask]       \n\t" // Set sda low 
-	"        jmp  __LMM_RET              \n\t"
+   	"         or   dira, %[SCLMask]       \n\t" // Set scl low
+   	"         or   dira, %[SDAMask]       \n\t" // Set sda low 
+	"         jmp  __LMM_RET              \n\t"
 	"GetByteEnd: "
-	"         .compress default             \n\t"
+	"         .compress default           \n\t"
 	
 	: /* outputs */
 		[datamask] "+&r" (datamask),
-    	[result] "=&r" (result)
+    	[result]   "=&r" (result)
 
 	: /* inputs */
 		[SDAMask] "r" (SDAMask),
@@ -99,12 +86,10 @@ unsigned char i2cBase::ReadByte(int acknowledge)
 		[acknowledge] "r" (acknowledge),
 		
 		
-		[nextCNT]  "r" (nextCNT),
+		[nextCNT]    "r" (nextCNT),
 		[clockDelay] "r" (clockDelay)
 	
 	);
-	
-	OUTA &= ~ signalMask; //Set low
 
 	return result;
 
@@ -139,64 +124,51 @@ unsigned char i2cBase::ReadByte(int acknowledge)
 
 int i2cBase::SendByte(unsigned char byte)
 {
-//	unsigned int signalMask = 1 << 18;
-//	DIRA |= signalMask;
-//	OUTA |= signalMask; //Set high
-	
     int result;
-	
-	
-	//Clock delay values:
-	// 1600 == 25kHz
-	//  400 == 100kHz
-	//  100 == 400kHz
-	//   90 == 444kHz
-	//   32 == 1.25MHz
-	
-	int datamask, nextCNT;
-	const int clockDelay = 200;
+
+	int datamask, nextCNT, temp;
 
 	//TODO(SRLM): Get rid of ina shadow register.
 
 	__asm__ volatile(
 	"         fcache #(PutByteEnd - PutByteStart)\n\t"
-	"         .compress off                 \n\t"
+	"         .compress off                  \n\t"
 	/* Setup for transmit loop */
 	"PutByteStart: "
-	"         mov %[datamask], #256       \n\t" /* 0x100 */
-	"         mov %[result], #0             \n\t"
-	"         mov %[nextCNT], cnt           \n\t"
-	"         add %[nextCNT], %[clockDelay] \n\t"
+	"         mov %[datamask], #256          \n\t" /* 0x100 */
+	"         mov %[result],   #0            \n\t"
+	"         mov %[nextCNT],  cnt           \n\t"
+	"         add %[nextCNT],  %[clockDelay] \n\t"
 	
 	/* Transmit Loop (8x) */
 	//Output bit of byte
     "PutByteLoop: "
-	"         shr %[datamask], #1           \n\t"      // Set up mask
-	"         and %[datamask], %[databyte] wz,nr \n\t" // Move the bit into Z flag
-    "         muxz dira, %[SDAMask]        \n\t"
+	"         shr  %[datamask], #1                \n\t"      // Set up mask
+	"         and  %[datamask], %[databyte] wz,nr \n\t" // Move the bit into Z flag
+    "         muxz dira,        %[SDAMask]        \n\t"
     
     //Pulse clock
 	"         waitcnt %[nextCNT], %[clockDelay] \n\t"  
-	"         andn dira, %[SCLMask]           \n\t"    // Set SCL high
+	"         andn    dira,       %[SCLMask]    \n\t"    // Set SCL high
 	"         waitcnt %[nextCNT], %[clockDelay] \n\t" 
-	"         or dira, %[SCLMask]         \n\t"        // Set SCL low
+	"         or      dira,       %[SCLMask]    \n\t"        // Set SCL low
 	
 	//Return for more bits
 	"         djnz %[datamask], #__LMM_FCACHE_START+(PutByteLoop-PutByteStart) nr \n\t"
 	
 	// Get ACK
-	"        andn dira, %[SDAMask]       \n\t" // Float SDA high (release SDA)
-	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
-   	"        andn dira, %[SCLMask]       \n\t" // SCL high (by float)
-   	"        waitcnt %[nextCNT], %[clockDelay] \n\t"
-   	"        mov  ina,  ina              \n\t" //Sample input
-   	"        and  %[SDAMask], ina wz,nr  \n\t" // If != 0, ack'd, else nack
-	"        muxz %[result], #1          \n\t" // Set result to equal to Z flag
-   	"        or   dira, %[SCLMask]       \n\t" // Set scl low
-   	"        or   dira, %[SDAMask]       \n\t" // Set sda low 
-	"        jmp  __LMM_RET              \n\t"
+	"         andn    dira,       %[SDAMask]    \n\t" // Float SDA high (release SDA)
+	"         waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"         andn    dira,       %[SCLMask]    \n\t" // SCL high (by float)
+   	"         waitcnt %[nextCNT], %[clockDelay] \n\t"
+   	"         mov     %[temp],    ina           \n\t" //Sample input
+   	"         and     %[SDAMask], %[temp] wz,nr \n\t" // If != 0, ack'd, else nack
+	"         muxz    %[result],  #1            \n\t" // Set result to equal to Z flag
+   	"         or      dira,       %[SCLMask]    \n\t" // Set scl low
+   	"         or      dira,       %[SDAMask]    \n\t" // Set sda low 
+	"         jmp     __LMM_RET                 \n\t"
 	"PutByteEnd: "
-	"         .compress default             \n\t"
+	"         .compress default                 \n\t"
 	
 	: /* outputs */
 		[datamask] "+&r" (datamask),
@@ -205,17 +177,16 @@ int i2cBase::SendByte(unsigned char byte)
 		[SDAMask] "r" (SDAMask),
 		[SCLMask] "r" (SCLMask),
 		
-		[databyte] "r" (byte),
-		[nextCNT]  "r" (nextCNT),
+		[temp]    "r" (temp),
+		
+		[databyte]   "r" (byte),
+		[nextCNT]    "r" (nextCNT),
 		[clockDelay] "r" (clockDelay)
-	
 	);
-	
-//	OUTA &= ~ signalMask; //Set low
 
 	return result;
 
-
+//C++ version:
 //    int count;
 //    /* send the byte, high bit first */
 //    for (count = 8; --count >= 0; ) {
@@ -265,5 +236,6 @@ int i2cBase::Initialize(int SCLPin, int SDAPin)
 	OUTA &= ~SCLMask;
 	OUTA &= ~SDAMask;
 	
-	halfCycle = 60;
+	clockDelay = 90;
+
 }
