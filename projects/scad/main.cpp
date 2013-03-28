@@ -123,6 +123,7 @@ const int kGPS_BAUD = 9600;
 
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
+const unsigned short kEepromCanonNumberAddress = 0xFFF4;
 
 const int kBoardAlpha = 0x0000000A;
 const int kBoardBeta  = 0x0000000B;
@@ -187,6 +188,7 @@ volatile char currentFilename[] = "             ";
 
 volatile int unitNumber;
 volatile int boardVersion;
+volatile int canonNumber; //Number of the last written file (may include currently open file)
 
 int stacksize = sizeof(_thread_state_t)+sizeof(int)*3 + sizeof(int)*100;
 
@@ -263,7 +265,15 @@ then opens the file for writing, and then this function returns.
 void OpenFile(int identifier){
     char buffer[12];
 //    char buff2[4];
-    for(int i = 0; i < 1000; i++)
+	canonNumber += 1; //canonNumber refers to the last created file, so we need
+	                  // to move to the next free one. This line is necessary
+	                  // in case the file using the current canonNumber has been
+	                  // deleted: we don't want to still create a file with
+	                  // that number.
+	if(canonNumber < 0 || canonNumber >= 1000){
+		canonNumber = 0;
+	}
+    for(; canonNumber < 1000; canonNumber++)
     {
         buffer[0] = 0;
 
@@ -271,7 +281,7 @@ void OpenFile(int identifier){
 		strcat(buffer, "B");
 		strcat(buffer, Numbers::Dec(identifier));
 		strcat(buffer, "F");
-		strcat(buffer, Numbers::Dec(i));
+		strcat(buffer, Numbers::Dec(canonNumber));
 		strcat(buffer, ".RNB");
         int result = sd->Open(buffer, 'r');
         if(result == -1) break;
@@ -782,6 +792,7 @@ int main(void)
 	eeprom = new Eeprom;
 	unitNumber = eeprom->Get(kEepromUnitAddress, 4);
 	boardVersion = eeprom->Get(kEepromBoardAddress, 4);
+	canonNumber = eeprom->Get(kEepromCanonNumberAddress, 4);
 	
 //I2C
 	bus = new i2c();
@@ -885,6 +896,7 @@ int main(void)
 		ReadDateTime();
 		sd->SetDate(year+2000, month, day, hour, minute, second);
 		OpenFile(unitNumber);
+		eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistance
 
 
 		//Log SD data in new cog

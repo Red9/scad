@@ -55,8 +55,8 @@ const int kPIN_EEPROM_SDA = 29;
 const int kPIN_USB_TX = 30; //Tx from the Propeller
 const int kPIN_USB_RX = 31; //Rx to the Propeller
 
-//const int kUSB_BAUD = 115200;
-const int kUSB_BAUD = 460800;
+const int kUSB_BAUD = 115200;
+//const int kUSB_BAUD = 460800;
 
 
 
@@ -69,6 +69,7 @@ Serial * debug;
 
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
+const unsigned short kEepromCanonNumberAddress = 0xFFF4;
 
 const int kBoardAlpha = 0x0000000A;
 const int kBoardBeta  = 0x0000000B;
@@ -132,8 +133,32 @@ int GetUnitNumber(int oldNumber){
 
 }
 
+int GetCanonNumber(int oldNumber){
+	debug->Put("Please enter the canon number, or * to keep current number, then <enter>:\r\n>>> ");
+	debug->GetFlush();
+	
+	char buffer[13];
+	for(int i = 0;;++i){
+		buffer[i] = debug->Get();
+		debug->Put(buffer[i]); //echo
+		if(buffer[i] == '\r'){
+			buffer[i] = 0;
+			debug->Put('\n');
+			break;
+		}
+	}
+	int canonNumber;
+	if(buffer[0] == '*'){
+		canonNumber = oldNumber;
+	}else{
+	 	canonNumber = Numbers::Dec(buffer);
+	}
 
-int GetTwoDigits(char * caption){
+	return canonNumber;
+}
+
+
+int GetTwoDigits(const char * caption){
 	
 	char num[3];
 	debug->Put(caption);
@@ -181,10 +206,10 @@ int main(void){
 	debug->Start(kPIN_USB_RX, kPIN_USB_TX, kUSB_BAUD);
 	
 	
-	Serial bluetooth = new Serial;
-	bluetooth.Start(kPIN_BLUETOOTH_RX, kPIN_BLUETOOTH_TX, kBLUETOOTH_BAUD);
-	debug->Put("SU,46");
-	debug->SetBaud(460800);
+//	Serial bluetooth = new Serial;
+//	bluetooth.Start(kPIN_BLUETOOTH_RX, kPIN_BLUETOOTH_TX, kBLUETOOTH_BAUD);
+//	debug->Put("SU,46");
+//	debug->SetBaud(460800);
 	
 		
 	debug->Put("SCAD Configuration Utility!\r\n");
@@ -195,6 +220,7 @@ int main(void){
 	
 	int boardVersion = 0;
 	int unitNumber = 0;
+	int canonNumber = 0;
 	
 	i2c * rtcBus = new i2c;
 	rtcBus->Initialize(kPIN_I2C_SCL, kPIN_I2C_SDA);
@@ -205,6 +231,7 @@ int main(void){
 
 		unitNumber = eeprom.Get(kEepromUnitAddress, 4);
 		boardVersion = eeprom.Get(kEepromBoardAddress, 4);
+		canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
 	
 		int year, month, day, hour, minute, second;
 		rtc->GetClock(year, month, day, hour, minute, second);
@@ -213,14 +240,19 @@ int main(void){
 		debug->Put("\r\n--------------------------\r\n\r\n");
 		debug->Put("Current unit number:   %d\r\n", unitNumber);		
 		debug->Put("Current board version: 0x%x\r\n", boardVersion);
+		debug->Put("Current Canon file:    %d\r\n", canonNumber);
 		debug->Put("Current RTC clock is: 20%d-%d-%d at %d:%d:%d\r\n", year, month, day, hour, minute, second);
 		debug->Put("\r\n--------------------------\r\n\r\n");
 	
-		unitNumber = GetUnitNumber(unitNumber);
-		eeprom.Put(kEepromUnitAddress, unitNumber, 4);
 		
 		boardVersion = GetBoardVersion(boardVersion);
 		eeprom.Put(kEepromBoardAddress, boardVersion, 4);
+		
+		unitNumber = GetUnitNumber(unitNumber);
+		eeprom.Put(kEepromUnitAddress, unitNumber, 4);
+		
+		canonNumber = GetCanonNumber(canonNumber);
+		eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4);
 		
 		SetTime(rtc);
 	}
