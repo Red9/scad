@@ -40,9 +40,12 @@ bool LSM303DLHC::ReadAccl(int& x, int& y, int& z)
 		return false;
 	
 	//16 + 4 = 20, or the 12 bit data given by the LSM303DLHC.
-	x = ((data[0] | (data[1] << 8)) << 16) >> 20;
-	y = ((data[2] | (data[3] << 8)) << 16) >> 20;
-	z = ((data[4] | (data[5] << 8)) << 16) >> 20;
+	//We are keeping the last 4 bits, and can divide them out later
+	//(SRLM thinks the accl is only 12 bits, but the datasheet doesn't seem to
+	//specify.
+	x = ((data[0] | (data[1] << 8)) << 16) >> 16;
+	y = ((data[2] | (data[3] << 8)) << 16) >> 16;
+	z = ((data[4] | (data[5] << 8)) << 16) >> 16;
 
 	return true;
 

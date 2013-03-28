@@ -182,7 +182,7 @@ volatile int magn2_x, magn2_y, magn2_z;
 volatile int freeReadCycles = 0;
 volatile int freeReadCyclesMax = 0;
 
-volatile char currentFilename[] = "";
+volatile char currentFilename[] = "             ";
 
 
 volatile int unitNumber;
@@ -436,11 +436,14 @@ void LogVElement(ConcurrentBuffer * buffer){
 }
 
 void LogRElement(ConcurrentBuffer * buffer){
-	char filename[13];
-	for(int i = 0; currentFilename[i] != '\0'; i++){
-		filename[i] = currentFilename[i];
-	}
-	PutIntoBuffer(buffer, 'R', CNT, filename, '\0');
+//	char filename[13];
+//	int i = 0;
+//	for(; currentFilename[i] != '\0'; i++){
+//		filename[i] = currentFilename[i];
+//	}
+//	filename[i] = '\0';
+//	PutIntoBuffer(buffer, 'R', CNT, filename, '\0');
+	PutIntoBuffer(buffer, 'R', CNT, (char *)currentFilename, '\0');
 }
 
 void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message){
@@ -539,11 +542,35 @@ void ReadMagn2(void){
 
 void AddScale(ConcurrentBuffer * buffer){
 	//Baro
-	float baroScaleFloat = 0.01f;
-	int baroScale = *(int *)&baroScaleFloat;
+	const float baroScaleFloat = 0.01f;
+	const int baroScale = *(int *)&baroScaleFloat;
 	PutIntoBufferInt(buffer, 'E' | 0x80, CNT, baroScale, baroScale);
 	
-	delete buffer;
+	//Accl
+	const float acclScaleFloat = 0.00735f; // 0.012g / 16 * 9.8m/s^2
+	const int acclScale = *(int *)&acclScaleFloat;
+	PutIntoBufferInt(buffer, 'A' | 0x80, CNT, acclScale, acclScale, acclScale);
+#ifdef EXTERNAL_IMU
+	PutIntoBufferInt(buffer, 'B' | 0x80, CNT, acclScale, acclScale, acclScale);
+#endif
+
+	//Magn
+	const float magnScaleFloatXY = 4.347826e-7f; // 1/230gauss * 0.0001 tesla
+	const int   magnScaleXY = *(int *)&magnScaleFloatXY;
+	const float magnScaleFloatZ = 4.87804878e-7f; // 1/205gauss * 0.0001 tesla
+	const int   magnScaleZ = *(int *)&magnScaleFloatZ;
+	PutIntoBufferInt(buffer, 'M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+#ifdef EXTERNAL_IMU
+	PutIntoBufferInt(buffer, 'N' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+#endif
+
+	const float gyroScaleFloat = 0.001221730475f; // 0.070degrees * 0.0174532925 radians
+	const int   gyroScale = *(int *)&gyroScaleFloat;
+	PutIntoBufferInt(buffer, 'G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+#ifdef EXTERNAL_IMU
+	PutIntoBufferInt(buffer, 'H' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+#endif
+
 }
 	
 void ReadSensors(){
