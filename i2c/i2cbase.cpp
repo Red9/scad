@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 //TODO: Add assert that bool is 4 bytes (or puttable in register?).
+//TODO(SRLM): Do the ASM sections need to be volatile?
 
 #define i2c_float_scl_high (DIRA &= ~SCLMask)
 #define i2c_set_scl_low    (DIRA |= SCLMask)
@@ -29,6 +30,7 @@ unsigned char i2cBase::ReadByte(bool acknowledge)
 	
     int result;
 	int datamask, nextCNT, temp;
+//	datamask = nextCNT = temp = 0; //Results in gibberish if uncommented?
 
 	__asm__ volatile(
 	"         fcache #(GetByteEnd - GetByteStart)\n\t"
@@ -127,8 +129,7 @@ int i2cBase::SendByte(unsigned char byte)
     int result;
 
 	int datamask, nextCNT, temp;
-
-	//TODO(SRLM): Get rid of ina shadow register.
+	datamask = nextCNT = temp = 0;
 
 	__asm__ volatile(
 	"         fcache #(PutByteEnd - PutByteStart)\n\t"
@@ -237,5 +238,7 @@ int i2cBase::Initialize(int SCLPin, int SDAPin)
 	OUTA &= ~SDAMask;
 	
 	clockDelay = 90;
+	
+	return 0;
 
 }

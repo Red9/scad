@@ -98,7 +98,7 @@ unsigned char i2c::Get(unsigned char device, unsigned char address, char * bytes
 unsigned char i2c::Put(unsigned char device, char byte)
 {
 	//Warning: this method is not unit tested! (it's run, but the MS5611 does
-	//not have a register that can be written to and read from.
+	//not have a register that can be written to and read from).
 	
 	base.Start();
 	base.SendByte(device);

@@ -118,7 +118,7 @@ static int GetkSize(){return kSize;};
 private:
 
 unsigned int timeout;
-static const int kSize = 512; //Can be any size, doesn't have to be a multiple of 2
+static const int kSize = 900; //Can be any size, doesn't have to be a multiple of 2
 volatile static char buffer [kSize];
 static bool initialized;
 

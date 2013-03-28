@@ -1,11 +1,12 @@
 // Copyright 2013 SRLM and Red9
 #include <propeller.h>
-#include "unity.h"
-
 #include <stdio.h>
-
 #include <stdlib.h>
+#include <stdint.h>
 
+
+
+#include "unity.h"
 
 //TODO: Add test for shadow registers being used (is that possible to test?)
 //TODO: Add test for bool sized 4 bytes...
@@ -264,10 +265,177 @@ void test_WhatHappensWhenACogReachesTheEndWithCogstop(void){
 	free(stackC);
 }
 
+// -----------------------------------------------------------------------------
+
+void test_64bitIntegerBasic(void){
+	volatile int64_t a = 0x1;
+	
+	a = a << 32;
+	a = a >> 32;
+	TEST_ASSERT_EQUAL_INT(0x1, a);
+}
+
+void test_64bitIntegerAdd(void){
+	volatile int64_t a = 0x100000000;
+	a = a + a; //== 0x200000000;
+
+#ifndef UNITY_SUPPORT_64	
+	a = a >> 32; //== 0x2;
+	TEST_ASSERT_EQUAL_INT(0x2, a);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x200000000, a);
+#endif
+}
+
+void test_64bitIntegerSubtract(void){
+	volatile int64_t a = 0x500000000;
+	a = a - 0x100000000;
+	
+#ifndef UNITY_SUPPORT_64
+	a = a >> 32;
+	TEST_ASSERT_EQUAL_INT(0x4, a);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x400000000, a);
+#endif
+}
+
+void test_64bitIntegerMultiply(void){
+	volatile int64_t a = 0x3;
+	volatile int64_t b = 0x300000000;
+	a = a * b;
+	
+#ifndef UNITY_SUPPORT_64
+	a = a >> 32;	
+	TEST_ASSERT_EQUAL_INT(0x9, a);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x900000000, a);
+#endif
+}
+
+void test_64bitIntegerDivide(void){
+	volatile int64_t a = 0x3;
+	volatile int64_t b = 0x900000000;
+	a = b / a;
+
+#ifndef UNITY_SUPPORT_64
+	a = a >> 32;
+	TEST_ASSERT_EQUAL_INT(0x3, a);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x300000000, a);
+#endif
+}
+
+void test_64bitIntegerAddSpeed(void){
+
+	//Nothing
+	int startCNT = CNT;
+	int endCNT = CNT;
+	int nothingDelta = endCNT - startCNT;
+
+	//64 bit
+	volatile int64_t a64 = 0x500000000;
+	startCNT = CNT;
+	a64 = a64 + a64;
+	endCNT = CNT;
+	UnityPrint("64bit add deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+
+	//32 bit
+	volatile int32_t a32 = 0x50000;
+	startCNT = CNT;
+	a32 = a32 + a32;
+	endCNT = CNT;
+	UnityPrint("32bit add deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+	
+	
+	TEST_ASSERT_EQUAL_INT(0xA0000, a32);	
+#ifndef UNITY_SUPPORT_64
+	a64 = a64 >> 32;
+	TEST_ASSERT_EQUAL_INT(0xA, a64);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0xA00000000, a64);
+#endif
 
 
+}
 
 
+void test_64bitIntegerDivideSpeed(void){
+	//Nothing
+	int startCNT = CNT;
+	int endCNT = CNT;
+	int nothingDelta = endCNT - startCNT;
+
+
+	//64 bit
+	volatile int64_t a64 = 0x600000000;
+	startCNT = CNT;
+	a64 = a64 / 3;
+	endCNT = CNT;	
+	UnityPrint("64bit divide deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+	
+	//32 bit
+	volatile int32_t a32 = 0x60000;
+	startCNT = CNT;
+	a32 = a32 / 3;
+	endCNT = CNT;
+	UnityPrint("32bit divide deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+	
+	TEST_ASSERT_EQUAL_INT(0x20000, a32);
+#ifndef UNITY_SUPPORT_64
+	a64 = a64 >> 32;
+	TEST_ASSERT_EQUAL_INT(0x2, a64);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x200000000, a64);
+#endif
+
+
+}
+
+
+void test_64bitIntegerMultiplySpeed(void){
+	
+	//Nothing
+	int startCNT = CNT;
+	int endCNT = CNT;
+	int nothingDelta = endCNT - startCNT;
+	
+	//64 bit
+	volatile int64_t a64 = 0x600000000;
+	startCNT = CNT;
+	a64 = a64 * 0x30;
+	endCNT = CNT;
+	UnityPrint("64bit multiply deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+	
+	
+	//32 bit
+	volatile int32_t a32 = 0x60000;
+	startCNT = CNT;
+	a32 = a32 * 0x30;
+	endCNT = CNT;
+	UnityPrint("32bit multiply deltaCNT == ");
+	UnityPrintNumber(endCNT - startCNT - nothingDelta);
+	UNITY_OUTPUT_CHAR('\n');
+		
+	TEST_ASSERT_EQUAL_HEX32(0x1200000, a32);
+#ifndef UNITY_SUPPORT_64
+	a64 = a64 >> 32;
+	TEST_ASSERT_EQUAL_HEX32(0x120, a64);
+#else
+	TEST_ASSERT_EQUAL_HEX64(0x12000000000, a64);
+#endif
+
+
+}
 
 
 

@@ -9,6 +9,8 @@
 
 #define UNITY
 
+//#define UNITY_SUPPORT_64
+
 #include "unity_internals.h"
 
 //-------------------------------------------------------
