@@ -441,8 +441,14 @@ void test_64bitIntegerMultiplySpeed(void){
 
 
 
+// -----------------------------------------------------------------------------
 
-
+void test_FloatVariableToInt(void){
+	// Get the bits of a float number into an int
+	const float floatNum = 0.01f;
+	int number = *(int *)&floatNum;
+	TEST_ASSERT_EQUAL_HEX32(0x3C23D70A, number);
+}
 
 
 

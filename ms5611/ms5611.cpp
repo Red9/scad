@@ -37,6 +37,8 @@ MS5611::MS5611(i2c * newbus){
 
 	newData = false;
 	
+	conversionValidCNT = CNT + (CLKFREQ*9)/1000;
+	
 	
 }
 
@@ -47,6 +49,12 @@ int MS5611::ExpandReading(const char data[]){
 
 bool MS5611::Touch(){
 
+	if(CNT < conversionValidCNT //Not ready, simple case
+	   || (CNT > 0x7fffFfff && conversionValidCNT < 0x7fffFfff)
+	){ 
+		return false;
+	}
+
 	//Read ADC on MS5611, and get whatever it was converting.
 	char data[3];
 	
@@ -54,19 +62,23 @@ bool MS5611::Touch(){
 	
 	bus->Get(deviceBaro, data, 3);	
 	int reading = ExpandReading(data);
-	
 	newData = true;
+	
+	conversionValidCNT = CNT + (CLKFREQ*9)/1000;
+	
 
 	if(convertingTemperature){
 		D2 = reading;
 		//Set ADC to convert pressure
 		bus->Put(deviceBaro, kConvertD1OSR4096);
+		
 		convertingTemperature = false;
 		return false;
 	}else{
 		D1 = reading;
 		//Set ADC to convert temperature
 		bus->Put(deviceBaro, kConvertD2OSR4096);
+		
 		convertingTemperature = true;
 		return true;
 	}			

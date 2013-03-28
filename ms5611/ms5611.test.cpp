@@ -43,6 +43,7 @@ void test_GetPressureTemperatureBasic(void){
 //	int endCNT = CNT;
 //	int nothingDelta = endCNT-startCNT;
 
+//	while(true){
 	//Touch 1
 	waitcnt(CLKFREQ/100 + CNT);
 //	startCNT = CNT;
@@ -77,6 +78,14 @@ void test_GetPressureTemperatureBasic(void){
 	
 	TEST_ASSERT_TRUE(pressure != 0);
 	TEST_ASSERT_TRUE(temperature != 0);
+	
+//	UnityPrint("Temperature: ");
+//	UnityPrintNumber(temperature);
+//	UNITY_OUTPUT_CHAR('\t');
+//	UnityPrint("Pressure: ");
+//	UnityPrintNumber(pressure);
+//	UNITY_OUTPUT_CHAR('\n');
+//	}
 }
 
 
@@ -139,12 +148,53 @@ void test_GetProccessedIsNotRaw(void){
 	TEST_ASSERT_FALSE(D2 == t);
 }
 
-void test_TouchIsTrueFalseTrueFalsePattern(void){
-	TEST_ASSERT_FALSE(sut->Touch());
-	TEST_ASSERT_TRUE(sut->Touch());
-	TEST_ASSERT_FALSE(sut->Touch());
-	TEST_ASSERT_TRUE(sut->Touch());
+
+void test_TouchTimeoutEffectWhenCalledQuickly(void){
+	for(int i = 0; i < 25; i++){
+		for(int j = 0; j < 17; j++){
+			waitcnt(CLKFREQ/1000 + CNT);
+			TEST_ASSERT_FALSE(sut->Touch());
+		}
+		waitcnt(CLKFREQ/1000 + CNT);
+		TEST_ASSERT_TRUE(sut->Touch());
+		TEST_ASSERT_FALSE(sut->Touch());
+	}
 }
+
+void test_TouchTimeoutHasNoEffectWhenCalledSlowly(void){
+	for(int i = 0; i < 100; i++){
+		waitcnt(CLKFREQ/100 + CNT);
+		TEST_ASSERT_FALSE(sut->Touch());
+		waitcnt(CLKFREQ/100 + CNT);
+		TEST_ASSERT_TRUE(sut->Touch());
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

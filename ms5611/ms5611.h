@@ -1,7 +1,9 @@
 #ifndef SRLM_PROPGCC_MS5611_H_
 #define SRLM_PROPGCC_MS5611_H_
 
+#include <propeller.h>
 #include "i2c.h"
+
 
 /** MS5611 Barometer interface
 
@@ -143,6 +145,8 @@ private:
 	bool newData;
 	bool convertingTemperature;
 	bool status;
+	
+	unsigned int conversionValidCNT;
 	
 	
 	const static char deviceBaro = 0b11101110;

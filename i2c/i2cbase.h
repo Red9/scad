@@ -1,6 +1,8 @@
-
 #ifndef i2cbase_Class_Defined__
 #define i2cbase_Class_Defined__
+
+#include <propeller.h>
+
 
 //Note: refactoring this into it's own class took all of 8 bytes extra :^)
 
@@ -17,6 +19,12 @@
   *
   * @author SRLM
   * @date   2013-01-21
+  * @version 1.1
+  
+  Version History
+  + 1.1 Updated the routines to use FCACHE'd inline assembly. It now runs faster
+        and more precisely.
+  + 1.0 Initial release.
   */
 class i2cBase
 {

@@ -6,7 +6,7 @@ GPSParser::GPSParser(int Rx_pin, int Tx_pin, int Rate)
     head = 0;
     gps.Start(Rx_pin, Tx_pin, Rate);
     
-    recordingSentence == false;
+    recordingSentence = false;
 }
 
 GPSParser::~GPSParser(){

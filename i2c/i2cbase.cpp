@@ -1,10 +1,7 @@
-#include <propeller.h>
-#include "i2cbase.h"
-
-#include <stdio.h>
-
-//TODO: Add assert that bool is 4 bytes (or puttable in register?).
+//TODO: Add assert that bool is 4 bytes (or puttable in register?). (Static_assertion)
 //TODO(SRLM): Do the ASM sections need to be volatile?
+
+#include "i2cbase.h"
 
 #define i2c_float_scl_high (DIRA &= ~SCLMask)
 #define i2c_set_scl_low    (DIRA |= SCLMask)

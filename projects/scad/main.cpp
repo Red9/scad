@@ -15,14 +15,14 @@
 #include "eeprom.h"
 #include "max17048.h"
 #include "pcf8523.h"
-//#include "gpsparser.h"
 #include "mtk3339.h"
+#include "ms5611.h"
 
 #include "pin.h"
 
 #include "stdlib.h"
 
-//TODO(SRLM): Add tests to shut off when battery voltage is too low.
+//TODO(SRLM): Add tests to beginning to not log when battery voltage is too low.
 
 //TODO(SRLM): Change ELUM to something more generic...
 
@@ -98,7 +98,7 @@ const int kPIN_USB_RX = 31; //Rx to the Propeller
 
 
 /*
-Redifinitions of Pins
+Redefinition of Pins
 */
 #ifdef EXTERNAL_IMU
 const int kPIN_I2C_SCL_2 = kPIN_USER_5;
@@ -130,26 +130,27 @@ const int kBoardBeta2 = 0x000000B2;
 const int kBoardGamma = 0x00000004;
 
 
-
-Serial * serial;
-Max8819 * pmic;
-Elum * elum;
-i2c * bus;
-LSM303DLHC * lsm;
-L3GD20 * l3g;
-Eeprom * eeprom;
-PCF8523 * rtc;
-MAX17048 * fuel;
-MTK3339 * gps;
-SecureDigitalCard * sd;
+//TODO: Do any of these need to be volatile?
+SecureDigitalCard * sd = NULL;
+Serial     * serial = NULL;
+Max8819    * pmic   = NULL;
+Elum       * elum   = NULL;
+i2c        * bus    = NULL;
+LSM303DLHC * lsm    = NULL;
+L3GD20     * l3g    = NULL;
+Eeprom     * eeprom = NULL;
+PCF8523    * rtc    = NULL;
+MAX17048   * fuel   = NULL;
+MTK3339    * gps    = NULL;
+MS5611     * baro   = NULL;
 
 #ifdef EXTERNAL_IMU
-i2c * bus2;
-LSM303DLHC * lsm2;
-L3GD20 * l3g2;
+i2c        * bus2   = NULL;
+LSM303DLHC * lsm2   = NULL;
+L3GD20     * l3g2   = NULL;
 #endif
 
-Pin * led;
+Pin * led = NULL;
 
 
 /*
@@ -160,11 +161,15 @@ volatile bool sdPresent = false;
 
 volatile int SDBufferFree = 999999; //large number for before we start...
 
+const int kDefaultFuelVoltage = 0;
+
 volatile int fuel_soc = 0;
 volatile int fuel_rate = 0;
-volatile int fuel_voltage = 0;
+volatile int fuel_voltage = kDefaultFuelVoltage;
 
 volatile int year, month, day, hour, minute, second;
+
+volatile int pressure, temperature;
 
 volatile int gyro_x, gyro_y, gyro_z;
 volatile int accl_x, accl_y, accl_z;
@@ -294,7 +299,7 @@ Six Byte binary version of @a PutIntoBuffer()
 
 void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 		unsigned int a, unsigned int b, unsigned int c){
-	char data[13];
+	char data[13]; //TODO(SRLM): Does this need to be 13 bytes?
 	data[0] = identifier;
 	
 //Little endian
@@ -314,6 +319,66 @@ void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 	data[ 9]= (c & 0xFF)       >> 0;
 
 	while(buffer->Put(data, 11) == false){}			
+}
+
+/**
+Eight byte (two int) version of @a PutIntoBuffer()
+*/
+void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
+                   const unsigned int cnt, const int a, const int b){
+	char data[13];
+	data[0] = identifier;
+	
+	//Little endian
+	data[4] = (cnt & 0xFF000000) >> 24;
+	data[3] = (cnt & 0xFF0000)   >> 16;
+	data[2] = (cnt & 0xFF00)     >> 8;
+	data[1] = (cnt & 0xFF)       >> 0;
+	
+	data[8] = (a & 0xFF000000) >> 24;
+	data[7] = (a & 0xFF0000)   >> 16;
+	data[6] = (a & 0xFF00)     >> 8;
+	data[5] = (a & 0xFF)       >> 0;
+	
+	data[12] = (b & 0xFF000000) >> 24;
+	data[11] = (b & 0xFF0000)   >> 16;
+	data[10] = (b & 0xFF00)     >> 8;
+	data[9]  = (b & 0xFF)       >> 0;
+	
+	while(buffer->Put(data, 13) == false){}
+}
+
+/**
+Twelve byte (three int) version of @a PutIntoBuffer()
+*/
+void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
+                   const unsigned int cnt,
+                   const int a, const int b, const int c){
+	char data[17];
+	data[0] = identifier;
+	
+	//Little endian
+	data[4] = (cnt & 0xFF000000) >> 24;
+	data[3] = (cnt & 0xFF0000)   >> 16;
+	data[2] = (cnt & 0xFF00)     >> 8;
+	data[1] = (cnt & 0xFF)       >> 0;
+	
+	data[8] = (a & 0xFF000000) >> 24;
+	data[7] = (a & 0xFF0000)   >> 16;
+	data[6] = (a & 0xFF00)     >> 8;
+	data[5] = (a & 0xFF)       >> 0;
+	
+	data[12] = (b & 0xFF000000) >> 24;
+	data[11] = (b & 0xFF0000)   >> 16;
+	data[10] = (b & 0xFF00)     >> 8;
+	data[9]  = (b & 0xFF)       >> 0;
+	
+	data[16] = (c & 0xFF000000) >> 24;
+	data[15] = (c & 0xFF0000)   >> 16;
+	data[14] = (c & 0xFF00)     >> 8;
+	data[13] = (c & 0xFF)       >> 0;
+	
+	while(buffer->Put(data, 17) == false){}
 }
 
 
@@ -439,6 +504,13 @@ void ReadFuel(){
 	fuel_rate    = fuel->GetChargeRate();
 }
 
+void ReadBaro(){
+	int p, t;
+	baro->Get(p, t, true);
+	pressure = p;
+	temperature = t;
+}
+
 #ifdef EXTERNAL_IMU
 void ReadGyro2(void){
 	int x, y, z;
@@ -465,16 +537,28 @@ void ReadMagn2(void){
 }
 #endif
 
-
+void AddScale(ConcurrentBuffer * buffer){
+	//Baro
+	float baroScaleFloat = 0.01f;
+	int baroScale = *(int *)&baroScaleFloat;
+	PutIntoBufferInt(buffer, 'E' | 0x80, CNT, baroScale, baroScale);
+	
+	delete buffer;
+}
 	
 void ReadSensors(){
+
+	ConcurrentBuffer * buffer = new ConcurrentBuffer();
+	
+	AddScale(buffer);
+
 	char * gpsString = NULL;
 	//Flush GPS buffer.
 	while( (gpsString = gps->Get()) != NULL) {/*Throw away stings*/}
 	
 
 
-	ConcurrentBuffer * buffer = new ConcurrentBuffer();
+	
 	
 	LogRElement(buffer);
 	LogVElement(buffer);
@@ -490,6 +574,8 @@ void ReadSensors(){
 	Scheduler gyro2Scheduler(100*10);
 	Scheduler magn2Scheduler(25*10);
 #endif
+
+	//TODO(SRLM): What about freeReadCycles?
 
 	while(datalogging){
 		
@@ -526,6 +612,13 @@ void ReadSensors(){
 			PutIntoBuffer(buffer, 'D', CNT, year, month, day);
 		}
 		
+		if(baro->Touch() == true){
+			freeReadCycles = 0;
+			ReadBaro();
+			PutIntoBufferInt(buffer, 'E', CNT, pressure, temperature);
+		}
+		
+		
 		if((gpsString = gps->Get()) != NULL){
 			freeReadCycles = 0;
 			PutIntoBuffer(buffer, 'P', CNT, gpsString, '\0');
@@ -554,9 +647,14 @@ void ReadSensors(){
 
 
 		//----------------------------------------------------------------------
-		if(fuel_voltage < 3500){ //Dropout of 150mV@300mA, with some buffer
+		if(fuel_voltage < 3500 and fuel_voltage != kDefaultFuelVoltage){ //Dropout of 150mV@300mA, with some buffer
 			LogStatusElement(buffer, kFatal, "Low Voltage");
-			break;
+			
+			//Make sure to log fuel at least once...
+			ReadFuel();
+			PutIntoBuffer(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+			
+			datalogging = false;
 		}
 		
 		if(SDBufferFree < buffer->GetkSize() / 2){
@@ -589,7 +687,7 @@ void Datalog(void * parameter){
 	
 	SDBufferFree = sdBuffer->GetkSize();
 	int i = 0xFFFFFF;
-	while(true){
+	while(datalogging){
 		volatile char * data;
 		const int data_size = sdBuffer->Get(data);
 	
@@ -603,23 +701,25 @@ void Datalog(void * parameter){
 			if(elum->GetButton()){
 				buttonCount++;
 				if(buttonCount >= maxButtonCount){
-					break;
+					datalogging = false;
 				}
 			}else{
 				buttonCount = 0;
 			}
 		}
 	}
+
+	waitcnt(CLKFREQ/100 + CNT); //10 ms @80MHz
 	
-	//Todo(SRLM): Finish up remaining bytes in buffer here.
+	//Finish up remaining bytes in buffer here.
+	while(sdBuffer->GetFree() != sdBuffer->GetkSize()-1){
+		volatile char * data;
+		const int data_size = sdBuffer->Get(data);
 	
-	datalogging = false;
-	waitcnt(CLKFREQ/50 + CNT); //20 ms @80MHz
-	
-//	while((data_size = sdBuffer->Get(data)) != 0){
-//	
-//	}
-	
+		sd->Put((char *)data, data_size);
+	}
+
+	waitcnt(CLKFREQ/100 + CNT); //10 ms @80MHz	
 	
 	sd->Close();
 	delete sdBuffer;
@@ -683,6 +783,10 @@ int main(void)
 		LogStatusElement(buffer, kError, "Failed to initialize the PCF8523.");
 	}
 	
+	baro = new MS5611(bus);
+	if(baro->GetStatus() == false){
+		LogStatusElement(buffer, kError, "Failed to initialize the MS5611.");
+	}
 	
 	
 	
@@ -762,17 +866,9 @@ int main(void)
 		
 		//Read Sensors (inc. I2C) in current cog
 		ReadSensors();
-		
 
-//		//ReadI2C in new cog
-//		int * i2cStack = (int*) malloc(stacksize);		
-//		int i2cCog = cogstart(ReadI2C, NULL, i2cStack, stacksize);
-
-//		//Datalog in current cog
-//		SdDatalog(sd);
-		
 		//Cleanup
-		waitcnt(CLKFREQ/10 + CNT); //Wait 100ms for everything to settle down.	
+		waitcnt(CLKFREQ/5 + CNT); //Wait 200ms for everything to settle down.	
 		free(datalogStack);
 
 	}

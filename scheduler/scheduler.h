@@ -2,6 +2,12 @@
 #define SRLM_PROPGCC_SCHEDULER_H_
 /**
  *
+  warning: This class does not guarentee a minimum seperation between true Run()
+  calls. Instead, it guarentees that, on average, a true Run() will happen with
+  the specified frequency. Depending on how often Run() is called, there may be
+  some jitter (if it is not called frequently enough). TODO(SRLM): Add more here
+ 
+ 
  * @author SRLM
  * @date   2013-01-21
  */
