@@ -38,28 +38,28 @@ void test_Init(void)
 
 void test_ReadAcclPositiveNumbers(void)
 {
-	//Notice how the lower 4 bits are removed: LSM303DLHC returns 12 bit numbers!
+	//All 16 bits are returned from the LSM303DLHC
 	char indata[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 	bus->SetXYZ(indata, 6);
 	int x, y, z;
 	TEST_ASSERT_TRUE(acclMagn.ReadAccl(x, y, z));
 	
-	TEST_ASSERT_EQUAL_HEX32(0x020, x);
-	TEST_ASSERT_EQUAL_HEX32(0x040, y);
-	TEST_ASSERT_EQUAL_HEX32(0x060, z);
+	TEST_ASSERT_EQUAL_HEX32(0x0201, x);
+	TEST_ASSERT_EQUAL_HEX32(0x0403, y);
+	TEST_ASSERT_EQUAL_HEX32(0x0605, z);
 }
 
 void test_ReadAcclNegativeNumbers(void)
 {
-	//Notice how the lower 4 bits are removed: LSM303DLHC returns 12 bit numbers!
+	//All 16 bits are returned from the LSM303DLHC
 	char indata[] = {0x01, 0xF2, 0x03, 0xF4, 0x05, 0xF6};
 	bus->SetXYZ(indata, 6);
 	int x, y, z;
 	TEST_ASSERT_TRUE(acclMagn.ReadAccl(x, y, z));
 	
-	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF20, x);
-	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF40, y);
-	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF60, z);
+	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF201, x);
+	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF403, y);
+	TEST_ASSERT_EQUAL_HEX32(0xFFFFFF605, z);
 }
 
 void test_ReadMagnPositiveNumbers(void)

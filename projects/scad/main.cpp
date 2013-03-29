@@ -12,6 +12,7 @@
 #include "numbers.h"
 #include "scheduler.h"
 #include "concurrentbuffer.h"
+#include "pib.h"
 #include "eeprom.h"
 #include "max17048.h"
 #include "pcf8523.h"
@@ -303,127 +304,127 @@ void OpenFile(int identifier){
 
 
 
-/**
-Six Byte binary version of @a PutIntoBuffer()
-*/
+///**
+//Six Byte binary version of @a PutIntoBuffer()
+//*/
 
-void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
-		unsigned int a, unsigned int b, unsigned int c){
-	char data[13]; //TODO(SRLM): Does this need to be 13 bytes?
-	data[0] = identifier;
-	
-//Little endian
-	data[4] = (cnt & 0xFF000000) >> 24;
-	data[3] = (cnt & 0xFF0000)   >> 16;
-	data[2] = (cnt & 0xFF00)     >> 8;
-	data[1] = (cnt & 0xFF)       >> 0;
-	
-// Two byte mode
-	data[6] = (a & 0xFF00)     >> 8;
-	data[5] = (a & 0xFF)       >> 0;
-	
-	data[8] = (b & 0xFF00)     >> 8;
-	data[7] = (b & 0xFF)       >> 0;
-	
-	data[10]= (c & 0xFF00)     >> 8;
-	data[ 9]= (c & 0xFF)       >> 0;
+//void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+//		unsigned int a, unsigned int b, unsigned int c){
+//	char data[13]; //TODO(SRLM): Does this need to be 13 bytes?
+//	data[0] = identifier;
+//	
+////Little endian
+//	data[4] = (cnt & 0xFF000000) >> 24;
+//	data[3] = (cnt & 0xFF0000)   >> 16;
+//	data[2] = (cnt & 0xFF00)     >> 8;
+//	data[1] = (cnt & 0xFF)       >> 0;
+//	
+//// Two byte mode
+//	data[6] = (a & 0xFF00)     >> 8;
+//	data[5] = (a & 0xFF)       >> 0;
+//	
+//	data[8] = (b & 0xFF00)     >> 8;
+//	data[7] = (b & 0xFF)       >> 0;
+//	
+//	data[10]= (c & 0xFF00)     >> 8;
+//	data[ 9]= (c & 0xFF)       >> 0;
 
-	while(buffer->Put(data, 11) == false){}			
-}
+//	while(buffer->Put(data, 11) == false){}			
+//}
 
-/**
-Eight byte (two int) version of @a PutIntoBuffer()
-*/
-void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
-                   const unsigned int cnt, const int a, const int b){
-	char data[13];
-	data[0] = identifier;
-	
-	//Little endian
-	data[4] = (cnt & 0xFF000000) >> 24;
-	data[3] = (cnt & 0xFF0000)   >> 16;
-	data[2] = (cnt & 0xFF00)     >> 8;
-	data[1] = (cnt & 0xFF)       >> 0;
-	
-	data[8] = (a & 0xFF000000) >> 24;
-	data[7] = (a & 0xFF0000)   >> 16;
-	data[6] = (a & 0xFF00)     >> 8;
-	data[5] = (a & 0xFF)       >> 0;
-	
-	data[12] = (b & 0xFF000000) >> 24;
-	data[11] = (b & 0xFF0000)   >> 16;
-	data[10] = (b & 0xFF00)     >> 8;
-	data[9]  = (b & 0xFF)       >> 0;
-	
-	while(buffer->Put(data, 13) == false){}
-}
+///**
+//Eight byte (two int) version of @a PutIntoBuffer()
+//*/
+//void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
+//                   const unsigned int cnt, const int a, const int b){
+//	char data[13];
+//	data[0] = identifier;
+//	
+//	//Little endian
+//	data[4] = (cnt & 0xFF000000) >> 24;
+//	data[3] = (cnt & 0xFF0000)   >> 16;
+//	data[2] = (cnt & 0xFF00)     >> 8;
+//	data[1] = (cnt & 0xFF)       >> 0;
+//	
+//	data[8] = (a & 0xFF000000) >> 24;
+//	data[7] = (a & 0xFF0000)   >> 16;
+//	data[6] = (a & 0xFF00)     >> 8;
+//	data[5] = (a & 0xFF)       >> 0;
+//	
+//	data[12] = (b & 0xFF000000) >> 24;
+//	data[11] = (b & 0xFF0000)   >> 16;
+//	data[10] = (b & 0xFF00)     >> 8;
+//	data[9]  = (b & 0xFF)       >> 0;
+//	
+//	while(buffer->Put(data, 13) == false){}
+//}
 
-/**
-Twelve byte (three int) version of @a PutIntoBuffer()
-*/
-void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
-                   const unsigned int cnt,
-                   const int a, const int b, const int c){
-	char data[17];
-	data[0] = identifier;
-	
-	//Little endian
-	data[4] = (cnt & 0xFF000000) >> 24;
-	data[3] = (cnt & 0xFF0000)   >> 16;
-	data[2] = (cnt & 0xFF00)     >> 8;
-	data[1] = (cnt & 0xFF)       >> 0;
-	
-	data[8] = (a & 0xFF000000) >> 24;
-	data[7] = (a & 0xFF0000)   >> 16;
-	data[6] = (a & 0xFF00)     >> 8;
-	data[5] = (a & 0xFF)       >> 0;
-	
-	data[12] = (b & 0xFF000000) >> 24;
-	data[11] = (b & 0xFF0000)   >> 16;
-	data[10] = (b & 0xFF00)     >> 8;
-	data[9]  = (b & 0xFF)       >> 0;
-	
-	data[16] = (c & 0xFF000000) >> 24;
-	data[15] = (c & 0xFF0000)   >> 16;
-	data[14] = (c & 0xFF00)     >> 8;
-	data[13] = (c & 0xFF)       >> 0;
-	
-	while(buffer->Put(data, 17) == false){}
-}
+///**
+//Twelve byte (three int) version of @a PutIntoBuffer()
+//*/
+//void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
+//                   const unsigned int cnt,
+//                   const int a, const int b, const int c){
+//	char data[17];
+//	data[0] = identifier;
+//	
+//	//Little endian
+//	data[4] = (cnt & 0xFF000000) >> 24;
+//	data[3] = (cnt & 0xFF0000)   >> 16;
+//	data[2] = (cnt & 0xFF00)     >> 8;
+//	data[1] = (cnt & 0xFF)       >> 0;
+//	
+//	data[8] = (a & 0xFF000000) >> 24;
+//	data[7] = (a & 0xFF0000)   >> 16;
+//	data[6] = (a & 0xFF00)     >> 8;
+//	data[5] = (a & 0xFF)       >> 0;
+//	
+//	data[12] = (b & 0xFF000000) >> 24;
+//	data[11] = (b & 0xFF0000)   >> 16;
+//	data[10] = (b & 0xFF00)     >> 8;
+//	data[9]  = (b & 0xFF)       >> 0;
+//	
+//	data[16] = (c & 0xFF000000) >> 24;
+//	data[15] = (c & 0xFF0000)   >> 16;
+//	data[14] = (c & 0xFF00)     >> 8;
+//	data[13] = (c & 0xFF)       >> 0;
+//	
+//	while(buffer->Put(data, 17) == false){}
+//}
 
 
-/**
-String version of @a PutIntoBuffer()
+///**
+//String version of @a PutIntoBuffer()
 
-@param buffer     
-@param identifier 
-@param cnt        
-@param string     
-@param terminator All the characters in @a string are put into @a buffer until
-                  the terminator character is found.
+//@param buffer     
+//@param identifier 
+//@param cnt        
+//@param string     
+//@param terminator All the characters in @a string are put into @a buffer until
+//                  the terminator character is found.
 
-*/
-void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
-		const char * string, char terminator){
-	char data[100];
-	data[0] = identifier;
-	
-//Little endian
-	data[4] = (cnt & 0xFF000000) >> 24;
-	data[3] = (cnt & 0xFF0000)   >> 16;
-	data[2] = (cnt & 0xFF00)     >> 8;
-	data[1] = (cnt & 0xFF)       >> 0;
-	
-//	int i;
-//	for(i = 0; string[i] != terminator; i++){
-//		data[5+i] = string[i];
-//	}
-//	data[5+i] = '\0';
+//*/
+//void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+//		const char * string, char terminator){
+//	char data[100];
+//	data[0] = identifier;
+//	
+////Little endian
+//	data[4] = (cnt & 0xFF000000) >> 24;
+//	data[3] = (cnt & 0xFF0000)   >> 16;
+//	data[2] = (cnt & 0xFF00)     >> 8;
+//	data[1] = (cnt & 0xFF)       >> 0;
+//	
+////	int i;
+////	for(i = 0; string[i] != terminator; i++){
+////		data[5+i] = string[i];
+////	}
+////	data[5+i] = '\0';
 
-	
-	while(buffer->Put(data, 5, string, terminator) == false){}
-	
-}
+//	
+//	while(buffer->Put(data, 5, string, terminator) == false){}
+//	
+//}
 
 void LogVElement(ConcurrentBuffer * buffer){
 	char string [200];
@@ -441,7 +442,7 @@ void LogVElement(ConcurrentBuffer * buffer){
 	strcat(string, Numbers::Hex(boardVersion, 8));
 	strcat(string, " ");
 
-	PutIntoBuffer(buffer, 'V', CNT, string, '\0');
+	PIB::_string(buffer, 'V', CNT, string, '\0');
 
 }
 
@@ -453,7 +454,7 @@ void LogRElement(ConcurrentBuffer * buffer){
 //	}
 //	filename[i] = '\0';
 //	PutIntoBuffer(buffer, 'R', CNT, filename, '\0');
-	PutIntoBuffer(buffer, 'R', CNT, (char *)currentFilename, '\0');
+	PIB::_string(buffer, 'R', CNT, (char *)currentFilename, '\0');
 }
 
 void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message){
@@ -461,7 +462,7 @@ void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const cha
 	completeMessage[0] = '\0';
 	strcat(completeMessage, LogLevelIdentifier[level]);
 	strcat(completeMessage, message);
-	PutIntoBuffer(buffer, 'S', CNT, completeMessage, '\0');
+	PIB::_string(buffer, 'S', CNT, completeMessage, '\0');
 }
 
 void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message, const int numberA ){
@@ -470,7 +471,7 @@ void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const cha
 	strcat(completeMessage, LogLevelIdentifier[level]);
 	strcat(completeMessage, message);
 	strcat(completeMessage, Numbers::Dec(numberA));
-	PutIntoBuffer(buffer, 'S', CNT, completeMessage, '\0');
+	PIB::_string(buffer, 'S', CNT, completeMessage, '\0');
 }
 
 
@@ -554,14 +555,14 @@ void AddScale(ConcurrentBuffer * buffer){
 	//Baro
 	const float baroScaleFloat = 0.01f;
 	const int baroScale = *(int *)&baroScaleFloat;
-	PutIntoBufferInt(buffer, 'E' | 0x80, CNT, baroScale, baroScale);
+	PIB::_2x4(buffer, 'E' | 0x80, CNT, baroScale, baroScale);
 	
 	//Accl
 	const float acclScaleFloat = 0.00735f; // 0.012g / 16 * 9.8m/s^2
 	const int acclScale = *(int *)&acclScaleFloat;
-	PutIntoBufferInt(buffer, 'A' | 0x80, CNT, acclScale, acclScale, acclScale);
+	PIB::_3x4(buffer, 'A' | 0x80, CNT, acclScale, acclScale, acclScale);
 #ifdef EXTERNAL_IMU
-	PutIntoBufferInt(buffer, 'B' | 0x80, CNT, acclScale, acclScale, acclScale);
+	PIB::_3x4(buffer, 'B' | 0x80, CNT, acclScale, acclScale, acclScale);
 #endif
 
 	//Magn
@@ -569,16 +570,16 @@ void AddScale(ConcurrentBuffer * buffer){
 	const int   magnScaleXY = *(int *)&magnScaleFloatXY;
 	const float magnScaleFloatZ = 4.87804878e-7f; // 1/205gauss * 0.0001 tesla
 	const int   magnScaleZ = *(int *)&magnScaleFloatZ;
-	PutIntoBufferInt(buffer, 'M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+	PIB::_3x4(buffer, 'M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
 #ifdef EXTERNAL_IMU
-	PutIntoBufferInt(buffer, 'N' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+	PIB::_3x4(buffer, 'N' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
 #endif
 
 	const float gyroScaleFloat = 0.001221730475f; // 0.070degrees * 0.0174532925 radians
 	const int   gyroScale = *(int *)&gyroScaleFloat;
-	PutIntoBufferInt(buffer, 'G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+	PIB::_3x4(buffer, 'G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
 #ifdef EXTERNAL_IMU
-	PutIntoBufferInt(buffer, 'H' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+	PIB::_3x4(buffer, 'H' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
 #endif
 
 }
@@ -623,42 +624,42 @@ void ReadSensors(){
 		if(acclScheduler.Run()){
 			freeReadCycles = 0;
 			ReadAccl();
-			PutIntoBuffer(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+			PIB::_3x2(buffer, 'A', CNT, accl_x, accl_y, accl_z);
 		}
 		
 		if(gyroScheduler.Run()){
 			freeReadCycles = 0;
 			ReadGyro();
-			PutIntoBuffer(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+			PIB::_3x2(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
 		}
 
 		if(magnScheduler.Run()){
 			freeReadCycles = 0;
 			ReadMagn();
-			PutIntoBuffer(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+			PIB::_3x2(buffer, 'M', CNT, magn_x, magn_y, magn_z);
 		}
 		if(fuelScheduler.Run()){
 			freeReadCycles = 0;
 			ReadFuel();
-			PutIntoBuffer(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+			PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
 		}
 		if(timeScheduler.Run()){
 			freeReadCycles = 0;
 			ReadDateTime();
-			PutIntoBuffer(buffer, 'T', CNT, hour, minute, second);	
-			PutIntoBuffer(buffer, 'D', CNT, year, month, day);
+			PIB::_3x2(buffer, 'T', CNT, hour, minute, second);	
+			PIB::_3x2(buffer, 'D', CNT, year, month, day);
 		}
 		
 		if(baro->Touch() == true){
 			freeReadCycles = 0;
 			ReadBaro();
-			PutIntoBufferInt(buffer, 'E', CNT, pressure, temperature);
+			PIB::_2x4(buffer, 'E', CNT, pressure, temperature);
 		}
 		
 		
 		if((gpsString = gps->Get()) != NULL){
 			freeReadCycles = 0;
-			PutIntoBuffer(buffer, 'P', CNT, gpsString, '\0');
+			PIB::_string(buffer, 'P', CNT, gpsString, '\0');
 		}
 
 
@@ -666,19 +667,19 @@ void ReadSensors(){
 		if(accl2Scheduler.Run()){
 			freeReadCycles = 0;
 			ReadAccl2();
-			PutIntoBuffer(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+			PIB::_3x2(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
 		}
 		
 		if(gyro2Scheduler.Run()){
 			freeReadCycles = 0;
 			ReadGyro2();
-			PutIntoBuffer(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+			PIB::_3x2(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
 		}
 
 		if(magn2Scheduler.Run()){
 			freeReadCycles = 0;
 			ReadMagn2();
-			PutIntoBuffer(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+			PIB::_3x2(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
 		}
 #endif
 
@@ -689,7 +690,7 @@ void ReadSensors(){
 			
 			//Make sure to log fuel at least once...
 			ReadFuel();
-			PutIntoBuffer(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+			PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
 			
 			datalogging = false;
 		}

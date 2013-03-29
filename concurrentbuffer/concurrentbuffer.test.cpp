@@ -6,6 +6,12 @@
 #include "unity.h"
 #include "concurrentbuffer.h"
 
+#include "pib.h"
+
+
+
+//TODO Add test for CBPutArrayString with different terminator
+
 void setUp(void){
 	ConcurrentBuffer::ResetHead();
 }
@@ -210,21 +216,202 @@ void test_CBPutArrayString(void){
 }
 
 
-//TODO Add test for CBPutArrayString with different terminator
+// -----------------------------------------------------------------------------
+// PIB (PutIntoBuffer) tests
+// -----------------------------------------------------------------------------
+void test_PIB_3x2Simple(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x7278FE86;
+	char identifier = 'D';
+	int a = 0xFFFF;
+	int b = 0x0000;
+	int c = 0x0787;
+	
+	PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX16(a, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(b, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(c, buffer.Get() | buffer.Get() << 8);
+}
+
+void test_PIB_3x2ThrowsAwayUpperBytes(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x90523EDC;
+	char identifier = 'D';
+	int a = 0x1FFFF;
+	int b = 0x10000;
+	int c = 0xFFFF0787;
+	
+	PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX16(a, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(b, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(c, buffer.Get() | buffer.Get() << 8);
+}
+
+void test_PIB_3x2DoesNotPutInExtraBytes(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x7278FE86;
+	char identifier = 'D';
+	int a = 0xEEFFFF;
+	int b = 0x200000;
+	int c = 0x88970787;
+	
+
+	PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX16(a, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(b, buffer.Get() | buffer.Get() << 8);
+	TEST_ASSERT_EQUAL_HEX16(c, buffer.Get() | buffer.Get() << 8);
+	
+	volatile char * temp = NULL;
+	TEST_ASSERT_EQUAL_INT(0, buffer.Get(temp));
+}
 
 
+void test_PIB_3x4Simple(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x7278FE86;
+	char identifier = 'D';
+	int a = 0xFFFFFFFF;
+	int b = 0x0000;
+	int c = 0xF4787;
+	
+	PIB::_3x4(&buffer, identifier, cnt, a, b, c);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(a,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(b,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(c,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+}
 
+void test_PIB_3x4DoesNotPutInExtraBytes(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x8743470;
+	char identifier = 'E';
+	int a = 0x00ECB95;
+	int b = 0x1970;
+	int c = 0x0000;
+	
+	PIB::_3x4(&buffer, identifier, cnt, a, b, c);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(a,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(b,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(c,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	volatile char * temp = NULL;
+	TEST_ASSERT_EQUAL_INT(0, buffer.Get(temp));
+}
 
+void test_PIB_2x4Simple(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x7278FE86;
+	char identifier = 'D';
+	int a = 0xFFFFFFFF;
+	int b = 0x0000;
+	
+	PIB::_2x4(&buffer, identifier, cnt, a, b);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(a,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(b,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+}
 
+void test_PIB_2x4DoesNotPutInExtraBytes(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x0;
+	char identifier = 'H';
+	int a = 0x1;
+	int b = 0xFFFFFFFF;
+	
+	PIB::_2x4(&buffer, identifier, cnt, a, b);
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(a,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	TEST_ASSERT_EQUAL_HEX32(b,
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	volatile char * temp = NULL;
+	TEST_ASSERT_EQUAL_INT(0, buffer.Get(temp));
+}
 
-
-
-
-
-
-
-
-
+void test_PIB_stringSimple(void){
+	ConcurrentBuffer buffer;
+	
+	int cnt = 0x7278FE86;
+	char identifier = 'D';
+	char string [] = "Hello, World!\0\n";
+	
+	PIB::_string(&buffer, identifier, cnt, string, '\n');
+	
+	TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
+	
+	TEST_ASSERT_EQUAL_HEX32(cnt, 
+	buffer.Get() | buffer.Get() << 8 | buffer.Get() << 16 | buffer.Get() << 24);
+	
+	volatile char * result = NULL;
+	buffer.Get(result);
+	TEST_ASSERT_EQUAL_STRING(string, result);
+	
+	//No extra bytes:
+	volatile char * temp = NULL;
+	TEST_ASSERT_EQUAL_INT(0, buffer.Get(temp));
+	
+}
 
 
 
