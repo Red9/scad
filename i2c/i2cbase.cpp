@@ -22,12 +22,9 @@ void i2cBase::Stop()
 	i2c_float_sda_high;
 }
 
-unsigned char i2cBase::ReadByte(bool acknowledge)
-{
-	
+unsigned char i2cBase::ReadByte(const bool acknowledge){	
     int result;
 	int datamask, nextCNT, temp;
-//	datamask = nextCNT = temp = 0; //Results in gibberish if uncommented?
 
 	__asm__ volatile(
 	"         fcache #(GetByteEnd - GetByteStart)\n\t"
@@ -74,20 +71,16 @@ unsigned char i2cBase::ReadByte(bool acknowledge)
 	"         .compress default           \n\t"
 	
 	: /* outputs */
-		[datamask] "+&r" (datamask),
-    	[result]   "=&r" (result)
+		[datamask] "=&r" (datamask),
+    	[result]   "=&r" (result),
+    	[temp]     "=&r" (temp),
+    	[nextCNT]  "=&r" (nextCNT)
 
 	: /* inputs */
-		[SDAMask] "r" (SDAMask),
-		[SCLMask] "r" (SCLMask),
-		
-		[temp]        "r" (temp),
+		[SDAMask]     "r" (SDAMask),
+		[SCLMask]     "r" (SCLMask),
 		[acknowledge] "r" (acknowledge),
-		
-		
-		[nextCNT]    "r" (nextCNT),
-		[clockDelay] "r" (clockDelay)
-	
+		[clockDelay]  "r" (clockDelay)
 	);
 
 	return result;
@@ -121,12 +114,12 @@ unsigned char i2cBase::ReadByte(bool acknowledge)
 //    return byte;
 }
 
-bool i2cBase::SendByte(unsigned char byte)
-{
+bool i2cBase::SendByte(const unsigned char byte){
+	static_assert((int)true == 1, "Boolean true must be 1 for inline assembly to work.");
+
     int result;
 
 	int datamask, nextCNT, temp;
-	datamask = nextCNT = temp = 0;
 
 	__asm__ volatile(
 	"         fcache #(PutByteEnd - PutByteStart)\n\t"
@@ -167,22 +160,19 @@ bool i2cBase::SendByte(unsigned char byte)
 	"         jmp     __LMM_RET                 \n\t"
 	"PutByteEnd: "
 	"         .compress default                 \n\t"
-	
 	: /* outputs */
-		[datamask] "+&r" (datamask),
-    	[result]   "=&r" (result)
+		[datamask] "=&r" (datamask),
+    	[result]   "=&r" (result),
+    	[nextCNT]  "=&r" (nextCNT),
+    	[temp]     "=&r" (temp)
 	: /* inputs */
 		[SDAMask] "r" (SDAMask),
-		[SCLMask] "r" (SCLMask),
-		
-		[temp]    "r" (temp),
-		
-		[databyte]   "r" (byte),
-		[nextCNT]    "r" (nextCNT),
+		[SCLMask] "r" (SCLMask),	
+		[databyte]   "r" (byte),	
 		[clockDelay] "r" (clockDelay)
 	);
 
-	return result == 1;
+	return result;
 
 //C++ version:
 //    int count;
@@ -219,10 +209,11 @@ bool i2cBase::SendByte(unsigned char byte)
 
 }
 
-void i2cBase::Initialize(int SCLPin, int SDAPin)
+void i2cBase::Initialize(const int SCLPin, const int SDAPin)
 {
 	SCLMask = 1 << SCLPin;
 	SDAMask = 1 << SDAPin;
+	
 	
 	
 	//Set pins to input

@@ -12,6 +12,10 @@ const int kPIN_PCF8523_SQW = 27;
 PCF8523 * sut;
 i2c * bus;
 
+
+int startYear, startMonth, startDay, startHour, startMinute, startSecond;
+
+
 void setUp(void){
 	bus = new i2c;
 	bus->Initialize(kPIN_I2C_SCL, kPIN_I2C_SDA);
@@ -28,6 +32,13 @@ void tearDown(void){
 //	PCF8523 rtc(NULL);
 //	TEST_ASSERT_FALSE(rtc.GetStatus());
 //}
+
+void test_SaveCurrentClock(void){
+	//Saves the current clock so that we don't have to keep putting the time back in.
+	//It's ok if it get's off by a second or two.
+	sut->GetClock(startYear, startMonth, startDay, startHour, startMinute, startSecond);
+	TEST_IGNORE();
+}
 
 
 void test_GetStatusPass(void){
@@ -74,5 +85,10 @@ void test_SetGetClockNoWeekday(void){
 	TEST_ASSERT_EQUAL_INT_ARRAY(clock, result, 6);
 	
 
+}
+
+void test_RestoreCurrentClock(void){
+	sut->SetClock(startYear, startMonth, startDay, startHour, startMinute, startSecond);
+	TEST_IGNORE();
 }
 

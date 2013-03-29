@@ -42,7 +42,8 @@ const char * FillBuffer(const char * string){
 //}
 
 void test_GetIncompleteString(void){
-	const char * line = FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.");
+	//const char * line = 
+	FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.");
 	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
 }
 
@@ -74,7 +75,7 @@ void test_NullAfterString(void){
 }
 
 void test_GetPartialStringAtBeginning(void){
-	const char * line0 = 
+	//const char * line0 = 
 		FillBuffer(".00,N,0.00,K,N*32\r\n");
 	const char * line1 =
 		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");

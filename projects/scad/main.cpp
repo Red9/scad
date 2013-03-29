@@ -1,11 +1,12 @@
 #include <string.h>
 #include <propeller.h>
 
+#include "c++-alloc.h"
+
 #include "serial.h"
 #include "i2c.h"
 #include "l3gd20.h"
 #include "lsm303dlhc.h"
-#include "c++-alloc.h"
 #include "securedigitalcard.h"
 #include "max8819.h"
 #include "elum.h"
@@ -21,17 +22,23 @@
 
 #include "pin.h"
 
-#include "stdlib.h"
+
+
+// -----------------------------------------------------------------------------
+// Board configuration
+// ------------------------------------------------------------------------------
+//#define EXTERNAL_IMU
+
+/* Pin definitions */
+#include "scadbeta2.h"
+
+// ------------------------------------------------------------------------------
 
 //TODO(SRLM): Add tests to beginning to not log when battery voltage is too low.
 
 //TODO(SRLM): Change ELUM to something more generic...
 
 //TODO(SRLM): check pointers for null, and so on (be safe!).
-
-//TODO(SRLM): Add date/time to file creation.
-
-//TODO(SRLM): Check that R element is logged correctly.
 
 /**
 
@@ -46,81 +53,12 @@ Cog Usage:
 7:
 */
 
-//#define EXTERNAL_IMU
-
-
-/*
-Beta 2 Pins
-*/
-
-const int kPIN_I2C_SCL = 0;
-const int kPIN_I2C_SDA = 1;
-
-const int kPIN_LSM303DLHC_INT1 = 2;
-const int kPIN_LSM303DLHC_INT2 = 3;
-const int kPIN_LSM303DLHC_DRDY = 4;
-
-const int kPIN_LEDR           = 5;
-const int kPIN_MAX8819_EN123  = 6;
-const int kPIN_LEDG           = 7;
-const int kPIN_BUTTON         = 8;
-
-const int kPIN_SD_CD  = 9;
-const int kPIN_SD_DO  = 10;
-const int kPIN_SD_CLK = 11;
-const int kPIN_SD_DI  = 12;
-const int kPIN_SD_CS  = 13;
-
-const int kPIN_MAX8819_CHG = 14;
-const int kPIN_MAX8819_CEN = 15;
-const int kPIN_MAX8819_DLIM1 = 16;
-const int kPIN_MAX8819_DLIM2 = 17;
-
-
-const int kPIN_USER_1 = 18;
-const int kPIN_USER_2 = 19;
-const int kPIN_USER_3 = 20;
-const int kPIN_USER_4 = 21;
-const int kPIN_USER_5 = 22;
-const int kPIN_USER_6 = 23;
-
-
-const int kPIN_GPS_TX = 24; //Tx from the Propeller
-const int kPIN_GPS_RX = 25; //Rx to the Propeller
-const int kPIN_GPS_FIX = 26;
-
-const int kPIN_PCF8523_SQW = 27;
-
-const int kPIN_EEPROM_SCL = 28;
-const int kPIN_EEPROM_SDA = 29;
-
-const int kPIN_USB_TX = 30; //Tx from the Propeller
-const int kPIN_USB_RX = 31; //Rx to the Propeller
-
-
-/*
-Redefinition of Pins
-*/
-#ifdef EXTERNAL_IMU
-const int kPIN_I2C_SCL_2 = kPIN_USER_5;
-const int kPIN_I2C_SDA_2 = kPIN_USER_6;
-#endif
-
-const int kPIN_BLUETOOTH_TX = kPIN_USER_1;
-const int kPIN_BLUETOOTH_RX = kPIN_USER_2;
-
-
 
 /*
 Other constants
 */
-//const int kUSB_BAUD = 115200;
-const int kUSB_BAUD = 460800;
-
-const int kBLUETOOTH_BAUD = 115200;
 
 const int kGPS_BAUD = 9600;
-
 
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
@@ -134,7 +72,7 @@ const int kBoardGamma = 0x00000004;
 
 //TODO: Do any of these need to be volatile?
 SecureDigitalCard * sd = NULL;
-Serial     * serial = NULL;
+//Serial     * serial = NULL;
 Max8819    * pmic   = NULL;
 Elum       * elum   = NULL;
 i2c        * bus    = NULL;
@@ -197,7 +135,6 @@ enum LogLevel {kAll, kFatal, kError, kWarn, kInfo, kDebug};
 const char * LogLevelIdentifier[] = {"All:   ", "Fatal: ", "Error: ", "Warn:  ", "Info:  ", "Debug: "};
 
 
-//TODO(SRLM): DisplayState is a poor choice of name... It should be something like "DeviceState"
 enum DeviceState {kPowerUp, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown};
 volatile DeviceState currentState = kUnknown;
 
@@ -296,136 +233,6 @@ void OpenFile(int identifier){
 }
 
 
-
-
-
-
-
-
-
-
-///**
-//Six Byte binary version of @a PutIntoBuffer()
-//*/
-
-//void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
-//		unsigned int a, unsigned int b, unsigned int c){
-//	char data[13]; //TODO(SRLM): Does this need to be 13 bytes?
-//	data[0] = identifier;
-//	
-////Little endian
-//	data[4] = (cnt & 0xFF000000) >> 24;
-//	data[3] = (cnt & 0xFF0000)   >> 16;
-//	data[2] = (cnt & 0xFF00)     >> 8;
-//	data[1] = (cnt & 0xFF)       >> 0;
-//	
-//// Two byte mode
-//	data[6] = (a & 0xFF00)     >> 8;
-//	data[5] = (a & 0xFF)       >> 0;
-//	
-//	data[8] = (b & 0xFF00)     >> 8;
-//	data[7] = (b & 0xFF)       >> 0;
-//	
-//	data[10]= (c & 0xFF00)     >> 8;
-//	data[ 9]= (c & 0xFF)       >> 0;
-
-//	while(buffer->Put(data, 11) == false){}			
-//}
-
-///**
-//Eight byte (two int) version of @a PutIntoBuffer()
-//*/
-//void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
-//                   const unsigned int cnt, const int a, const int b){
-//	char data[13];
-//	data[0] = identifier;
-//	
-//	//Little endian
-//	data[4] = (cnt & 0xFF000000) >> 24;
-//	data[3] = (cnt & 0xFF0000)   >> 16;
-//	data[2] = (cnt & 0xFF00)     >> 8;
-//	data[1] = (cnt & 0xFF)       >> 0;
-//	
-//	data[8] = (a & 0xFF000000) >> 24;
-//	data[7] = (a & 0xFF0000)   >> 16;
-//	data[6] = (a & 0xFF00)     >> 8;
-//	data[5] = (a & 0xFF)       >> 0;
-//	
-//	data[12] = (b & 0xFF000000) >> 24;
-//	data[11] = (b & 0xFF0000)   >> 16;
-//	data[10] = (b & 0xFF00)     >> 8;
-//	data[9]  = (b & 0xFF)       >> 0;
-//	
-//	while(buffer->Put(data, 13) == false){}
-//}
-
-///**
-//Twelve byte (three int) version of @a PutIntoBuffer()
-//*/
-//void PutIntoBufferInt(ConcurrentBuffer * buffer, const char identifier,
-//                   const unsigned int cnt,
-//                   const int a, const int b, const int c){
-//	char data[17];
-//	data[0] = identifier;
-//	
-//	//Little endian
-//	data[4] = (cnt & 0xFF000000) >> 24;
-//	data[3] = (cnt & 0xFF0000)   >> 16;
-//	data[2] = (cnt & 0xFF00)     >> 8;
-//	data[1] = (cnt & 0xFF)       >> 0;
-//	
-//	data[8] = (a & 0xFF000000) >> 24;
-//	data[7] = (a & 0xFF0000)   >> 16;
-//	data[6] = (a & 0xFF00)     >> 8;
-//	data[5] = (a & 0xFF)       >> 0;
-//	
-//	data[12] = (b & 0xFF000000) >> 24;
-//	data[11] = (b & 0xFF0000)   >> 16;
-//	data[10] = (b & 0xFF00)     >> 8;
-//	data[9]  = (b & 0xFF)       >> 0;
-//	
-//	data[16] = (c & 0xFF000000) >> 24;
-//	data[15] = (c & 0xFF0000)   >> 16;
-//	data[14] = (c & 0xFF00)     >> 8;
-//	data[13] = (c & 0xFF)       >> 0;
-//	
-//	while(buffer->Put(data, 17) == false){}
-//}
-
-
-///**
-//String version of @a PutIntoBuffer()
-
-//@param buffer     
-//@param identifier 
-//@param cnt        
-//@param string     
-//@param terminator All the characters in @a string are put into @a buffer until
-//                  the terminator character is found.
-
-//*/
-//void PutIntoBuffer(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
-//		const char * string, char terminator){
-//	char data[100];
-//	data[0] = identifier;
-//	
-////Little endian
-//	data[4] = (cnt & 0xFF000000) >> 24;
-//	data[3] = (cnt & 0xFF0000)   >> 16;
-//	data[2] = (cnt & 0xFF00)     >> 8;
-//	data[1] = (cnt & 0xFF)       >> 0;
-//	
-////	int i;
-////	for(i = 0; string[i] != terminator; i++){
-////		data[5+i] = string[i];
-////	}
-////	data[5+i] = '\0';
-
-//	
-//	while(buffer->Put(data, 5, string, terminator) == false){}
-//	
-//}
-
 void LogVElement(ConcurrentBuffer * buffer){
 	char string [200];
 	string[0] = '\0';
@@ -447,13 +254,6 @@ void LogVElement(ConcurrentBuffer * buffer){
 }
 
 void LogRElement(ConcurrentBuffer * buffer){
-//	char filename[13];
-//	int i = 0;
-//	for(; currentFilename[i] != '\0'; i++){
-//		filename[i] = currentFilename[i];
-//	}
-//	filename[i] = '\0';
-//	PutIntoBuffer(buffer, 'R', CNT, filename, '\0');
 	PIB::_string(buffer, 'R', CNT, (char *)currentFilename, '\0');
 }
 
@@ -597,10 +397,6 @@ void ReadSensors(){
 	//Flush GPS buffer.
 	while( (gpsString = gps->Get()) != NULL) {/*Throw away stings*/}
 	
-
-
-	
-	
 	LogRElement(buffer);
 	LogVElement(buffer);
 
@@ -724,10 +520,7 @@ void Datalog(void * parameter){
 	Scheduler buttonScheduler(buttonHz);
 	int buttonCount = 0;
 	
-	
-	
 	SDBufferFree = sdBuffer->GetkSize();
-	int i = 0xFFFFFF;
 	while(datalogging){
 		volatile char * data;
 		const int data_size = sdBuffer->Get(data);
@@ -769,26 +562,25 @@ void Datalog(void * parameter){
 }
 
 
-
-int main(void)
-{
-
+int main(void){
 
 //Power
-	pmic = new Max8819(kPIN_MAX8819_CEN, kPIN_MAX8819_CHG, kPIN_MAX8819_EN123, kPIN_MAX8819_DLIM1, kPIN_MAX8819_DLIM2);
+	pmic = new Max8819(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
+	                   board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1, 
+	                   board::kPIN_MAX8819_DLIM2);
 	pmic->SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
 
 //Buffer
 	ConcurrentBuffer * buffer = new ConcurrentBuffer();
 	
 //Serial
-	serial = new Serial;
+//	serial = new Serial;
 //	serial->Start(kPIN_BLUETOOTH_RX, kPIN_BLUETOOTH_TX, kBLUETOOTH_BAUD);
-	serial->Start(kPIN_USB_RX, kPIN_USB_TX, kUSB_BAUD);
-	waitcnt(CLKFREQ/2 + CNT);
+//	serial->Start(board::kPIN_USB_RX, board::kPIN_USB_TX, board::kUSB_BAUD);
+//	waitcnt(CLKFREQ/2 + CNT);
 
 //DEBUG LED
-	led = new Pin(kPIN_USER_4);
+	led = new Pin(board::kPIN_USER_4);
 	led->high();
 
 
@@ -801,7 +593,7 @@ int main(void)
 //I2C
 	bus = new i2c();
 	//bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
-	bus->Initialize(kPIN_I2C_SCL, kPIN_I2C_SDA);       //For Beta2 Boards
+	bus->Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA);       //For Beta2 Boards
 	
 	fuel = new MAX17048(bus);
 	if(fuel->GetStatus() == false){
@@ -820,7 +612,7 @@ int main(void)
 		LogStatusElement(buffer, kError, "Failed to initialize the L3GD20.");
 	}
 	
-	rtc = new PCF8523(bus, kPIN_PCF8523_SQW);
+	rtc = new PCF8523(bus, board::kPIN_PCF8523_SQW);
 	if(rtc->GetStatus() == false){
 		LogStatusElement(buffer, kError, "Failed to initialize the PCF8523.");
 	}
@@ -830,13 +622,10 @@ int main(void)
 		LogStatusElement(buffer, kError, "Failed to initialize the MS5611.");
 	}
 	
-	
-	
-	
 #ifdef EXTERNAL_IMU
 //Second Bus for additional sensors.
 	bus2 = new i2c();
-	bus2->Initialize(kPIN_I2C_SCL_2, kPIN_I2C_SDA_2);       //For Beta2 Boards
+	bus2->Initialize(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);       //For Beta2 Boards
 	
 	lsm2 = new LSM303DLHC;
 	if(!lsm2->Init(bus2)){
@@ -850,11 +639,8 @@ int main(void)
 #endif
 	
 	
-	
-	
-	
 //LEDs and Button
-	elum = new Elum(kPIN_LEDR, kPIN_LEDG, kPIN_BUTTON);
+	elum = new Elum(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
 	DisplayDeviceStatus(kPowerUp);
 	if(elum->GetButton()){ //User has pressed the button, and powered the device
 		 
@@ -875,7 +661,8 @@ int main(void)
 	
 
 //GPS
-	gps = new MTK3339(kPIN_GPS_RX, kPIN_GPS_TX, kPIN_GPS_FIX);
+	gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX,
+	                  board::kPIN_GPS_FIX);
 	if(gps->GetStatus() == false){
 		LogStatusElement(buffer, kError, "Failed to initialize the GPS.");
 	}
@@ -883,7 +670,8 @@ int main(void)
 	
 //SD Card
 	sd = new SecureDigitalCard;
-	int mount = sd->Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
+	int mount = sd->Mount(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+	                      board::kPIN_SD_DI, board::kPIN_SD_CS);
 	if(mount != 0)
 	{
 //		debug->Put("Failed to mount SD card: %i\n\r", mount);
@@ -905,7 +693,8 @@ int main(void)
 
 		//Log SD data in new cog
 		int * datalogStack = (int *) malloc(stacksize);
-		int datalogCog = cogstart(Datalog, NULL, datalogStack, stacksize);
+		//int datalogCog = 
+		cogstart(Datalog, NULL, datalogStack, stacksize);
 		
 		//Read Sensors (inc. I2C) in current cog
 		ReadSensors();

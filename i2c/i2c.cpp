@@ -42,7 +42,7 @@ unsigned char i2c::Get(unsigned char device, unsigned char address)
 	bool result;
 	
 	base.Start();
-	result &= base.SendByte(device);
+	result = base.SendByte(device);
 	result &= base.SendByte(address);
 	
 	base.Start();

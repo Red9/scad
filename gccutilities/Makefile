@@ -25,14 +25,15 @@ OBJS=$(subst .cpp,.o,$(SRCS))
 
 UNITYPATH = ${ROOT}unity/
 GCCUTILITIESPATH = ${ROOT}gccutilities/
+BOARDCONFIGURATIONPATH = ${ROOT}boardconfiguration/
 
-INCLUDE = -I${UNITYPATH} -I${GCCUTILITIESPATH} -I../
+INCLUDE = -I${UNITYPATH} -I${GCCUTILITIESPATH} -I${BOARDCONFIGURATIONPATH} -I../
 
 #-Wa,-alh,-L  == output to STDOUT the generated assembly, with C interspersed
 
 
 
-DEBUGFLAGS = #-Wall #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
+DEBUGFLAGS = -Wall #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
 
 CXX = propeller-elf-g++
 CLD = propeller-elf-ld

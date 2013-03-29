@@ -250,7 +250,6 @@ int SecureDigitalCard::Mount(int Basepin)
 
 char * SecureDigitalCard::Readbytec(int32_t Byteloc)
 {
-  int32_t result = 0;
   Errno = Readblockc((Shr__(Byteloc, Sectorshift)));
   if (Errno < 0) {
     return Errno;
@@ -314,13 +313,11 @@ int32_t SecureDigitalCard::Freeclusters(int32_t Clust)
 
 int32_t SecureDigitalCard::Datablock(void)
 {
-  int32_t result = 0;
   return (((Fclust << Clustershift) + Dataregion) + ((Shr__(Floc, Sectorshift)) & ((1 << Clustershift) - 1)));
 }
 
 int32_t SecureDigitalCard::Uc(int32_t C)
 {
-  int32_t result = 0;
   if (('a' <= C) && (C <= 'z')) {
     return (C - 32);
   }
@@ -330,7 +327,6 @@ int32_t SecureDigitalCard::Uc(int32_t C)
 int32_t SecureDigitalCard::Pflushbuf(int32_t Rcnt, int32_t Metadata)
 {
   int32_t	Cluststart, Newcluster, Count, I;
-  int32_t R = 0;
   if (Direntry == 0) {
     return (-27);
   }
@@ -423,7 +419,6 @@ int32_t SecureDigitalCard::Pflushbuf(int32_t Rcnt, int32_t Metadata)
 
 int32_t SecureDigitalCard::Pflush(void)
 {
-  int32_t result = 0;
   return Pflushbuf(Bufat, 1);
 }
 
@@ -658,8 +653,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode)
   Brwword((S + 26), 0);
   Brwword((S + 20), 0);
   I = Pdate;
-  Brwlong((S + 14), I);
-  Brwlong((S + 22), I);
+  Brwlong((S + 14), I); // write create time and date
+  Brwlong((S + 22), I); // write last modified date and time
   if ((Direntry == Sentinel) && ((Direntry + Dirsize) < Rootdirend)) {
     Brwword(Readbytec((Direntry + Dirsize)), 0);
   }
@@ -701,7 +696,6 @@ int SecureDigitalCard::Get(char * Ubuf, int Count)
 int SecureDigitalCard::Get(void)
 {
   int32_t	T;
-  int32_t result = 0;
   if (Bufat >= Bufend) {
     T = Pfillbuf();
     if (T < (-1)) {

@@ -1,5 +1,5 @@
-#ifndef i2c_Class_Defined__
-#define i2c_Class_Defined__
+#ifndef SRLM_PROPGCC_I2C_MOCK_H__
+#define SRLM_PROPGCC_I2C_MOCK_H__
 
 #include <stdio.h>
 
@@ -82,7 +82,7 @@ public:
   	else return putStack[putStackTop--];
   }
 
-  int SetXYZ(char * bytes, int size)
+  void SetXYZ(char * bytes, int size)
   {
   	for(int i = 0; i < size; i++)
   	{
@@ -94,4 +94,4 @@ public:
 
 #endif // Unit_Test
 
-#endif
+#endif // SRLM_PROPGCC_I2C_MOCK_H__

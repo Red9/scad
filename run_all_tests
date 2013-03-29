@@ -7,7 +7,7 @@ tests_run = []
 previous_line = ""
 failed_tests = False
 
-ignore_folders = ["projects", "unfinished", "unity", "max8819", "mtk3339"]
+ignore_folders = ["projects", "unfinished", "unity", "max8819", "mtk3339", "boardconfiguration"]
 
 folders = [d for d in os.listdir(os.getcwd()) if os.path.isdir(d)]
 

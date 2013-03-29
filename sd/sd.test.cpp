@@ -11,10 +11,10 @@ const int32_t kCsPin  = 13;
 
 //TODO(SRLM): Add test for writing/reading large files (more than 32KB). I have a test for seeking a large file, but not one for writing it.
 //TODO(SRLM): Add tests for opening odd filenames (".", "", "[{((.253", ".csv", etc.)
-//TODO(SRLM): This creates a global instance of the object, but it's constructor
+//TODO(SRLM): This creates a global instance of the object, but it's constructor is called only once. I'd rather that it gets called before each test.
 //TODO(SRLM): Add test to make sure that stop actualy stops (ie, check that there is a free cog).
 //TODO(SRLM): Add test to make sure there are pullups.
-//is called only once. I'd rather that it gets called before each test.
+
 //SecureDigitalCard sut;
 SecureDigitalCard sut;
 
@@ -342,6 +342,8 @@ void test_GetClusterSize(void)
 //{
 //	TEST_ASSERT_EQUAL_INT(0, sut.GetClusterCount());
 //}
+
+
 
 
 

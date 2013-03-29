@@ -111,7 +111,6 @@ volatile uint8_t SdSafeSPI::dat[] = {
 };
 int32_t SdSafeSPI::Start(int32_t Basepin)
 {
-  int32_t result = 0;
   return Start_explicit(Basepin, (Basepin + 1), (Basepin + 2), (Basepin + 3));
 }
 
@@ -159,7 +158,6 @@ int32_t SdSafeSPI::Writeblock(int32_t Block_index, char * Buffer_address)
 
 int32_t SdSafeSPI::Get_seconds(void)
 {
-  int32_t result = 0;
   if (Spi_engine_cog == 0) {
     return Err_spi_engine_not_running;
   }
@@ -331,7 +329,6 @@ int32_t SdSafeSPI::Stop(void)
 
 int32_t SdSafeSPI::Crash(int32_t Abort_code)
 {
-  int32_t result = 0;
   DIRA = (DIRA & (~(*(int32_t *)&dat[1196])));
   return Abort_code;
 }
