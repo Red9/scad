@@ -23,13 +23,8 @@ PCF8523::PCF8523(i2c * newbus, int newkPIN_SQW){
 
 bool PCF8523::GetStatus(){
 	
-	if(bus->Ping(deviceRtc) == bus->kNak){
-		status = false;
-		return false;
-	}else{
-		status = true;
-		return true;
-	}
+	status = bus->Ping(deviceRtc);
+	return status;
 }
 
 char PCF8523::ConvertToBCD(int number){

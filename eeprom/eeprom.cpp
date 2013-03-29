@@ -8,7 +8,7 @@ Eeprom::Eeprom(int scl, int sda){
 bool Eeprom::PollForAcknowledge(){
 	base.Start();
 	int counter = 0;
-	while(base.SendByte(device) == base.kNak){      //device EEPROM write
+	while(base.SendByte(device) == false){      //device EEPROM write
 		if(++counter == 100){ //timeout
 			return false;
 		}

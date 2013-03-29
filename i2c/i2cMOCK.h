@@ -15,39 +15,39 @@ class i2c {
 public:
 
  
-  static const int kAck = 1;
-  static const int kNak = 0;
+//  static const int kAck = 1;
+//  static const int kNak = 0;
   
   char putStack[100];
   int putStackTop;
-  int ack;
+
   
   char xyz[6];
   
   
-  int Initialize(int SCLPin, int SDAPin)
+  void Initialize(int SCLPin, int SDAPin)
   {
   	putStackTop = -1;
-  	ack = kAck;
+
   	
   }
  
-  int Ping(unsigned char device)
+  bool Ping(unsigned char device)
   {
-  	return ack;
+  	return true;
   }
 
-  unsigned char Put(unsigned char device, unsigned char address, char byte)
+  bool Put(unsigned char device, unsigned char address, char byte)
   {
   	
   	putStack[++putStackTop] = byte;
-  	return kAck;
+  	return true;
   	
   }
 	    
 //TODO(SRLM): For some reason, this function locks up in the for loop when optimized.
 #pragma GCC optimize ("0")
-  unsigned char Get(unsigned char device, unsigned char address, char * bytes, int size)
+  bool Get(unsigned char device, unsigned char address, char * bytes, int size)
   {
   	if(address == (0x28 | 0x80)) //OUT_X_L with autoincrement bit set
   	{
@@ -68,10 +68,10 @@ public:
   	
   	else
   	{
-	  	return kNak;
+	  	return false;
 	}
 
-  	return kAck;
+  	return true;
 
   }
   

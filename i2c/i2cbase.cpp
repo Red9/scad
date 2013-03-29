@@ -121,7 +121,7 @@ unsigned char i2cBase::ReadByte(bool acknowledge)
 //    return byte;
 }
 
-int i2cBase::SendByte(unsigned char byte)
+bool i2cBase::SendByte(unsigned char byte)
 {
     int result;
 
@@ -161,7 +161,7 @@ int i2cBase::SendByte(unsigned char byte)
    	"         waitcnt %[nextCNT], %[clockDelay] \n\t"
    	"         mov     %[temp],    ina           \n\t" //Sample input
    	"         and     %[SDAMask], %[temp] wz,nr \n\t" // If != 0, ack'd, else nack
-	"         muxz    %[result],  #1            \n\t" // Set result to equal to Z flag
+	"         muxz    %[result],  #1            \n\t" // Set result to equal to Z flag (aka, 1 if ack'd)
    	"         or      dira,       %[SCLMask]    \n\t" // Set scl low
    	"         or      dira,       %[SDAMask]    \n\t" // Set sda low 
 	"         jmp     __LMM_RET                 \n\t"
@@ -182,7 +182,7 @@ int i2cBase::SendByte(unsigned char byte)
 		[clockDelay] "r" (clockDelay)
 	);
 
-	return result;
+	return result == 1;
 
 //C++ version:
 //    int count;
@@ -219,7 +219,7 @@ int i2cBase::SendByte(unsigned char byte)
 
 }
 
-int i2cBase::Initialize(int SCLPin, int SDAPin)
+void i2cBase::Initialize(int SCLPin, int SDAPin)
 {
 	SCLMask = 1 << SCLPin;
 	SDAMask = 1 << SDAPin;
@@ -235,7 +235,5 @@ int i2cBase::Initialize(int SCLPin, int SDAPin)
 	OUTA &= ~SDAMask;
 	
 	clockDelay = 90;
-	
-	return 0;
 
 }

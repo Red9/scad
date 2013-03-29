@@ -15,14 +15,8 @@ MAX17048::MAX17048(i2c * newbus){
 }
 
 bool MAX17048::GetStatus(void){
-	
-	if(bus->Ping(deviceFuel) == bus->kNak){
-		status = false;
-		return false;
-	}else{
-		status = true;
-		return true;
-	}
+	status = bus->Ping(deviceFuel);
+	return status;
 }
 
 int MAX17048::GetShort(char address){

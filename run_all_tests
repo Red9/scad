@@ -46,6 +46,9 @@ for test in tests:
 		
 		
 		previous_line = line
+	print ""
+	for line in iter(p.stderr.readline, ''):
+		print line.rstrip()
 	
 	
 	os.chdir("..")

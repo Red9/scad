@@ -73,7 +73,7 @@ void test_ToggleStartPin()
 
 void test_L3GD20Ping(void)
 {
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Ping(GYRO));
+	TEST_ASSERT_TRUE(sut.Ping(GYRO));
 }
 
 
@@ -85,10 +85,10 @@ void test_L3GD20ReadWhoAmIRegister(void)
 void test_L3GD20WriteCtrlReg1(void)
 {
 	//Test twice so that we *know* that it actually wrote (instead of from a previous test)
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, 0x20, 0b01111111));
+	TEST_ASSERT_TRUE(sut.Put(GYRO, 0x20, 0b01111111));
 	TEST_ASSERT_EQUAL_HEX8(0b01111111, sut.Get(GYRO, 0x20));
 	
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, 0x20, 0xFF));
+	TEST_ASSERT_TRUE(sut.Put(GYRO, 0x20, 0xFF));
 	TEST_ASSERT_EQUAL_HEX8(0xFF, sut.Get(GYRO, 0x20));
 }
 
@@ -103,12 +103,12 @@ void test_L3GD20WriteMultipleBytes(void)
 	char outdata[data_size];
 		
 	//First Write
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, data_address, indata1, data_size));
+	TEST_ASSERT_TRUE(sut.Put(GYRO, data_address, indata1, data_size));
 	sut.Get(GYRO, data_address, outdata, data_size);
 	TEST_ASSERT_EQUAL_MEMORY(indata1, outdata, data_size);
 	
 	//Second Write
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, data_address, indata2, data_size));
+	TEST_ASSERT_TRUE( sut.Put(GYRO, data_address, indata2, data_size));
 	sut.Get(GYRO, data_address, outdata, data_size);
 	TEST_ASSERT_EQUAL_MEMORY(indata2, outdata, data_size);
 
@@ -129,12 +129,12 @@ void testL3GD20WriteMultipleBytesButOnlyOne(void)
 	
 			
 	//First Write
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, data_address, indata1, data_size));
+	TEST_ASSERT_TRUE( sut.Put(GYRO, data_address, indata1, data_size));
 	sut.Get(GYRO, data_address, outdata, data_size);
 	TEST_ASSERT_EQUAL_MEMORY(indata1, outdata, data_size);
 	
 	//Second Write
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(GYRO, data_address, indata2, data_size));
+	TEST_ASSERT_TRUE( sut.Put(GYRO, data_address, indata2, data_size));
 	sut.Get(GYRO, data_address, outdata, data_size);
 	TEST_ASSERT_EQUAL_MEMORY(indata2, outdata, data_size);
 }
@@ -147,11 +147,11 @@ void testMS5611PutSingleByteGetMultipleBytes(void)
 {
 	TEST_IGNORE_MESSAGE("Must confirm function with Logic16");
 	//Command read memory address 011
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Put(BARO, 0b10100110));
+	TEST_ASSERT_TRUE(sut.Put(BARO, 0b10100110));
 	
 	int data_size = 2;
 	char indata1[data_size];
-	TEST_ASSERT_EQUAL_INT(sut.kAck, sut.Get(BARO, indata1, data_size));
+	TEST_ASSERT_TRUE( sut.Get(BARO, indata1, data_size));
 }
 
 

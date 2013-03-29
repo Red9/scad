@@ -31,9 +31,9 @@ class i2cBase
 public:
 
 /** Acknowledge value. */
-static const int kAck = 1;
+//static const int kAck = 1;
 /** No Acknowledge value.*/
-static const int kNak = 0;
+//static const int kNak = 0;
 
 /** Set the IO Pins to float high. Does not require a cog.
   * @param scl The I2C SCL pin. Defaults to the Propeller default SCL pin.
@@ -41,7 +41,7 @@ static const int kNak = 0;
   * @todo(SRLM): Move this function into the class constructor.
   * @returns Nothing, right now...
   */
-int Initialize(int scl = 28, int sda = 29);
+void Initialize(int scl = 28, int sda = 29);
 
 /** Output a start condition on the I2C bus.
   */
@@ -54,9 +54,9 @@ void Stop();
 /** Ouput a byte on the I2C bus.
   * @param   byte the 8 bits to send on the bus.
   * @todo(SRLM): change the return to a bool instead of an int.
-  * @returns      the acknowledge (or not) from the devices on the bus.
+  * @returns      true if the 
   */
-int SendByte(unsigned char byte);
+bool SendByte(unsigned char byte);
 
 /** Input a byte from the I2C bus.
   * @todo(SRLM): change the parameter to a bool instead of int.

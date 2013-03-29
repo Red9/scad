@@ -162,18 +162,12 @@ void MS5611::TEST_SetD(const int newD1, const int newD2){
 }
 
 bool MS5611::GetStatus(){
-	
-	if(bus->Ping(deviceBaro) == bus->kNak){
-		status = false;
-		return false;
-	}else{
-		status = true;
-		return true;
-	}
+	status = bus->Ping(deviceBaro);
+	return status;
 }
 
 bool MS5611::Reset(){
-    return bus->Put(deviceBaro, kReset) == bus->kAck;
+    return bus->Put(deviceBaro, kReset);
 
 }
 

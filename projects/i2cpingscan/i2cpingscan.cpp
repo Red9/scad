@@ -74,8 +74,7 @@ int main(void){
 	for(unsigned char address = 0; address < 128; address++){
 		if(IsSpecialAddress(address) == false){
 			//Ping bus
-			int result = bus.Ping(address << 1);
-			if(result == bus.kAck){
+			if(bus.Ping(address << 1)){
 				if(IsKnownAddress(address, buffer)){
 					printf("0x%X - Found ", address << 1);
 					printf(buffer);

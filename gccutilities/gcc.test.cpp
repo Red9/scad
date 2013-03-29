@@ -178,6 +178,14 @@ void test_ZeroIsFalse(void){
 	TEST_ASSERT_FALSE(0);
 }
 
+void test_BooleanAndIsSameAsBitwiseAnd(void){
+	TEST_ASSERT_TRUE((true  && false) == (true  & false));
+	TEST_ASSERT_TRUE((false && true ) == (false & true ));
+	TEST_ASSERT_TRUE((false && false) == (false & false));
+	TEST_ASSERT_TRUE((true  && true ) == (true  & true ));
+}
+
+
 // -----------------------------------------------------------------------------
 
 void test_WritingAnIntToACharWillTruncate(void){
@@ -437,10 +445,6 @@ void test_64bitIntegerMultiplySpeed(void){
 
 }
 
-
-
-
-
 // -----------------------------------------------------------------------------
 
 void test_FloatVariableToInt(void){
@@ -449,6 +453,10 @@ void test_FloatVariableToInt(void){
 	int number = *(int *)&floatNum;
 	TEST_ASSERT_EQUAL_HEX32(0x3C23D70A, number);
 }
+
+// -----------------------------------------------------------------------------
+
+
 
 
 
