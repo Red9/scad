@@ -553,9 +553,12 @@ void ReadMagn2(void){
 
 void AddScale(ConcurrentBuffer * buffer){
 	//Baro
-	const float baroScaleFloat = 0.01f;
-	const int baroScale = *(int *)&baroScaleFloat;
-	PIB::_2x4(buffer, 'E' | 0x80, CNT, baroScale, baroScale);
+	
+	const float baroScaleFloatPressure = 1.0f; // 0.01millibar * 100pascals
+	const float baroScaleFloatTemperature = 0.01f;
+	const int baroScalePressure = *(int *)&baroScaleFloatPressure;
+	const int baroScaleTemperature = *(int *)&baroScaleFloatTemperature;
+	PIB::_2x4(buffer, 'E' | 0x80, CNT, baroScalePressure, baroScaleTemperature);
 	
 	//Accl
 	const float acclScaleFloat = 0.00735f; // 0.012g / 16 * 9.8m/s^2
