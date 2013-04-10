@@ -20,7 +20,7 @@ DEFINEFLAGS =
 endif
 
 
-SRCS=$(wildcard *.cpp) #$(wildcard *.S)
+SRCS=$(wildcard *.cpp) $(wildcard *.S)
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 UNITYPATH = ${ROOT}unity/
@@ -39,7 +39,7 @@ CXX = propeller-elf-g++
 CLD = propeller-elf-ld
 #-Wall
 CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} -Os -m32bit-doubles -mfcache -fno-exceptions -fno-rtti -fpermissive -ffunction-sections -fno-strict-aliasing -std=gnu++0x
-CLDFLAGS = #-Wl,--script=${GCCUTILITIESPATH}main.ld -Wl,--gc-sections -Wl,--print-gc-sections -Wl,--verbose
+CLDFLAGS = -Wl,--script=${GCCUTILITIESPATH}main.ld #-Wl,--gc-sections -Wl,--print-gc-sections #-Wl,--verbose
 
 Debug:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -o main.elf ${SRCS}

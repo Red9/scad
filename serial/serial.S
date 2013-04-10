@@ -3,6 +3,7 @@
 		.equ	Min_half_period, $56
 		.equ	Xon, $11
 		.equ	Xoff, $13
+		.global Fds_entry
 		.compress off
 ..start
 		.org	0
@@ -116,4 +117,4 @@ Timestamp
 Write_ptr
 		.res	1
 		.fit	$1f1
-	    .compress default
+		.compress default
