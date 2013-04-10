@@ -20,9 +20,21 @@ INLINE__ int32_t Shr__(uint32_t a, uint32_t b) { return (a>>b); }
 
 extern uint8_t _load_start_serial_cog[];
 
+
+void SetDriverLong(int index, int value){
+    ((int32_t *)&_load_start_serial_cog[index])[0] = value;
+}
+
+/* Warning: SetDriverLong(char **, int) must be declared second, otherwise it calls itself! */
+void SetDriverLong(char ** index, int value){
+    SetDriverLong((int)index, value);
+}
+
+
+
 bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
 {
-    volatile void * reference;
+    volatile void * reference = NULL;
     __asm__ volatile (
         "mov %[reference], #Fds_entry \n\t"
     :
@@ -30,24 +42,41 @@ bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
     );
 
   Stop();
-  ((int32_t *)&_load_start_serial_cog[260])[0] = (((int32_t *)&_load_start_serial_cog[276])[0] = 0);
+
+  extern char * Masktx asm("Masktx");
+  extern char * Maskrx asm("Maskrx");
+  extern char * Ctra_val asm("Ctra_val");
+  extern char * Ctrb_val asm("Ctrb_val");
+  extern char * Period_ptr asm("Period_ptr");
+  extern char * Rx_head_ptr asm("Rx_head_ptr");
+  extern char * Rx_end_ptr asm("Rx_end_ptr");
+  extern char * Update_head_ptr asm("Update_head_ptr");
+  
+  
+  SetDriverLong(&Masktx, 0);
+  SetDriverLong(&Ctra_val, 0);
   if (Tx_pin >= 0) {
-    ((int32_t *)&_load_start_serial_cog[260])[0] = ((1<<Tx_pin));
-    ((int32_t *)&_load_start_serial_cog[276])[0] = (0x10000000 | Tx_pin);
+    SetDriverLong(&Masktx, 1<<Tx_pin);
+    SetDriverLong(&Ctra_val, 0x10000000 | Tx_pin);
   }
-  ((int32_t *)&_load_start_serial_cog[256])[0] = (((int32_t *)&_load_start_serial_cog[280])[0] = 0);
+  SetDriverLong(&Maskrx, 0);
+  SetDriverLong(&Ctrb_val, 0);
   if (Rx_pin >= 0) {
-    ((int32_t *)&_load_start_serial_cog[256])[0] = ((1<<Rx_pin));
-    ((int32_t *)&_load_start_serial_cog[280])[0] = (0x54000000 | Rx_pin);
+    SetDriverLong(&Maskrx, 1<<Rx_pin);
+    SetDriverLong(&Ctrb_val, 0x54000000 | Rx_pin);
   }
   SetBaud(Rate);
-  ((int32_t *)&_load_start_serial_cog[252])[0] = (int32_t)(&half_bit_period_);
+  
+  SetDriverLong(&Period_ptr, (int)&half_bit_period_);
   memset( (void *)&rx_buffer_, 0, 1*(kBufferLength));
-  ((int32_t *)&_load_start_serial_cog[264])[0] = (int32_t)(&rx_buffer_);
-  ((int32_t *)&_load_start_serial_cog[268])[0] = ((int32_t)(&rx_buffer_) + kBufferLength);
+  
+  SetDriverLong(&Rx_head_ptr, (int32_t)(&rx_buffer_));
+  SetDriverLong(&Rx_end_ptr, (int32_t)(&rx_buffer_) + kBufferLength);
+  
   rx_head_ = 0;
   rx_tail_ = 0;
-  ((int32_t *)&_load_start_serial_cog[288])[0] = (int32_t)(&rx_head_);
+  
+  SetDriverLong(&Update_head_ptr, (int32_t)(&rx_head_));
   write_buf_ptr_ = 1;
   cog_ = (1 + cognew((int32_t)(&(*(int32_t *)&_load_start_serial_cog[0])), (int32_t)(&write_buf_ptr_)));
   if (cog_) {
@@ -59,37 +88,7 @@ bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
   return true;
 }
 
-//bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
-//{
-// Stop();
-//  ((int32_t *)&dat[260])[0] = (((int32_t *)&dat[276])[0] = 0);
-//  if (Tx_pin >= 0) {
-//    ((int32_t *)&dat[260])[0] = ((1<<Tx_pin));
-//    ((int32_t *)&dat[276])[0] = (0x10000000 | Tx_pin);
-//  }
-//  ((int32_t *)&dat[256])[0] = (((int32_t *)&dat[280])[0] = 0);
-//  if (Rx_pin >= 0) {
-//    ((int32_t *)&dat[256])[0] = ((1<<Rx_pin));
-//    ((int32_t *)&dat[280])[0] = (0x54000000 | Rx_pin);
-//  }
-//  SetBaud(Rate);
-//  ((int32_t *)&dat[252])[0] = (int32_t)(&half_bit_period_);
-//  memset( (void *)&rx_buffer_, 0, 1*(kBufferLength));
-//  ((int32_t *)&dat[264])[0] = (int32_t)(&rx_buffer_);
-//  ((int32_t *)&dat[268])[0] = ((int32_t)(&rx_buffer_) + kBufferLength);
-//  rx_head_ = 0;
-//  rx_tail_ = 0;
-//  ((int32_t *)&dat[288])[0] = (int32_t)(&rx_head_);
-//  write_buf_ptr_ = 1;
-//  cog_ = (1 + cognew((int32_t)(&(*(int32_t *)&dat[0])), (int32_t)(&write_buf_ptr_)));
-//  if (cog_) {
-//    while (write_buf_ptr_);
-//    return -1;
-//  }
-//  return true;
 
-
-//}
 
 void Serial::Stop(void)
 {
@@ -97,15 +96,11 @@ void Serial::Stop(void)
     cogstop(cog_ - 1);
     cog_ = 0;
   }
-//  return 0;
 }
 
 bool Serial::SetBaud(int Rate)
 {
-//  int Got_rate = 0;
-//  Got_rate = SetBaudClock(Rate, CLKFREQ);
-//  return Got_rate;
-//  int Got_rate = 0;
+
   return SetBaudClock(Rate, CLKFREQ);
 }
 
