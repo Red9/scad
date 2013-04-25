@@ -4,6 +4,12 @@
 #   [Released under MIT License. Please refer to license.txt for details]
 # ========================================== 
 
+#SRLM: Edited to allow for no parameters. In that case, it looks for a 
+#file name *.test.*, and generates a file with the same name but with a 
+# *.generate.* extension.
+
+
+
 File.expand_path(File.join(File.dirname(__FILE__),'colour_prompt'))
 
 class UnityTestRunnerGenerator
@@ -299,15 +305,22 @@ if ($0 == __FILE__)
   end     
            
   #make sure there is at least one parameter left (the input file)
+#  if !ARGV[0]
+#    puts ["usage: ruby #{__FILE__} (yaml) (options) input_test_file output_test_runner (includes)",
+#           "  blah.yml    - will use config options in the yml file (see docs)",
+#           "  -cexception - include cexception support"].join("\n")
+#    exit 1
+#  end
+  #SRLM: figure out the input file, if not specified.
   if !ARGV[0]
-    puts ["usage: ruby #{__FILE__} (yaml) (options) input_test_file output_test_runner (includes)",
-           "  blah.yml    - will use config options in the yml file (see docs)",
-           "  -cexception - include cexception support"].join("\n")
-    exit 1
+  	#ARGV[0] = `ls -d -1 $PWD/*.test.*` #`ls *.test.*`
+  	ARGV[0] = `ls *.test.*`.strip()
+  	#ARGV[0] = "concurrentbuffer.test.cpp"
   end
   
+  
   #create the default test runner name if not specified
-  ARGV[1] = ARGV[0].gsub(".c","_Runner.c") if (!ARGV[1])
+  ARGV[1] = ARGV[0].gsub(".test.c",".generate.c") if (!ARGV[1])
   
   #everything else is an include file
   options[:includes] ||= (ARGV.slice(2..-1).flatten.compact) if (ARGV.size > 2)

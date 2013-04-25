@@ -12,15 +12,19 @@ endif
 
 #If no root given, make best guess
 ifndef ROOT
-ROOT = ../
+ROOT=$(shell root=$$(pwd); while [ "$$(basename $$root)" != "propgcc" ]; do root=$$(dirname $$root); done; echo $$root"/")
 endif
 
 ifndef DEFINEFLAGS
 DEFINEFLAGS =
 endif
 
-
-SRCS=$(wildcard *.cpp) $(wildcard *.S)
+#Note the "string" version of *.cpp: that's so that the gcc compiler evaluates
+#the wildcard, instead of make. This is because unit testing generates a .cpp
+#file with the ruby command, and wildcard evaluates before it's generated.
+#Have to do the wildcard *.S because otherwise gcc complains if there are not
+#any .S files in the directory (if you pass it a *.S).
+SRCS=*.cpp $(wildcard *.S) #$(wildcard *.cpp) $(wildcard *.S)
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 UNITYPATH = ${ROOT}unity/
@@ -33,19 +37,23 @@ INCLUDE = -I${UNITYPATH} -I${GCCUTILITIESPATH} -I${BOARDCONFIGURATIONPATH} -I../
 
 
 
-DEBUGFLAGS = -Wall #-Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
+DEBUGFLAGS = #-Wall -Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
 
 CXX = propeller-elf-g++
 CLD = propeller-elf-ld
 #-Wall
-CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} -Os -m32bit-doubles -mfcache -fno-exceptions -fno-rtti -fpermissive -ffunction-sections -fno-strict-aliasing -std=gnu++0x
-CLDFLAGS = -Wl,--script=${GCCUTILITIESPATH}main.ld #-Wl,--gc-sections -Wl,--print-gc-sections #-Wl,--verbose
+
+OPTIMIZEFLAGS = -Os -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -m32bit-doubles -mfcache -fpermissive
+CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x -fno-strict-aliasing 
+CLDFLAGS = #-Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
 
 Debug:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -o main.elf ${SRCS}
 	
 Unit:
+	ruby ${ROOT}/gccutilities/generate_test_runner.rb
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -o main.elf -D UNIT_TEST ${SRCS} ${UNITYPATH}unity.cpp
+	rm -f *.generate.*
 
 cleanDebug: clean
 

@@ -46,44 +46,19 @@ if ! $noclear ; then
 fi
 
 make clean
-echo Calculate path to Root folder.
-
-root=$(pwd)
-#Calculate the path to the propgcc "root" folder
-while [ "$(basename $root)" != "propgcc" ]; do
-	root=$(dirname $root)
-done 
-
-echo root == $root
 
 #Generate the Unity test file, if there is a *.test.cpp file.
 test=$( ls *.test.cpp)
 if [ "$test" != "" ]; then
-	#Extract the test filename without extension:
-	filename=$(basename $test)
-	extension=${filename##*.}
-	filename=${filename%.test.*}
-
-	#echo item: $filename.$extension
-	#echo filename: $filename
-	#echo extension: $extension
-
-	#Generate the .generate file and compile it
-	ruby $root/gccutilities/generate_test_runner.rb $filename.test.$extension $filename.generate.$extension
-	make Unit ROOT=$root/ 
-	
-	#Cleanup
-	rm -f *.generate.*
+	make Unit
 else
-	make ROOT=$root/
-#	echo No Unity.
+	make
 fi
 
 #Print out the date FYI
 date
 #Download
 propeller-load -r $loadeeprom $baud main.elf
-#propeller-load -r -t460800 main.elf
 
 #port=$(ls /dev/*USB* 2> /dev/null)
 #picocom --send-cmd "ascii-xfr -s -c 0" -b $baud $port
