@@ -129,6 +129,11 @@ Tx_main.tx_byte
 				or		Tmp, #$100
 
 				jmpret	Tx_jump, #Lockstep
+				
+				//SRLM: Add CTS support: If high, don't transmit byte (ie, wait).
+				mov		INA, INA
+				and		INA, Maskcts wz, nr
+	if_nz		jmp		#Lockstep
 
 				// sign extend the 1 into all upper bits
 				shl		Tmp, #(32-9)
@@ -179,6 +184,9 @@ Ctrb_val
 		.long	0
 Update_head_ptr
 		.global Update_head_ptr
+		.long	0
+Maskcts //Input to propeller
+		.global Maskcts
 		.long	0
 Write_bit
 		.long	0

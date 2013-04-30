@@ -32,14 +32,10 @@ void SetDriverLong(char ** index, int value){
 
 
 
-bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
+bool Serial::Start(int Rx_pin, int Tx_pin, int Rate, int ctspin)
 {
     volatile void * reference = NULL;
-    __asm__ volatile (
-        "mov %[reference], #Fds_entry \n\t"
-    :
-        [reference] "+r" (reference)
-    );
+    __asm__ volatile ("mov %[reference], #Fds_entry \n\t" : [reference] "+r" (reference) );
 
   Stop();
 
@@ -51,6 +47,7 @@ bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
   extern char * Rx_head_ptr asm("Rx_head_ptr");
   extern char * Rx_end_ptr asm("Rx_end_ptr");
   extern char * Update_head_ptr asm("Update_head_ptr");
+  extern char * Maskcts asm("Maskcts");
   
   
   SetDriverLong(&Masktx, 0);
@@ -65,27 +62,37 @@ bool Serial::Start(int Rx_pin, int Tx_pin, int Rate)
     SetDriverLong(&Maskrx, 1<<Rx_pin);
     SetDriverLong(&Ctrb_val, 0x54000000 | Rx_pin);
   }
+  
+  
+  SetDriverLong(&Maskcts, 0);
+  if(ctspin >= 0){
+  	//Set CTS pin to input:
+  	DIRA &= ~(1 << ctspin);
+  	SetDriverLong(&Maskcts, 1 << ctspin);
+  }
+  
+  
   SetBaud(Rate);
   
   SetDriverLong(&Period_ptr, (int)&half_bit_period_);
   memset( (void *)&rx_buffer_, 0, 1*(kBufferLength));
   
-  SetDriverLong(&Rx_head_ptr, (int32_t)(&rx_buffer_));
-  SetDriverLong(&Rx_end_ptr, (int32_t)(&rx_buffer_) + kBufferLength);
+  SetDriverLong(&Rx_head_ptr, (int)&rx_buffer_);
+  SetDriverLong(&Rx_end_ptr, (int)&rx_buffer_ + kBufferLength);
   
   rx_head_ = 0;
   rx_tail_ = 0;
   
-  SetDriverLong(&Update_head_ptr, (int32_t)(&rx_head_));
+  SetDriverLong(&Update_head_ptr, (int)&rx_head_);
   write_buf_ptr_ = 1;
-  cog_ = (1 + cognew((int32_t)(&(*(int32_t *)&_load_start_serial_cog[0])), (int32_t)(&write_buf_ptr_)));
+  cog_ = 1 + cognew((int)(&(*(int *)&_load_start_serial_cog[0])), (int)(&write_buf_ptr_));
   if (cog_) {
     do {
       //Yield__();
     } while (write_buf_ptr_);
-    return -1;
+    return true;
   }
-  return true;
+  return false;
 }
 
 
@@ -119,42 +126,58 @@ bool Serial::SetBaudClock(int Rate, int Sysclock)
 
 void Serial::Put(char char_val)
 {
+  while (write_buf_ptr_){}
   send_temp_ = char_val;
   write_buf_ptr_ = (int32_t)(&send_temp_);
-  while (write_buf_ptr_);
+  
 }
 
-//void Serial::PutBuffer(const char * buffer_ptr, int buffer_bytes)
+
+int Serial::Put(char * buffer_ptr, int count){
+	for(int i = 0; i < count; i++){
+		Put(buffer_ptr[i]);
+	}
+	//while(write_buf_ptr_){} //Wait for it to finish up...
+	
+	return count;
+}
+
+
+//
+// The Put(buffer) function doesn't seem to work in CMM mode. In the tests, I 
+// get a -1 for the matching Get(), instead of the character sent. The same code
+// can pass in LMM mode.
+
+// Update: now, it doesn't work at all.
+
+//int Serial::PutBuffer(char * buffer_ptr, const bool wait, int buffer_bytes, const char terminator)
 //{
-//	PutBufferNoWait(buffer_ptr, buffer_bytes);
-//	WaitForPut();
+//	volatile char * volatile temp_ptr = buffer_ptr;
+//	if(buffer_bytes == -1){
+//		if(terminator == '\0'){
+//			buffer_bytes = strlen(buffer_ptr);
+//			
+//		}else{
+//			for(buffer_bytes = 0; buffer_ptr[buffer_bytes] != terminator; buffer_bytes++){}
+//		}
+//			
+//	}
+
+//	buffer_bytes = 5;
+
+//	if (buffer_bytes > 0 && buffer_ptr != NULL) {
+//	
+//		send_temp_ = (int)(buffer_ptr);
+//    	write_buf_ptr_ = (send_temp_ | ((buffer_bytes - 1) << 16));
+//  	}
+//	
+//	if(wait){
+//		while (write_buf_ptr_){}
+//	}
+//	return buffer_bytes;
 //}
 
-//void Serial::PutBufferNoWait(const char * buffer_ptr, int buffer_bytes)
-//{
-//  if (buffer_bytes > 0 && buffer_ptr != NULL) {
-//    write_buf_ptr_ = ((int32_t)buffer_ptr | ((buffer_bytes - 1) << 16));
-//  }
-//}
-
-//void Serial::WaitForPut(void)
-//{
-//  while (write_buf_ptr_);
-//}
-
-
-
-
-
-//char Serial::GetC(void)
-//{
-//  int Rxbyte = 0;
-//  while ((Rxbyte = GetCCheck()) < 0);
-//  return (char)Rxbyte;
-//}
-
-
-int Serial::Put(const char * format, ...){
+int Serial::PutFormatted(const char * format, ...){
 	if(format == NULL){
 		return 0;
 	}
@@ -228,7 +251,7 @@ int Serial::Put(const char * format, ...){
 					}
 				}
 				
-				Put(Numbers::Dec(number));
+				PutFormatted(Numbers::Dec(number));
 				bytesWritten += digits;
 			}
 			else if(format[stringIndex] == 'x' || format[stringIndex] == 'X'){
@@ -244,7 +267,7 @@ int Serial::Put(const char * format, ...){
 					}
 				}
 				
-				Put(Numbers::Hex(number, digits));
+				PutFormatted(Numbers::Hex(number, digits));
 				bytesWritten += digits;
 			}
 			else if(format[stringIndex] == 'c'){
@@ -339,95 +362,3 @@ int Serial::CheckBuffer(void)
   }
   return rxbyte;
 }
-//int32_t Serial::Dec(int32_t Value)
-//{
-//  int32_t	I;
-//  int32_t result = 0;
-//  if (Value < 0) {
-//    Value = (-Value);
-//    Tx('-');
-//  }
-//  I = 1000000000;
-//  {
-//    int32_t _idx__0000;
-//    _idx__0000 = 10;
-//    do {
-//      if (Value >= I) {
-//        Tx(((Value / I) + '0'));
-//        Value = (Value % I);
-//        result = -1;
-//      } else {
-//        if ((result) || (I == 1)) {
-//          Tx('0');
-//        }
-//      }
-//      I = (I / 10);
-//      _idx__0000 = (_idx__0000 + -1);
-//    } while (_idx__0000 >= 1);
-//  }
-//  return result;
-//}
-
-//int32_t Serial::Hex(int32_t Value, int32_t Digits)
-//{
-//  static int32_t look__0001[] = {48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, };
-
-//  Value = (Value << ((8 - Digits) << 2));
-//  {
-//    int32_t _idx__0002;
-//    _idx__0002 = Digits;
-//    do {
-//      Tx(Lookup__(((Value = (Rotl__(Value, 4))) & 0xf), 0, look__0001, 16));
-//      _idx__0002 = (_idx__0002 + -1);
-//    } while (_idx__0002 >= 1);
-//  }
-//  return 0;
-//}
-
-//int32_t Serial::Bin(int32_t Value, int32_t Digits)
-//{
-//  Value = (Value << (32 - Digits));
-//  {
-//    int32_t _idx__0003;
-//    _idx__0003 = Digits;
-//    do {
-//      Tx((((Value = (Rotl__(Value, 1))) & 0x1) + '0'));
-//      _idx__0003 = (_idx__0003 + -1);
-//    } while (_idx__0003 >= 1);
-//  }
-//  return 0;
-//}
-
-//int32_t Serial::Atoi(int32_t Strptr)
-//{
-//  int32_t	Sign;
-//  int32_t Int = 0;
-//  Sign = 1;
-//  while (1) {
-//    int32_t _tmp__0004 = ((uint8_t *)Strptr)[0];
-//    if (_tmp__0004 == '-') {
-//      Sign = (-1);
-//    } else if (Between__(_tmp__0004, '0', '9')) {
-//      Int = (((Int * 10) + ((uint8_t *)Strptr)[0]) - '0');
-//    } else if (1) {
-//      break;
-//    }
-//    (Strptr++);
-//  }
-//  Int = (Int * Sign);
-//  return Int;
-//}
-
-//int32_t Serial::Htoi(int32_t Strptr)
-//{
-//  int32_t	C;
-//  int32_t Int = 0;
-//  static int32_t look__0005[] = {97, 98, 99, 100, 101, 102, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, };
-
-//  while ((C = Lookdown__(((uint8_t *)(Strptr++))[0], 1, look__0005, 22))) {
-//    Int = (Int << 4);
-//    Int = (Int | ((C + 9) & 0xf));
-//  }
-//  return Int;
-//}
-

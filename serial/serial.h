@@ -5,6 +5,8 @@
 
 //TODO (SRLM): check for remaining int32_t, etc.
 
+//TODO(SRLM): Add a destructor that closes the serial port.
+
 //TODO(SRLM): I think the functions with buffer in them should have "volatile"
 //in the function declaration (since the buffer can be modified by PASM).
 
@@ -29,6 +31,11 @@ within 1 clock, or 12.5 ns at 80 MHz.
 
 @author SRLM
 @date   2013-01-21
+@version 1.1
+
+Version History
+- 1.1 Added CTS support to suppress tx output from Propeller (2013-04-11)
+- 1.0 Initial creation
 */
 
 
@@ -52,15 +59,19 @@ directly from Hub RAM.
 */
 static const int kBufferLength = 256;
 
-/*
+/**
+
+Set any pin to -1 to disable it.
+
 Starts the Serial PASM engine running in a new cog.
 @param rxpin the pin [0..31] for incoming data.
 @param txpin the pin [0..31] for outgoing data. Must not equal rxpin. Use -1 to
              disable TX.
 @param rate  the initial baud rate in bits per second.
-@return  Returns (-1) if the cog started OK
+@param ctspin  cts is an input for control of flow from the tx pin. If high, it disables transmissions.
+@return  Returns true if the cog started OK, false otherwise
 */
-bool Start(int rxpin, int txpin, int rate);
+bool Start(int rxpin, int txpin, int rate, int ctspin = -1);
 
 /** Stops the Serial PASM engine, if it is running.
 */
@@ -97,6 +108,12 @@ bool SetBaudClock(int rate, int sysclock);
 */
 void Put(char character);
 
+int Put(char * buffer_ptr, int count);
+
+
+// SRLM: Put(buffer) has a bug in it's implementation. I don't know what it is.
+//int PutBuffer(char * buffer_ptr, const bool wait = false, int buffer_bytes = -1, const char terminator = '\0');
+
 /** printf function-alike.
 
 This function is based on the requirements found on this page:
@@ -130,7 +147,7 @@ Each specifier must have a matching optional argument of the correct type.
 @returns      on success, the total number of characters written. On error, a
               negative number is returned.
 */
-int Put(const char * format, ...);
+int PutFormatted(const char * format, ...);
 
 
 /**
@@ -191,7 +208,7 @@ static const int kXoff = 19;
 The binary version of the PASM driver. Must be binary so that we can do garbage
 collection with the linker.
 */  
-static uint8_t dat[];
+//static uint8_t dat[];
 
 /** Checks if byte is waiting in the buffer, but doesn't wait.
 

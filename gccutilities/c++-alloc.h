@@ -1,3 +1,6 @@
+#ifndef PROPGCC_SRLM_CPLUSPLUS_ALLOC_H_
+#define PROPGCC_SRLM_CPLUSPLUS_ALLOC_H_
+
 #include <cstdlib>
 #include <new>
 
@@ -45,3 +48,5 @@ new_handler prev_handler = __new_handler;
 __new_handler = handler;
 return prev_handler;
 }
+
+#endif // PROPGCC_SRLM_CPLUSPLUS_ALLOC_H_

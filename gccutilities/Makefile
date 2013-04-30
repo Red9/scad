@@ -45,7 +45,7 @@ CLD = propeller-elf-ld
 
 OPTIMIZEFLAGS = -Os -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -m32bit-doubles -mfcache -fpermissive
 CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x -fno-strict-aliasing 
-CLDFLAGS = #-Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
+CLDFLAGS = -Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
 
 Debug:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -o main.elf ${SRCS}
@@ -55,8 +55,48 @@ Unit:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -o main.elf -D UNIT_TEST ${SRCS} ${UNITYPATH}unity.cpp
 	rm -f *.generate.*
 
+
+#Advanced makeflie stuff Taken from http://mad-scientist.net/make/autodep.html#output
+
+#DEPDIR = dependencies
+#df = $(DEPDIR)/$(*F)
+
+#OUT_DIR=bin
+
+#SOURCES=$(wildcard *.cpp)
+#OBJECTS=
+#OBJECTS=$(patsubst %, $(OUT_DIR)/%,$(_OBJECTS))
+#EXECUTABLE=main.elf
+
+
+
+#Debug: $(SOURCES) $(EXECUTABLE)
+#	
+#$(EXECUTABLE): $(OBJECTS) 
+#	$(CXX) $(CLDFLAGS) ${CXXFLAGS} $(OBJECTS) -o $@
+
+#%.o : %.cpp
+#	${CXX} ${CXXFLAGS} -MD -c -o $@ $<
+#	cp $(df).d $(df).P; \
+#		sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+#			-e '/^$$/ d' -e 's/$$/ :/' < $(df).d >> $(df).P; \
+#		rm -f $(df).d
+#-include $(SRCS:%.c=$(DEPDIR)/%.P)
+
+#%.o : %.cpp
+#	@${CXX} ${CXXFLAGS} -Wp,-MD,${df}.d -c -o $@ $<
+#	@cp ${df}.d ${df}.P; \
+#		sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+#			-e '/^$$/ d' -e 's/$$/ :/' < ${df}.d >> ${df}.P; \
+#		rm -f ${df}.d
+
+#-include *.P
+
+
+
 cleanDebug: clean
 
 clean:
-	${RM} *.o *.elf *.map *.rawmap a.out *.generate.*
+	${RM} *.o *.elf *.map *.rawmap a.out *.generate.* *.d *.P
+
 

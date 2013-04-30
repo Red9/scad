@@ -8,7 +8,7 @@ MTK3339::MTK3339(int rxPin, int txPin, int ppsPin)
 	gpsStatus = CheckBaud();
 	if(gpsStatus == true){ //GPS running at 9600
 		//Update to 115200
-		gps.Put(kPMTK_SET_NMEA_BAUDRATE_115200);
+		gps.PutFormatted(kPMTK_SET_NMEA_BAUDRATE_115200);
 		waitcnt(CLKFREQ/19 + CNT); //Make sure it's transmitted.
 		gps.SetBaud(115200);
 	}else{ //GPS may be runnning at 115200
@@ -18,8 +18,8 @@ MTK3339::MTK3339(int rxPin, int txPin, int ppsPin)
 			return;
 		}
 	}
-	gps.Put(kPMTK_API_SET_NMEA_OUTPUT);
-	gps.Put(kPMTK_SET_NMEA_UPDATE_10HZ);
+	gps.PutFormatted(kPMTK_API_SET_NMEA_OUTPUT);
+	gps.PutFormatted(kPMTK_SET_NMEA_UPDATE_10HZ);
 	
 }
 

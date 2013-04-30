@@ -27,7 +27,7 @@ class ConcurrentBuffer{
 public:
 	
 /**
-@param new_timeout The maximum amount of time to wait for a @a Put() or Get(),
+@param new_timeout The maximum amount of time to wait for a @a Put(),
                    in microseconds. Default is 1 second timeout.
 */
 ConcurrentBuffer(int new_timeout=1000000);

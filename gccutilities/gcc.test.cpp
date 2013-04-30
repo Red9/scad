@@ -58,6 +58,10 @@ void test_ShiftRightUnsignedNumber(void){
 // Suggested rules for locks: Propeller Manual v1.2 pg 123
 // -----------------------------------------------------------------------------
 
+// @WARNING for all locks: Must lockclr the lock after setting it!
+
+
+
 void test_lockretReturnsLock(void){
 	int num_first = locknew();
 	lockret(num_first);
@@ -92,7 +96,8 @@ void test_locksetAndlockclr(void){
 		
 	TEST_ASSERT_FALSE(lockset(lock));
 	TEST_ASSERT_TRUE(lockset(lock));
-
+	
+	lockclr(lock);
 	lockret(lock);
 }
 
@@ -101,12 +106,46 @@ void test_ReturnSetLock(void){
 	TEST_ASSERT_TRUE(lock != -1);
 	
 	lockset(lock);
+	lockclr(lock);
 	lockret(lock);
 	int lock2 = locknew();
 	TEST_ASSERT_EQUAL_INT(lock, lock2);
 	
 	lockret(lock2);
 
+}
+
+void test_locksetIsEqualToCTrueFalseConstant(void){
+	int lock = locknew();
+	TEST_ASSERT_TRUE(lock != -1);
+
+	//lockclr(lock);
+	
+	TEST_ASSERT_TRUE(lockset(lock) == false);
+	TEST_ASSERT_TRUE(lockset(lock) != false);
+	
+	lockclr(lock);
+	lockret(lock);
+
+}
+
+void test_dummy(void){
+// To test the lock "true" value
+//	int lock = locknew();
+//	
+//	if(lockset(lock) == false){
+//		printf("Lock was false!\n");
+//	}
+//	if(lockset(lock) == true){
+//		printf("Lock was true!\n");
+//	}
+//	if(lockset(lock) != false){
+//		printf("Lock was not false!\n");
+//	}
+//	printf("lockset 'true' value == 0x%X\n", lockset(lock));
+//	
+//	lockclr(lock);
+//	lockret(lock);
 }
 
 // -----------------------------------------------------------------------------

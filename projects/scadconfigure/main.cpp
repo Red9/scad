@@ -80,17 +80,17 @@ const int kBoardGamma = 0x00000004;
 int GetBoardVersion(int oldVersion){
 	
 	char charBuffer[12];
-	debug->Put("Please select the board version: \r\n");
-	debug->Put(" * - 0x%08x (current version)\r\n", oldVersion);
-	debug->Put(" a - Alpha\r\n");
-	debug->Put(" b - Beta\r\n");
-	debug->Put(" c - Beta 2\r\n");
-	debug->Put(" d - Gamma\r\n");
-	debug->Put(" e - Other\r\n");
-	debug->Put(">>> ");
+	debug->PutFormatted("Please select the board version: \r\n");
+	debug->PutFormatted(" * - 0x%08x (current version)\r\n", oldVersion);
+	debug->PutFormatted(" a - Alpha\r\n");
+	debug->PutFormatted(" b - Beta\r\n");
+	debug->PutFormatted(" c - Beta 2\r\n");
+	debug->PutFormatted(" d - Gamma\r\n");
+	debug->PutFormatted(" e - Other\r\n");
+	debug->PutFormatted(">>> ");
 	debug->GetFlush();
 	char choice = debug->Get();	
-	debug->Put("%c\r\n", choice);
+	debug->PutFormatted("%c\r\n", choice);
 	int boardVersion;
 	
 	if(choice ==  'a'){ boardVersion = kBoardAlpha;}
@@ -99,7 +99,7 @@ int GetBoardVersion(int oldVersion){
 	else if(choice == 'd'){ boardVersion = kBoardGamma;}
 	else if(choice == '*'){ boardVersion = oldVersion;}
 	else{ 
-		debug->Put("Your choice '0x%08x' isn't supported right now. Keeping current version.\r\n", choice);
+		debug->PutFormatted("Your choice '0x%08x' isn't supported right now. Keeping current version.\r\n", choice);
 		boardVersion = oldVersion;
 	}
 	
@@ -108,16 +108,16 @@ int GetBoardVersion(int oldVersion){
 
 int GetUnitNumber(int oldNumber){
 	
-	debug->Put("Please enter the unit number or * to keep current number, then <enter>:\r\n>>> ");
+	debug->PutFormatted("Please enter the unit number or * to keep current number, then <enter>:\r\n>>> ");
 	debug->GetFlush();
 	
 	char buffer[13];
 	for(int i = 0;;++i){
 		buffer[i] = debug->Get();
-		debug->Put(buffer[i]); //echo
+		debug->PutFormatted(buffer[i]); //echo
 		if(buffer[i] == '\r'){
 			buffer[i] = 0;
-			debug->Put('\n');
+			debug->PutFormatted('\n');
 			break;
 		}
 	}
@@ -134,16 +134,16 @@ int GetUnitNumber(int oldNumber){
 }
 
 int GetCanonNumber(int oldNumber){
-	debug->Put("Please enter the canon number, or * to keep current number, then <enter>:\r\n>>> ");
+	debug->PutFormatted("Please enter the canon number, or * to keep current number, then <enter>:\r\n>>> ");
 	debug->GetFlush();
 	
 	char buffer[13];
 	for(int i = 0;;++i){
 		buffer[i] = debug->Get();
-		debug->Put(buffer[i]); //echo
+		debug->PutFormatted(buffer[i]); //echo
 		if(buffer[i] == '\r'){
 			buffer[i] = 0;
-			debug->Put('\n');
+			debug->PutFormatted('\n');
 			break;
 		}
 	}
@@ -161,20 +161,20 @@ int GetCanonNumber(int oldNumber){
 int GetTwoDigits(const char * caption){
 	
 	char num[3];
-	debug->Put(caption);
+	debug->PutFormatted(caption);
 	num[0] = debug->Get();
-	debug->Put(num[0]);
+	debug->PutFormatted(num[0]);
 	num[1] = debug->Get();
-	debug->Put(num[1]);
+	debug->PutFormatted(num[1]);
 	num[2] = 0;
 	return Numbers::Dec(num);
 }
 
 void SetTime(PCF8523 * rtc){
-	debug->Put("Set time?\r\n(y)es\r\n*no\r\n>>> ");
+	debug->PutFormatted("Set time?\r\n(y)es\r\n*no\r\n>>> ");
 	debug->GetFlush();
 	char choice = debug->Get();
-	debug->Put("%c\r\n", choice);
+	debug->PutFormatted("%c\r\n", choice);
 	
 	if(choice != 'y'){
 		return;
@@ -184,7 +184,7 @@ void SetTime(PCF8523 * rtc){
 	
 	int year, month, day, hour, minute, second;
 	
-	debug->Put("Type all numbers as 2 digits (pad with zeros if needed).\r\n");
+	debug->PutFormatted("Type all numbers as 2 digits (pad with zeros if needed).\r\n");
 	
 	year   = GetTwoDigits("\r\nYear: 20");
 	month  = GetTwoDigits("\r\nMonth: ");
@@ -193,7 +193,7 @@ void SetTime(PCF8523 * rtc){
 	minute = GetTwoDigits("\r\nMinute: ");
 	second = GetTwoDigits("\r\nSecond: ");  
 
-	debug->Put("\r\nSelected 20%d-%d-%d at %d:%d:%d\r\n", year, month, day, hour, minute, second);
+	debug->PutFormatted("\r\nSelected 20%d-%d-%d at %d:%d:%d\r\n", year, month, day, hour, minute, second);
 
 	rtc->SetClock(year, month, day, hour, minute, second);
 
@@ -208,11 +208,11 @@ int main(void){
 	
 //	Serial bluetooth = new Serial;
 //	bluetooth.Start(kPIN_BLUETOOTH_RX, kPIN_BLUETOOTH_TX, kBLUETOOTH_BAUD);
-//	debug->Put("SU,46");
+//	debug->PutFormatted("SU,46");
 //	debug->SetBaud(460800);
 	
 		
-	debug->Put("SCAD Configuration Utility!\r\n");
+	debug->PutFormatted("SCAD Configuration Utility!\r\n");
 	
 	Eeprom eeprom;
 	
@@ -237,12 +237,12 @@ int main(void){
 		rtc->GetClock(year, month, day, hour, minute, second);
 	
 	
-		debug->Put("\r\n--------------------------\r\n\r\n");
-		debug->Put("Current unit number:   %d\r\n", unitNumber);		
-		debug->Put("Current board version: 0x%x\r\n", boardVersion);
-		debug->Put("Current Canon file:    %d\r\n", canonNumber);
-		debug->Put("Current RTC clock is: 20%d-%d-%d at %d:%d:%d\r\n", year, month, day, hour, minute, second);
-		debug->Put("\r\n--------------------------\r\n\r\n");
+		debug->PutFormatted("\r\n--------------------------\r\n\r\n");
+		debug->PutFormatted("Current unit number:   %d\r\n", unitNumber);		
+		debug->PutFormatted("Current board version: 0x%x\r\n", boardVersion);
+		debug->PutFormatted("Current Canon file:    %d\r\n", canonNumber);
+		debug->PutFormatted("Current RTC clock is: 20%d-%d-%d at %d:%d:%d\r\n", year, month, day, hour, minute, second);
+		debug->PutFormatted("\r\n--------------------------\r\n\r\n");
 	
 		
 		boardVersion = GetBoardVersion(boardVersion);

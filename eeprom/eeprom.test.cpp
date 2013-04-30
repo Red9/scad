@@ -23,11 +23,11 @@ void tearDown(void){
 void test_Warning(void){
 	printf("---------------------------------------------\r\n");
 	printf("Warning: This test suite mangles your EEPROM!\r\n");
-//Warning: Tests hang if the following %i code is included in LMM mode
-#ifdef __PROPELLER_CMM__
+//Warning: Tests hang if the following %i code is included in LMM mode, at least if the executable is too large
+//#ifdef __PROPELLER_CMM__
 	printf("Current addressOffset: %i\r\n", addressOffset);
 	printf("Current dataOffset:    %i\r\n", dataOffset);
-#endif
+//#endif
 	printf("---------------------------------------------\r\n");
 }
 	
@@ -39,6 +39,28 @@ void test_SingleByteReadWrite(void){
 	TEST_ASSERT_TRUE(mem.Put(address, data));
 	TEST_ASSERT_EQUAL_HEX8(data, mem.Get(address));
 }
+
+// This test had a single failure on 2013-04-11:
+// eeprom.test.cpp:40:test_SingleByteReadWrite:FAIL: Expected 0xB5 Was 0x00
+// Mode: LMM
+
+// eeprom.test.cpp:40:test_SingleByteReadWrite:FAIL: Expected 0xBD Was 0x13
+// Current addressOffset: 5
+// Current dataOffset:    20
+// Mode: LMM
+
+// PASS
+// Current addressOffset: 53
+// Current dataOffset:    18
+// Mode: LMM
+
+// PASS
+// Current addressOffset: 7
+// Current dataOffset:    27
+// Mode: LMM
+
+
+
 
 
 void test_PageWriteSingleByteRead(void){
