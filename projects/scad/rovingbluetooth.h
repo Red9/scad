@@ -10,10 +10,10 @@ public:
 	Bluetooth(int rxpin, int txpin, int ctspin, int connectpin);
 	
 	
-	void Put(char character);
+	void Put(const char character);
 
-	int Put(char * buffer_ptr, int count);
-	
+	int Put(const char * buffer_ptr, const int count);
+	int Put(const char * buffer_pointer);
 	
 	int Get(int timeout = -1);
 	int Get(char * buffer, int length, int timeout=-1);

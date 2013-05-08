@@ -124,7 +124,7 @@ bool Serial::SetBaudClock(int Rate, int Sysclock)
 //	PutBuffer(string_ptr, strlen(string_ptr));
 //}
 
-void Serial::Put(char char_val)
+void Serial::Put(const char char_val)
 {
   while (write_buf_ptr_){}
   send_temp_ = char_val;
@@ -133,7 +133,7 @@ void Serial::Put(char char_val)
 }
 
 
-int Serial::Put(char * buffer_ptr, int count){
+int Serial::Put(const char * buffer_ptr, const int count){
 	for(int i = 0; i < count; i++){
 		Put(buffer_ptr[i]);
 	}
@@ -142,6 +142,10 @@ int Serial::Put(char * buffer_ptr, int count){
 	return count;
 }
 
+//TODO(SRLM): This function needs unit testing.
+int Serial::Put(const char * buffer_ptr){
+    Put(buffer_ptr, strlen(buffer_ptr));
+}
 
 //
 // The Put(buffer) function doesn't seem to work in CMM mode. In the tests, I 

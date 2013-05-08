@@ -7,8 +7,6 @@
 
 #include "Sensors.h"
 
-extern volatile bool datalogging;
-
 enum LogLevel {
     kAll, kFatal, kError, kWarn, kInfo, kDebug
 };
@@ -18,6 +16,10 @@ Sensors::Sensors() {
     fuel_soc = 0;
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
+
+    automaticRead = false;
+    
+    controlledIntoBuffer = false;
 
     lockID = locknew();
     if (lockID < 0) {
@@ -103,61 +105,72 @@ void Sensors::init() {
     }
 }
 
-
-
-
-
 void Sensors::Server(void) {
     while (!killed) {
-        if (datalogging) {
+        if (automaticRead == true) {
             AutoRead();
         } else {
+            
             ControlledRead();
             waitcnt(CLKFREQ / 100 + CNT); //Sleep for the power savings
         }
     }
 }
 
-void Sensors::ControlledRead(void) {
+void Sensors::ControlledRead() {
     char * gpsString = NULL;
     if (readControl[kAccl]) {
         ReadAccl();
-        PIB::_3x2(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+        }
         readControl[kAccl] = false;
     }
 
     if (readControl[kGyro]) {
         ReadGyro();
-        PIB::_3x2(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+        }
         readControl[kGyro] = false;
     }
 
     if (readControl[kMagn]) {
         ReadMagn();
-        PIB::_3x2(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+        }
         readControl[kMagn] = false;
     }
     if (readControl[kFuel]) {
         ReadFuel();
-        PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
-        readControl[kMagn] = false;
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+        }
+        readControl[kFuel] = false;
     }
     if (readControl[kTime]) {
         ReadDateTime();
-        PIB::_3x2(buffer, 'T', CNT, hour, minute, second);
-        PIB::_3x2(buffer, 'D', CNT, year, month, day);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'T', CNT, hour, minute, second);
+            PIB::_3x2(buffer, 'D', CNT, year, month, day);
+        }
         readControl[kTime] = false;
     }
 
     if (readControl[kBaro] && baro->Touch() == true) {
         ReadBaro();
-        PIB::_2x4(buffer, 'E', CNT, pressure, temperature);
+        if (controlledIntoBuffer) {
+            PIB::_2x4(buffer, 'E', CNT, pressure, temperature);
+        }
         readControl[kBaro] = false;
     }
 
 
     if (readControl[kGPS] && (gpsString = gps->Get()) != NULL) {
-        PIB::_string(buffer, 'P', CNT, gpsString, '\0');
+        if (controlledIntoBuffer) {
+            PIB::_string(buffer, 'P', CNT, gpsString, '\0');
+        }
         readControl[kGPS] = false;
     }
 
@@ -165,19 +178,25 @@ void Sensors::ControlledRead(void) {
 #ifdef EXTERNAL_IMU
     if (readControl[kAccl2]) {
         ReadAccl2();
-        PIB::_3x2(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+        }
         readControl[kAccl2] = false;
     }
 
     if (readControl[kGyro2]) {
         ReadGyro2();
-        PIB::_3x2(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+        }
         readControl[kGyro2] = false;
     }
 
     if (readControl[kMagn2]) {
         ReadMagn2();
-        PIB::_3x2(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+        if (controlledIntoBuffer) {
+            PIB::_3x2(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+        }
         readControl[kMagn2] = false;
     }
 #endif
@@ -214,7 +233,7 @@ void Sensors::AutoRead(void) {
     ReadFuel();
     PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
 
-    while (datalogging) {
+    while (automaticRead == true) {
 
         //Note: each Put into the buffer must have a matching Get! Otherwise, on
         //occasion the get test will misinterpret a data byte as the start of a
@@ -291,9 +310,13 @@ void Sensors::KillServer(void) {
     killed = true;
 }
 
-void Sensors::Update(SensorType type) {
-    readControl[type] = true;
-    while (readControl[type]) {
+void Sensors::Update(SensorType type, bool new_putIntoBuffer) {
+    if (type != kNone) {
+        controlledIntoBuffer = new_putIntoBuffer;
+        
+        readControl[type] = true;
+        while (readControl[type]) {
+        }
     }
 }
 
@@ -374,6 +397,9 @@ void Sensors::ReadMagn2(void) {
 }
 #endif
 
+void Sensors::SetAutomaticRead(bool new_value) {
+    automaticRead = new_value;
+}
 
 
 

@@ -51,7 +51,7 @@ public:
 
     enum SensorType {
         kAccl, kGyro, kMagn, kFuel, kTime, kBaro, kGPS,
-        kAccl2, kGyro2, kMagn2
+        kAccl2, kGyro2, kMagn2, kNone
     };
 
     Sensors();
@@ -84,8 +84,9 @@ public:
     /** Request updated information about a specific sensor type.
      * 
      * @param type The sensor to read.
+     * 
      */
-    void Update(SensorType type);
+    void Update(SensorType type, bool new_putIntoBuffer);
 
 
     /**
@@ -96,7 +97,7 @@ public:
     //void ReturnLock(void);
 
 
-
+    void SetAutomaticRead(bool new_value);
 
 
 private:
@@ -125,10 +126,11 @@ private:
     volatile bool killed;
 
     volatile bool readControl[SensorTypeLength];
-
+    volatile bool automaticRead;
 
     ConcurrentBuffer * buffer;
 
+    volatile bool controlledIntoBuffer;
 
     void AutoRead(void);
     void ControlledRead(void);

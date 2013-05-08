@@ -495,10 +495,28 @@ void test_FloatVariableToInt(void){
 
 // -----------------------------------------------------------------------------
 
+void test_SignedVsUnsignedComparison(void){
+	int sA = 0xFfffFfff;
+	int sB = 0x0fffFfff;
+	
+	TEST_ASSERT_TRUE(sB > sA);
 
+	unsigned int uA = 0xFfffFfff;
+	unsigned int uB = 0x0fffFfff;
+	
+	TEST_ASSERT_TRUE(uA > uB);
+}
 
+void test_UnsignedReverseRolloverSubtraction(void){
+	unsigned int A = 0xF;
+	unsigned int B = 0x10;
+	unsigned int result = A - B;
+	TEST_ASSERT_EQUAL_HEX32(0xFfffFfff, result);
+	
 
+}
 
+// -----------------------------------------------------------------------------
 
 
 

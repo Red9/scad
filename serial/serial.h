@@ -106,10 +106,11 @@ bool SetBaudClock(int rate, int sysclock);
 
 @param character the byte to send.
 */
-void Put(char character);
+void Put(const char character);
 
-int Put(char * buffer_ptr, int count);
+int Put(const char * buffer_ptr, const int count);
 
+int Put(const char * buffer_ptr);
 
 // SRLM: Put(buffer) has a bug in it's implementation. I don't know what it is.
 //int PutBuffer(char * buffer_ptr, const bool wait = false, int buffer_bytes = -1, const char terminator = '\0');

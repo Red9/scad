@@ -37,7 +37,7 @@ INCLUDE = -I${UNITYPATH} -I${GCCUTILITIESPATH} -I${BOARDCONFIGURATIONPATH} -I../
 
 
 
-DEBUGFLAGS = #-Wall -Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
+DEBUGFLAGS = #-fstack-usage #-Wall -Wa,-alh,-L #-save-temps #-ftime-report -fmem-report #-Q
 
 CXX = propeller-elf-g++
 CLD = propeller-elf-ld

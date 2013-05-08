@@ -50,6 +50,7 @@ make clean
 #Generate the Unity test file, if there is a *.test.cpp file.
 test=$( ls *.test.cpp)
 if [ "$test" != "" ]; then
+	ruby /home/clewis/consulting/red9/code/propgcc/gccutilities/generate_test_runner.rb
 	make Unit
 else
 	make

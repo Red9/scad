@@ -29,6 +29,8 @@
 #include "DatalogController.h"
 #include "Sensors.h"
 
+#include "stopwatch.h"
+
 #include "pin.h"
 
 /* Pin definitions */
@@ -48,13 +50,13 @@
 /**
 
 Cog Usage:
-0: Main (inc. datalog controller)
-1: GPS
-2: I2C Getter
-3: SD driver
-4: Serial (USB/Bluetooth)
-5: Controller cog
-6:
+0: Main
+1: GPS driver (ASM)
+2: Sensors Controller cog
+3: SD driver (ASM)
+4: Serial driver (ASM)(USB/Bluetooth)
+5: Datalog Controller cog
+6: 
 7:
  */
 
@@ -84,6 +86,8 @@ Eeprom * eeprom = NULL;
 Sensors * sensors = NULL;
 DatalogController * dc = NULL;
 
+Serial * debug = NULL;
+
 #ifdef BLUETOOTH
 Bluetooth * bluetooth = NULL;
 
@@ -97,8 +101,8 @@ const int kBLUETOOTH_BAUD = 460800;
 /*
 Status Variables
  */
-volatile bool datalogging = false;
 
+bool datalogging = false;
 
 volatile int unitNumber;
 volatile int boardVersion;
@@ -114,7 +118,8 @@ enum LogLevel {
 const char * LogLevelIdentifier[] = {"All:   ", "Fatal: ", "Error: ", "Warn:  ", "Info:  ", "Debug: "};
 
 enum DeviceState {
-    kPowerUp, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown
+    kPowerOn, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown,
+    kPowerOff, kWaiting
 };
 
 volatile DeviceState currentState = kUnknown;
@@ -124,7 +129,7 @@ Scheduler * displayDeviceState = NULL;
 
 void DisplayDeviceStatus(DeviceState state) {
 
-    //Get fuel status in a single place
+    // in a single place, Get fuel status
     const int kFuelSoc = sensors->fuel_soc;
 
     //Make sure that we're keeping track of the last time display has been updated.
@@ -163,7 +168,8 @@ void DisplayDeviceStatus(DeviceState state) {
             //Plus one for the 0 case.
             elum->Flash(Elum::RED, 1000, (kFuelSoc + 1) * 9);
         }
-    } else if (currentState == kPowerUp) {
+    } else if (currentState == kPowerOn
+            || currentState == kWaiting) {
         elum->On(Elum::GREEN);
     } else {
         //If nothing else, then turn off LED.
@@ -229,88 +235,149 @@ void DatalogCogRunner(void * parameter) {
 }
 
 /**
- * 
- * @return True if datalogging successfully occurred, false otherwise.
+Scans the SD card and searches for filenames of the type "red9log#.csv",
+where # is any size number. Actually, it uses the FILENAME and FILEEXT const
+section variables for the filename. It starts scanning at filenumber 0, and
+continues until it doesn't find a file of that number on the SD card. 
+
+@param sd
+@param identifier The unit number to store in the first part of the filename.
+@returns the current file number if successful, or a negative number if
+ * unsuccessful. -1 is returned if all filenames are taken.
  */
-bool DatalogControllerLoop(void) {
-    //Number of the last written file
+int GetSDCannonNumber(SecureDigitalCard * sd, int lastFileNumber, int identifier) {
+    char buffer[12];
+    //    char buff2[4];
+    int currentNumber = (lastFileNumber + 1) % 1000;
+    //canonNumber refers to the last created file, so we need
+    // to move to the next free one. This line is necessary
+    // in case the file using the current canonNumber has been
+    // deleted: we don't want to still create a file with
+    // that number.
+
+
+    while (currentNumber != lastFileNumber) { //Loop until we have looped around.
+
+        buffer[0] = 0;
+
+        //This version is B###F###.EXT
+        strcat(buffer, "B");
+        strcat(buffer, Numbers::Dec(identifier));
+        strcat(buffer, "F");
+        strcat(buffer, Numbers::Dec(currentNumber));
+        strcat(buffer, ".RNB");
+        int result = sd->Open(buffer, 'r');
+        if (result == -1) break;
+
+        currentNumber = (currentNumber + 1) % 1000;
+    }
+
+    sd->Close();
+    if (currentNumber == lastFileNumber) {
+        return -1;
+    }
+
+    return currentNumber;
+}
+
+/** Figures out the best Canon number.
+ * 
+ * @return the best guess canon number.
+ */
+int GetCanonNumber(void) {
     int canonNumber = eeprom->Get(kEepromCanonNumberAddress, 4);
-    sensors->Update(Sensors::kTime);
+
+    SecureDigitalCard sd = SecureDigitalCard();
+    if (sd.Mount(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+            board::kPIN_SD_DI, board::kPIN_SD_CS) < 0) {
+        //error!
+    } else {
+        int newCanonNumber = GetSDCannonNumber(&sd, canonNumber, unitNumber);
+        sd.Unmount();
+        if (newCanonNumber >= 0) {
+            return newCanonNumber;
+        }
+    }
+
+    //Return a default canonNumber...
+    return (canonNumber + 1) % 1000;
+
+}
+
+/** Opens a new file on the SD card.
+ * 
+ * @return false on error, true otherwise
+ */
+bool SetupLogSD(int newCanonNumber) {
+    sensors->Update(Sensors::kTime, false);
     dc->SetClock(sensors->year + 2000, sensors->month, sensors->day,
             sensors->hour, sensors->minute, sensors->second);
-
-    int newCanonNumber = dc->InitSD(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+    if (dc->InitSD(board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS,
-            canonNumber, unitNumber);
-
-
-    if (newCanonNumber >= 0) { //Success!!!
-        eeprom->Put(kEepromCanonNumberAddress, newCanonNumber, 4); //Store canonFilenumber for persistance
-        datalogging = true;
+            newCanonNumber, unitNumber)) {
         dc->SetLogSD(true); //Start recording to SD card.
-
-        //Buffer
-        ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
-        LogRElement(buffer);
-        LogVElement(buffer);
-
-        const int buttonHz = 2 * 10; // 2*10 = 2Hz
-        const int maxButtonCount = (buttonHz / 10) * 3; // buttonHz * number of seconds pressed
-        Scheduler buttonScheduler(buttonHz);
-        int buttonCount = 0;
-
-        while (datalogging) {
-            //From sensors
-            //----------------------------------------------------------------------
-            if (sensors->fuel_voltage < 3500
-                    and sensors->fuel_voltage != sensors->kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
-                LogStatusElement(buffer, kFatal, "Low Voltage");
-
-                datalogging = false;
-            }
-
-            if (dc->GetBufferFree() < ConcurrentBuffer::GetkSize() / 2) {
-                //led->low(); //On
-                LogStatusElement(buffer, kInfo, "SDBuffer free less than 50%!");
-            }
-            //----------------------------------------------------------------------
-            DisplayDeviceStatus(kDatalogging);
-
-            //Check if button has been pressed for some number of seconds.
-            if (buttonScheduler.Run()) {
-                if (elum->GetButton()) {
-                    buttonCount++;
-                    if (buttonCount >= maxButtonCount) {
-                        datalogging = false;
-                    }
-                } else {
-                    buttonCount = 0;
-                }
-            }
-
-        }
-
-        datalogging = false;
-
-        //Cleanup
-        waitcnt(CLKFREQ / 5 + CNT); //Wait 200ms for everything to settle down.	
-
-        dc->SetLogSD(false);
-        free(datalogStack);
-        free(sensorsStack);
-
-        DisplayDeviceStatus(kDone);
-        
-        delete buffer;
         return true;
-    } else { //Could not open file!
-        //TODO(SRLM): put up log message for no SD here.
-        DisplayDeviceStatus(kNoSD);
-        waitcnt(CLKFREQ * 5 + CNT); //Give the user time to see NO SD card status
-
+    } else {
         return false;
     }
+}
+
+bool SetupLogSerial(int newCanonNumber) {
+    dc->SetLogSerial(true);
+    return true;
+}
+
+int SetupLog(bool newLogSD, bool newLogSerial) {
+    int canonNumber = GetCanonNumber();
+    if (newLogSD == true) {
+        if (SetupLogSD(canonNumber) == false) {
+            DisplayDeviceStatus(kNoSD);
+            waitcnt(CLKFREQ * 5 + CNT);
+            return -1;
+        } else {
+            eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
+        }
+    } else {
+        dc->SetLogSD(false);
+    }
+
+    if (newLogSerial == true) {
+        SetupLogSerial(canonNumber);
+        eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
+    } else {
+        dc->SetLogSerial(false);
+    }
+
+    //Do global log setup stuff
+    ConcurrentBuffer * buffer = new ConcurrentBuffer();
+
+    LogRElement(buffer); //TODO(SRLM): make sure that the filename is correctly stored
+    LogVElement(buffer);
+
+    sensors->SetAutomaticRead(true);
+}
+
+int CloseLog() {
+    sensors->SetAutomaticRead(false);
+
+    //Cleanup
+    waitcnt(CLKFREQ / 5 + CNT); //Wait 200ms for everything to settle down.	
+
+    dc->SetLogSD(false);
+    dc->SetLogSerial(false);
+
+}
+
+bool DataloggingInnerLoop(void) {
+    ConcurrentBuffer buffer = ConcurrentBuffer();
+
+
+    if (dc->GetBufferFree() < ConcurrentBuffer::GetkSize() / 2) {
+        //led->low(); //On
+        LogStatusElement(&buffer, kInfo, "SDBuffer free less than 50%!");
+    }
+    //----------------------------------------------------------------------
+
 
 }
 
@@ -321,8 +388,6 @@ void init(void) {
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
     pmic->SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
-
-
 
     //EEPROM
     eeprom = new Eeprom;
@@ -338,7 +403,7 @@ void init(void) {
 
     //Datalog Controller
     dc = new DatalogController();
-    dc->SetLogSerial(true);
+    dc->SetLogSerial(false);
     dc->SetLogSD(false);
     datalogStack = (int *) malloc(stacksize);
     //int datalogCog = 
@@ -354,17 +419,211 @@ void init(void) {
 
     //LEDs and Button
     elum = new Elum(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
-    DisplayDeviceStatus(kPowerUp);
 
+
+    datalogging = false;
+
+}
+
+enum SerialState {
+    ST_WAITING, ST_C, ST_01, ST_02, ST_03, ST_04,
+    ST_COMMAND_D, ST_COMMAND_D0, ST_COMMAND_D1,
+    ST_COMMAND_E,
+    ST_COMMAND_F, ST_COMMAND_P
+
+};
+
+enum SerialState serial_state = ST_WAITING;
+
+//D (datalog) command
+bool logSD = false;
+bool logSerial = false;
+
+//E (element) command
+
+void ParseSerialCommand(void) {
+    int input = bluetooth->Get(0);
+
+    while (input != -1) {
+#ifdef DEBUG_PORT
+        debug->Put("\r\nHex: 0x");
+        debug->Put(Numbers::Hex(input, 8));
+#endif
+        switch (serial_state) {
+            case ST_WAITING:
+                if (input == 'C') {
+                    serial_state = ST_C;
+                }
+                break;
+            case ST_C:
+                if (input == 0) {
+                    serial_state = ST_01;
+                } else if (input == 'C') {
+                    serial_state = ST_C;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+                break;
+            case ST_01:
+                if (input == 0) {
+                    serial_state = ST_02;
+                } else if (input == 'C') {
+                    serial_state = ST_C;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+                break;
+            case ST_02:
+                if (input == 0) {
+                    serial_state = ST_03;
+                } else if (input == 'C') {
+                    serial_state = ST_C;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+                break;
+            case ST_03:
+                if (input == 0) {
+                    serial_state = ST_04;
+                } else if (input == 'C') {
+                    serial_state = ST_C;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+                break;
+            case ST_04:
+                if (input == 'C') {
+                    serial_state = ST_C;
+                } else if (input == 'D') {
+                    serial_state = ST_COMMAND_D;
+                } else if (input == 'E') {
+                    serial_state = ST_COMMAND_E;
+                } else if (input == 'F') {
+                    serial_state = ST_COMMAND_F;
+                } else if (input == 'P') {
+                    serial_state = ST_COMMAND_P;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+
+                break;
+            case ST_COMMAND_D:
+            { //Start/stop datalog
+                //Read the source
+                char source = input;
+                serial_state = ST_COMMAND_D0;
+            }
+                break;
+
+            case ST_COMMAND_D0:
+            {
+                //Read the SD destination
+                //Check to make sure that the command is true or false
+                if (input == 'T' || input == 'F') {
+                    logSD = (input == 'T');
+                    serial_state = ST_COMMAND_D1;
+                } else {
+                    serial_state = ST_WAITING;
+                }
+            }
+                break;
+            case ST_COMMAND_D1:
+            {
+                //Read the serial destination
+                //Check to make sure that the command is true or false
+                if (input == 'T' || input == 'F') {
+                    logSerial = (input == 'T');
+
+                    //Control the logging:
+                    if (logSD == false && logSerial == false) {
+                        //No more logging to do
+                        CloseLog();
+                        datalogging = false;
+                    } else {
+                        //We want to log to somewhere
+                        SetupLog(logSD, logSerial);
+                        datalogging = true;
+                    }
+
+
+                }
+                serial_state = ST_WAITING;
+
+
+            }
+                break;
+
+            case ST_COMMAND_E: //Log element
+                Sensors::SensorType type;
+                switch (input) {
+                    case 'A':
+                        type = Sensors::kAccl;
+                        break;
+                    case 'B':
+                        type = Sensors::kAccl2;
+                        break;
+                    case 'D':
+                        type = Sensors::kTime;
+                        break;
+                    case 'E':
+                        type = Sensors::kBaro;
+                        break;
+                    case 'F':
+                        type = Sensors::kFuel;
+                        break;
+                    case 'G':
+                        type = Sensors::kGyro;
+                        break;
+                    case 'H':
+                        type = Sensors::kGyro2;
+                        break;
+                    case 'M':
+                        type = Sensors::kMagn;
+                        break;
+                    case 'N':
+                        type = Sensors::kMagn2;
+                        break;
+                    case 'P':
+                        type = Sensors::kGPS;
+                        break;
+                    default:
+                        type = Sensors::kNone;
+                        break;
+                }
+
+                if (datalogging == false) {
+                    sensors->Update(type, true);
+                }
+                serial_state = ST_WAITING;
+                break;
+            case ST_COMMAND_F:
+                break;
+            case ST_COMMAND_P:
+                if (input == 'T') {
+                    //Do something to renew the power...
+                    dc->SetLogSerial(true); //We're turned on, so "respond" to serial with this.
+                    pmic->On();
+                } else if (input == 'F') {
+                    CloseLog();
+                    DisplayDeviceStatus(kPowerOff);
+                    pmic->Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
+                }
+                break;
+        }
+        input = bluetooth->Get(0);
+    }
 }
 
 int main(void) {
 
     init();
+    DisplayDeviceStatus(kPowerOn);
 
-    //System State
-    datalogging = false;
-
+#ifdef DEBUG_PORT    
+    debug = new Serial();
+    debug->Start(31, 30, 115200);
+    debug->Put("\r\nSCAD Debug Port: ");
+#endif
     //Buffer
     ConcurrentBuffer * buffer = new ConcurrentBuffer();
 
@@ -377,44 +636,65 @@ int main(void) {
 
     if (pluggedIn) {
         pmic->Off(); //Turn off in case it's unpluged while charging
-        DisplayDeviceStatus(kCharging);
     }
 
-    int ButtonOnTime = 0;
+
+
+    Stopwatch buttonTimer;
+    int lastButtonPressDuration = 0;
 
     while (true) {
 
 
         if (elum->GetButton() == true) {
-            ButtonOnTime++;
-        } else {
-            //Has user "briefly" pressed the power button? That indicates to datalog.
-            if (ButtonOnTime > 50 && ButtonOnTime < 1000) {
-                //"Standard" Datalog here:
-                //Source = Sensors
-                dc->SetLogSD(true);
-                dc->SetLogSerial(false);
-                pmic->On(); //Make sure we don't lose power while datalogging!
-                bool datalogResult = DatalogControllerLoop();
-                break;
+            if (buttonTimer.GetStarted() == false) {
+                buttonTimer.Start();
             }
-            ButtonOnTime = 0;
+
+        } else {
+            lastButtonPressDuration = buttonTimer.GetElapsed();
+            buttonTimer.Reset();
         }
 
-        if (ButtonOnTime > 3000) { //Power off press
+        if (lastButtonPressDuration < 1000
+                && lastButtonPressDuration > 50) {
+            //Has user "briefly" pressed the power button? That indicates to datalog.
+            SetupLog(true, false);
+            datalogging = true;
+            pmic->On(); //Make sure we don't lose power while datalogging!
+        }
+
+        if (datalogging == true) {
+            DisplayDeviceStatus(kDatalogging);
+            DataloggingInnerLoop();
+        } else if (pluggedIn == true) {
+            sensors->Update(Sensors::kFuel, false);
+            DisplayDeviceStatus(kCharging);
+        } else {
+            DisplayDeviceStatus(kWaiting);
+        }
+
+        if (buttonTimer.GetElapsed() > 3000) { //Power off press, even when still holding down.
+            CloseLog();
+            datalogging = false;
             break;
         }
 
-        //Process Serial Commands here
+        //----------------------------------------------------------------------
+        if (sensors->fuel_voltage < 3500
+                and sensors->fuel_voltage != sensors->kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+            LogStatusElement(buffer, kFatal, "Low Voltage");
+            CloseLog();
+            datalogging = false;
+            break;
+        }
 
-        waitcnt(CLKFREQ / 1000 + CNT);
-
-
+        ParseSerialCommand();
 
     }
 
 
-
+    DisplayDeviceStatus(kPowerOff);
 
 
 
@@ -423,7 +703,7 @@ int main(void) {
     //Spin while the button is pressed.
     while (elum->GetButton()) {
     }
-    waitcnt(CLKFREQ / 2 + CNT);
+    waitcnt(CLKFREQ + CNT);
     pmic->Off();
 
 

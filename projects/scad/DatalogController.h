@@ -20,22 +20,13 @@ public:
     DatalogController();
     DatalogController(const DatalogController& orig);
     virtual ~DatalogController();
-    /**
-     * 
-     * @param year
-     * @param month
-     * @param day
-     * @param hour
-     * @param minute
-     * @param second
-     * @return  The file number just opened. Negative number if error.
-     */
-    int InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
+    
+    bool InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
             int kPIN_SD_DI, int kPIN_SD_CS,
             int lastFileNumber, int unitNumber);
     void Server(void);
     void KillServer(void);
-    int OpenFile(int lastFileNumber, int identifier);
+    bool OpenFile(int fileNumber, int identifier);
     
     char * GetCurrentFilename(void);
     int GetBufferFree(void);

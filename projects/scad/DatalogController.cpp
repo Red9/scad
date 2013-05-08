@@ -8,9 +8,6 @@
 #include "DatalogController.h"
 
 
-
-extern volatile bool datalogging;
-//extern Elum * elum;
 extern Bluetooth * bluetooth;
 
 DatalogController::DatalogController() {
@@ -22,7 +19,7 @@ DatalogController::DatalogController() {
 
     currentSerialLogState = false;
     currentSDLogState = false;
-    
+
     sd = new SecureDigitalCard;
 
 }
@@ -36,21 +33,31 @@ DatalogController::~DatalogController() {
     sd = NULL;
 }
 
-int DatalogController::InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
+/**
+ * 
+ * @param kPIN_SD_DO
+ * @param kPIN_SD_CLK
+ * @param kPIN_SD_DI
+ * @param kPIN_SD_CS
+ * @param lastFileNumber
+ * @param unitNumber
+ * @return true on success, false otherwise
+ */
+bool DatalogController::InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
         int kPIN_SD_DI, int kPIN_SD_CS,
         int lastFileNumber, int unitNumber
-    ) {
+        ) {
 
-    
+
 
     int mount = sd->Mount(kPIN_SD_DO, kPIN_SD_CLK,
             kPIN_SD_DI, kPIN_SD_CS);
     if (mount != 0) {
         //		debug->Put("Failed to mount SD card: %i\n\r", mount);
-        return -2;
+        return false;
     } else {
 
-        return DatalogController::OpenFile(lastFileNumber, unitNumber);
+        return DatalogController::OpenFile(lastFileNumber, unitNumber) >= 0;
     }
 
 
@@ -68,10 +75,10 @@ then opens the file for writing, and then this function returns.
 @returns the current file number if successful, or a negative number if
  * unsuccessful. -1 is returned if all filenames are taken.
  */
-int DatalogController::OpenFile(int lastFileNumber, int identifier) {
+bool DatalogController::OpenFile(int fileNumber, int identifier) {
     char buffer[12];
     //    char buff2[4];
-    int currentNumber = (lastFileNumber + 1) % 1000;
+    //int currentNumber = (lastFileNumber + 1) % 1000;
     //canonNumber refers to the last created file, so we need
     // to move to the next free one. This line is necessary
     // in case the file using the current canonNumber has been
@@ -79,52 +86,41 @@ int DatalogController::OpenFile(int lastFileNumber, int identifier) {
     // that number.
 
 
-    while (currentNumber != lastFileNumber) { //Loop until we have looped around.
+    //while (currentNumber != lastFileNumber) { //Loop until we have looped around.
 
-        buffer[0] = 0;
+    buffer[0] = 0;
 
-        //This version is B###F###.EXT
-        strcat(buffer, "B");
-        strcat(buffer, Numbers::Dec(identifier));
-        strcat(buffer, "F");
-        strcat(buffer, Numbers::Dec(currentNumber));
-        strcat(buffer, ".RNB");
-        int result = sd->Open(buffer, 'r');
-        if (result == -1) break;
-
-        currentNumber = (currentNumber + 1) % 1000;
+    //This version is B###F###.EXT
+    strcat(buffer, "B");
+    strcat(buffer, Numbers::Dec(identifier));
+    strcat(buffer, "F");
+    strcat(buffer, Numbers::Dec(fileNumber));
+    strcat(buffer, ".RNB");
+    if(sd->Open(buffer, 'w') < 0){
+        return false;
     }
-
-    if (currentNumber == lastFileNumber) {
-        return -1;
-    }
-    sd->Open(buffer, 'w');
 
     //Log the current filename
     strcpy(currentFilename, buffer);
 
-    return currentNumber;
+    return true;
 }
 
 void DatalogController::SetClock(int year, int month, int day,
-                       int hour, int minute, int second){
-    if(sd != NULL){
+        int hour, int minute, int second) {
+    if (sd != NULL) {
         sd->SetDate(year, month, day, hour, minute, second);
     }
 
 }
 
-
-
-
-
 int DatalogController::LogSequence(ConcurrentBuffer * sdBuffer) {
     volatile char * data;
-    
+
     int data_size = 0;
-    
+
     bufferFree = sdBuffer->GetFree();
-    if(bufferFree != ConcurrentBuffer::GetkSize()-1 ){
+    if (bufferFree != ConcurrentBuffer::GetkSize() - 1) {
         //If true, then some data to read.
 
         data_size = sdBuffer->Get(data);
@@ -136,55 +132,55 @@ int DatalogController::LogSequence(ConcurrentBuffer * sdBuffer) {
             sd->Put((char *) data, data_size);
         }
     }
-    
+
     return data_size;
 }
 
 void DatalogController::Server() {
     //WARNING: Must be called in it's own cog! (it has a cogstop at the end).
 
-    killed = false;//Not killed on start.
-    
-    ConcurrentBuffer *sdBuffer = new ConcurrentBuffer();
-    bufferFree = sdBuffer->GetkSize();
-    
+    killed = false; //Not killed on start.
+
+    ConcurrentBuffer *serverBuffer = new ConcurrentBuffer();
+    bufferFree = serverBuffer->GetkSize();
+
     int bytes_pulled = 0;
-    
+
     while (!killed) {
-        
-        
-        if(nextSDLogState == true){
+
+
+        if (nextSDLogState == true) {
             currentSDLogState = true;
-        }else if(nextSDLogState == false
+        } else if (nextSDLogState == false
                 && currentSDLogState == true
-                && bytes_pulled == 0){
-                //If we were logging but want to stop, and there is nothing left.
-            
-                    currentSDLogState = false;
-                    sd->Close();
-                }
-            
-        
+                && bytes_pulled == 0) {
+            //If we were logging but want to stop, and there is nothing left.
+
+            currentSDLogState = false;
+            sd->Close();
+        }
+
+
         currentSerialLogState = nextSerialLogState;
-        
-        
-        bytes_pulled = LogSequence(sdBuffer);
-        
-        
-        
+
+
+        bytes_pulled = LogSequence(serverBuffer);
+
+
+
     }
 
     waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz
 
     //Finish up remaining bytes in buffer here.
-    while (sdBuffer->GetFree() != sdBuffer->GetkSize() - 1) {
-        LogSequence(sdBuffer);
+    while (serverBuffer->GetFree() != serverBuffer->GetkSize() - 1) {
+        LogSequence(serverBuffer);
     }
 
     waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz	
 
     sd->Close();
-    delete sdBuffer;
+    delete serverBuffer;
 }
 
 char * DatalogController::GetCurrentFilename(void) {
