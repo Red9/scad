@@ -44,6 +44,8 @@ The returned string includes all characters from the GPS except for the \r and
 Partial sentences may be thrown away (if a sentence is not being currently
 recorded).
 
+Ignores the PGTOP type sentence.
+ 
 @returns NULL pointer if no string, null terminated string otherwise
 */
 char * Get();

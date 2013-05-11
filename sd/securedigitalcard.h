@@ -113,6 +113,7 @@ doesn't exist, then a -1 will be returned.
 If the mode is 'a', and the file exists, a ??? will be returned. If the file
 doesn't exist, then a -1 will be returned.
 
+@todo (SRLM): the return code conditions need to be completed.
 
 @param Filename Filename in 8.3 format. The filename will be converted to
                 uppercase.

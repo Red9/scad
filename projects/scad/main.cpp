@@ -5,6 +5,8 @@
 
 #define BLUETOOTH
 
+//#define DEBUG_PORT
+
 
 // ------------------------------------------------------------------------------
 // Includes
@@ -327,6 +329,15 @@ bool SetupLogSerial(int newCanonNumber) {
     return true;
 }
 
+void GlobalLogData(void){
+    //Do global log setup stuff
+    ConcurrentBuffer * buffer = new ConcurrentBuffer();
+
+    LogVElement(buffer);
+    LogRElement(buffer); //TODO(SRLM): make sure that the filename is correctly stored
+    
+}
+
 int SetupLog(bool newLogSD, bool newLogSerial) {
     int canonNumber = GetCanonNumber();
     if (newLogSD == true) {
@@ -348,13 +359,15 @@ int SetupLog(bool newLogSD, bool newLogSerial) {
         dc->SetLogSerial(false);
     }
 
-    //Do global log setup stuff
-    ConcurrentBuffer * buffer = new ConcurrentBuffer();
+    GlobalLogData();
 
-    LogRElement(buffer); //TODO(SRLM): make sure that the filename is correctly stored
-    LogVElement(buffer);
+    //TODO(SRLM): Add in something here to log the scale factors as well.
 
     sensors->SetAutomaticRead(true);
+
+    datalogging = true;
+
+    pmic->On(); //Make sure we don't lose power while datalogging!
 }
 
 int CloseLog() {
@@ -429,7 +442,8 @@ enum SerialState {
     ST_WAITING, ST_C, ST_01, ST_02, ST_03, ST_04,
     ST_COMMAND_D, ST_COMMAND_D0, ST_COMMAND_D1,
     ST_COMMAND_E,
-    ST_COMMAND_F, ST_COMMAND_P
+    ST_COMMAND_F, ST_COMMAND_P,
+    ST_COMMAND_M
 
 };
 
@@ -446,7 +460,9 @@ void ParseSerialCommand(void) {
 
     while (input != -1) {
 #ifdef DEBUG_PORT
-        debug->Put("\r\nHex: 0x");
+        debug->Put("\r\nASCII: ");
+        debug->Put(input);
+        debug->Put(" Hex: 0x");
         debug->Put(Numbers::Hex(input, 8));
 #endif
         switch (serial_state) {
@@ -502,6 +518,8 @@ void ParseSerialCommand(void) {
                     serial_state = ST_COMMAND_F;
                 } else if (input == 'P') {
                     serial_state = ST_COMMAND_P;
+                } else if (input == 'M'){
+                    serial_state = ST_COMMAND_M;
                 } else {
                     serial_state = ST_WAITING;
                 }
@@ -542,7 +560,6 @@ void ParseSerialCommand(void) {
                     } else {
                         //We want to log to somewhere
                         SetupLog(logSD, logSerial);
-                        datalogging = true;
                     }
 
 
@@ -592,6 +609,9 @@ void ParseSerialCommand(void) {
                 }
 
                 if (datalogging == false) {
+#ifdef DEBUG_PORT
+                    debug->Put("\r\nUpdating sensor.");
+#endif
                     sensors->Update(type, true);
                 }
                 serial_state = ST_WAITING;
@@ -600,14 +620,28 @@ void ParseSerialCommand(void) {
                 break;
             case ST_COMMAND_P:
                 if (input == 'T') {
+#ifdef DEBUG_PORT
+                    debug->Put("\r\nPower turned on.");
+#endif
                     //Do something to renew the power...
                     dc->SetLogSerial(true); //We're turned on, so "respond" to serial with this.
                     pmic->On();
                 } else if (input == 'F') {
+#ifdef DEBUG_PORT
+                    debug->Put("\r\nPower turned off.");
+#endif
                     CloseLog();
                     DisplayDeviceStatus(kPowerOff);
                     pmic->Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
                 }
+                serial_state = ST_WAITING;
+                break;
+            case ST_COMMAND_M:
+#ifdef DEBUG_PORT
+                debug->Put("\r\nLogging Master data.");
+#endif
+                GlobalLogData();
+                serial_state = ST_WAITING;
                 break;
         }
         input = bluetooth->Get(0);
@@ -645,7 +679,7 @@ int main(void) {
 
     while (true) {
 
-
+        //Time the button:
         if (elum->GetButton() == true) {
             if (buttonTimer.GetStarted() == false) {
                 buttonTimer.Start();
@@ -656,31 +690,34 @@ int main(void) {
             buttonTimer.Reset();
         }
 
+        // Test: Has user "briefly" pressed the power button? That indicates to datalog.
         if (lastButtonPressDuration < 1000
                 && lastButtonPressDuration > 50) {
-            //Has user "briefly" pressed the power button? That indicates to datalog.
             SetupLog(true, false);
-            datalogging = true;
-            pmic->On(); //Make sure we don't lose power while datalogging!
+
         }
 
-        if (datalogging == true) {
-            DisplayDeviceStatus(kDatalogging);
-            DataloggingInnerLoop();
-        } else if (pluggedIn == true) {
-            sensors->Update(Sensors::kFuel, false);
-            DisplayDeviceStatus(kCharging);
-        } else {
-            DisplayDeviceStatus(kWaiting);
-        }
-
-        if (buttonTimer.GetElapsed() > 3000) { //Power off press, even when still holding down.
+        // Test: Power off press, even when still holding down.
+        if (buttonTimer.GetElapsed() > 3000) {
             CloseLog();
             datalogging = false;
             break;
         }
 
-        //----------------------------------------------------------------------
+        // Test: Datalogging stuff, or wait stuff?
+        if (datalogging == true) {
+            DisplayDeviceStatus(kDatalogging);
+            DataloggingInnerLoop();
+        } else {
+            sensors->Update(Sensors::kFuel, false);
+            if (pluggedIn == true) {
+                DisplayDeviceStatus(kCharging);
+            } else {
+                DisplayDeviceStatus(kWaiting);
+            }
+        }
+
+        // Test: Battery is too low?
         if (sensors->fuel_voltage < 3500
                 and sensors->fuel_voltage != sensors->kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
             LogStatusElement(buffer, kFatal, "Low Voltage");
@@ -689,6 +726,7 @@ int main(void) {
             break;
         }
 
+        // Check for commands
         ParseSerialCommand();
 
     }

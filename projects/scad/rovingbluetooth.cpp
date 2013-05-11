@@ -4,8 +4,9 @@
 Bluetooth::Bluetooth(int rxpin, int txpin, int ctspin, int connectpin)
 	:connection(connectpin){
 	connection.input();
-	//baud = 460800;
-        baud = 115200;
+	baud = 460800;
+        //baud = 230400;
+        //baud = 115200;
 	
 	bool result = serial.Start(rxpin, txpin, baud, ctspin);
 	if(result == false){
