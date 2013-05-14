@@ -462,8 +462,10 @@ void ParseSerialCommand(void) {
 #ifdef DEBUG_PORT
         debug->Put("\r\nASCII: ");
         debug->Put(input);
-        debug->Put(" Hex: 0x");
+        debug->Put("\tHex: 0x");
         debug->Put(Numbers::Hex(input, 8));
+        debug->Put("\tState: ");
+        debug->Put(Numbers::Dec(serial_state));
 #endif
         switch (serial_state) {
             case ST_WAITING:
@@ -617,6 +619,7 @@ void ParseSerialCommand(void) {
                 serial_state = ST_WAITING;
                 break;
             case ST_COMMAND_F:
+                serial_state = ST_WAITING;
                 break;
             case ST_COMMAND_P:
                 if (input == 'T') {
