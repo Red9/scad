@@ -354,7 +354,16 @@ int Serial::Get(char * buffer, char terminator){
 	return i;
 }
 
+int Serial::GetCount(void){
+	int tail = rx_tail_;
+	int head = rx_head_;
+	if(head >= tail){
+		return head-tail;
+	}else{
+		return kBufferLength -tail + head;
+	}
 
+}
 
 int Serial::CheckBuffer(void)
 {

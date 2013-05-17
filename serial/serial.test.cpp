@@ -482,7 +482,38 @@ void test_PutBuffer(void){
 		
 	
 
+// -----------------------------------------------------------------------------
+void test_GetCountEmpty(void){
+	TEST_ASSERT_EQUAL_INT(0, sut.GetCount());
+}
 
+void test_GetCountOne(void){
+	sut.Put(32);
+	waitcnt(CLKFREQ/100 + CNT);
+	TEST_ASSERT_EQUAL_INT(1, sut.GetCount());
+}
+
+void test_GetCountFew(void){
+	for(int i = 0; i < Serial::kBufferLength / 2; i++){
+		sut.Put(i);
+	}
+	waitcnt(CLKFREQ/100 + CNT);
+	TEST_ASSERT_EQUAL_INT(Serial::kBufferLength / 2, sut.GetCount());
+}
+	
+void test_GetCountWrapAround(void){
+	for(int i = 0; i < Serial::kBufferLength - 1; i++){
+		sut.Put(i);
+		sut.Get(i);
+	}
+	
+	sut.Put(32);
+	sut.Put(33);
+	sut.Put(34);
+	
+	waitcnt(CLKFREQ/100 + CNT);
+	TEST_ASSERT_EQUAL_INT(3, sut.GetCount());
+}
 
 
 

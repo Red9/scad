@@ -57,7 +57,8 @@ directly from Hub RAM.
 @warning: Do not change (it's hardcoded elsewhere)
 @todo(SRLM): allow for changing kBufferLength.
 */
-static const int kBufferLength = 256;
+//static const int kBufferLength = 256;
+static const int kBufferLength = 512;
 
 /**
 
@@ -188,6 +189,12 @@ int Get(char * buffer, char terminator='\n');
 /** Flushes receive buffer.
 */
 void GetFlush(void);
+
+
+/** Get the number of bytes in the receive buffer.
+*/
+
+int GetCount(void);
 
 
 private:

@@ -5,7 +5,7 @@
 
 #define BLUETOOTH
 
-//#define DEBUG_PORT
+#define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -644,6 +644,9 @@ void ParseSerialCommand(void) {
                 debug->Put("\r\nLogging Master data.");
 #endif
                 GlobalLogData();
+                serial_state = ST_WAITING;
+                break;
+            default:
                 serial_state = ST_WAITING;
                 break;
         }
