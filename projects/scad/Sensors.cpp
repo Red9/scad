@@ -27,7 +27,7 @@ Sensors::Sensors() {
         //TODO(SRLM): fix that something.
     }
 
-    ConcurrentBuffer * buffer = new ConcurrentBuffer();
+    //ConcurrentBuffer * buffer = new ConcurrentBuffer();
 
     killed = false;
 
@@ -112,7 +112,7 @@ void Sensors::Server(void) {
         } else {
             
             ControlledRead();
-            waitcnt(CLKFREQ / 100 + CNT); //Sleep for the power savings
+            //waitcnt(CLKFREQ / 100 + CNT); //Sleep for the power savings
         }
     }
 }
@@ -310,12 +310,23 @@ void Sensors::KillServer(void) {
     killed = true;
 }
 
+
+
+
 void Sensors::Update(SensorType type, bool new_putIntoBuffer) {
     if (type != kNone) {
         controlledIntoBuffer = new_putIntoBuffer;
         
         readControl[type] = true;
         while (readControl[type]) {
+
+            //Temp to help debug
+            extern Serial * debug;
+            if(new_putIntoBuffer == true){
+                //debug->Put('.');
+            }else{
+                //debug->Put('*');
+            }//*/
         }
     }
 }

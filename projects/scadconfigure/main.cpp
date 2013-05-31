@@ -140,10 +140,10 @@ int GetCanonNumber(int oldNumber){
 	char buffer[13];
 	for(int i = 0;;++i){
 		buffer[i] = debug->Get();
-		debug->PutFormatted(buffer[i]); //echo
+		debug->Put(buffer[i]); //echo
 		if(buffer[i] == '\r'){
 			buffer[i] = 0;
-			debug->PutFormatted('\n');
+			debug->Put('\n');
 			break;
 		}
 	}
@@ -163,9 +163,9 @@ int GetTwoDigits(const char * caption){
 	char num[3];
 	debug->PutFormatted(caption);
 	num[0] = debug->Get();
-	debug->PutFormatted(num[0]);
+	debug->Put(num[0]);
 	num[1] = debug->Get();
-	debug->PutFormatted(num[1]);
+	debug->Put(num[1]);
 	num[2] = 0;
 	return Numbers::Dec(num);
 }

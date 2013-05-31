@@ -43,8 +43,8 @@ Scheduler(int hz);
   * the next time that this function is called. It then returns false for the
   * rest of the current period.
   *   
-  * This function is useful for scheduling reseting watchdog timers, polling
-  * extrenal sensors, and so on.
+  * This function is useful for scheduling reseting watchdog timers,
+  * determining when to poll external sensors, and so on.
   *
   * The function returns true for each time period, so if it is not called for
   * multiple time periods it returns true for each (up to hz times).
@@ -53,16 +53,23 @@ Scheduler(int hz);
   */
 bool Run();
 
+
+static unsigned int GetPeriodTicks(int hz);
+
 private:
 unsigned int readPeriod;
 unsigned int nextReadTime;
+
+
+unsigned int startCNT;
+unsigned int periodTicks;
 
 public:
 /** Sets the next read time to a CNT value.
   * @param time the CNT to set to.
   * @warning For testing only! Do not use this function.
   */
-void SetnextReadTime(unsigned int time);
+//void SetnextReadTime(unsigned int time);
 
 };
 

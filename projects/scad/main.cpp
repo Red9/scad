@@ -5,7 +5,7 @@
 
 #define BLUETOOTH
 
-#define DEBUG_PORT
+//#define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -13,6 +13,8 @@
 // ------------------------------------------------------------------------------
 #include <string.h>
 #include <propeller.h>
+
+#include <stdlib.h>
 
 #include "c++-alloc.h"
 
@@ -88,7 +90,9 @@ Eeprom * eeprom = NULL;
 Sensors * sensors = NULL;
 DatalogController * dc = NULL;
 
+#ifdef DEBUG_PORT
 Serial * debug = NULL;
+#endif
 
 #ifdef BLUETOOTH
 Bluetooth * bluetooth = NULL;
@@ -329,22 +333,23 @@ bool SetupLogSerial(int newCanonNumber) {
     return true;
 }
 
-void GlobalLogData(void){
+void GlobalLogData(void) {
     //Do global log setup stuff
     ConcurrentBuffer * buffer = new ConcurrentBuffer();
 
     LogVElement(buffer);
     LogRElement(buffer); //TODO(SRLM): make sure that the filename is correctly stored
-    
+
 }
 
-int SetupLog(bool newLogSD, bool newLogSerial) {
+void SetupLog(bool newLogSD, bool newLogSerial) {
     int canonNumber = GetCanonNumber();
     if (newLogSD == true) {
         if (SetupLogSD(canonNumber) == false) {
             DisplayDeviceStatus(kNoSD);
             waitcnt(CLKFREQ * 5 + CNT);
-            return -1;
+            //return -1;
+            return;
         } else {
             eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
         }
@@ -368,9 +373,10 @@ int SetupLog(bool newLogSD, bool newLogSerial) {
     datalogging = true;
 
     pmic->On(); //Make sure we don't lose power while datalogging!
+
 }
 
-int CloseLog() {
+void CloseLog() {
     sensors->SetAutomaticRead(false);
 
     //Cleanup
@@ -381,7 +387,7 @@ int CloseLog() {
 
 }
 
-bool DataloggingInnerLoop(void) {
+void DataloggingInnerLoop(void) {
     ConcurrentBuffer buffer = ConcurrentBuffer();
 
 
@@ -456,16 +462,25 @@ bool logSerial = false;
 //E (element) command
 
 void ParseSerialCommand(void) {
+#ifdef DEBUG_PORT
+    debug->Put("\r\nmain::ParseSerialCommand. Buffer backlog: ");
+    //debug->Put("\r\nm:psc: ");
+    debug->Put(Numbers::Dec(bluetooth->GetCount()));
+#endif
+
     int input = bluetooth->Get(0);
 
     while (input != -1) {
 #ifdef DEBUG_PORT
-        debug->Put("\r\nASCII: ");
-        debug->Put(input);
-        debug->Put("\tHex: 0x");
-        debug->Put(Numbers::Hex(input, 8));
-        debug->Put("\tState: ");
-        debug->Put(Numbers::Dec(serial_state));
+        //debug->Put("\r\nASCII: ");
+        //debug->Put(input);
+        //debug->Put("\tHex: 0x");
+        //debug->Put(Numbers::Hex(input, 8));
+        //debug->Put("\tState: ");
+        //debug->Put(Numbers::Dec(serial_state));
+        debug->Put("\r\nmain::ParseSerialCommand::loop. Buffer backlog: ");
+        debug->Put("\r\nm:psc:l: ");
+        debug->Put(Numbers::Dec(bluetooth->GetCount()));
 #endif
         switch (serial_state) {
             case ST_WAITING:
@@ -520,7 +535,7 @@ void ParseSerialCommand(void) {
                     serial_state = ST_COMMAND_F;
                 } else if (input == 'P') {
                     serial_state = ST_COMMAND_P;
-                } else if (input == 'M'){
+                } else if (input == 'M') {
                     serial_state = ST_COMMAND_M;
                 } else {
                     serial_state = ST_WAITING;
@@ -530,7 +545,7 @@ void ParseSerialCommand(void) {
             case ST_COMMAND_D:
             { //Start/stop datalog
                 //Read the source
-                char source = input;
+                //char source = input;
                 serial_state = ST_COMMAND_D0;
             }
                 break;
@@ -612,7 +627,9 @@ void ParseSerialCommand(void) {
 
                 if (datalogging == false) {
 #ifdef DEBUG_PORT
-                    debug->Put("\r\nUpdating sensor.");
+                    //debug->Put("\r\nUpdating sensor.");
+                    //debug->Put("\r\nDatalogController Buffer free: ");
+                    //debug->Put(Numbers::Dec(dc->GetBufferFree()));
 #endif
                     sensors->Update(type, true);
                 }
@@ -624,14 +641,14 @@ void ParseSerialCommand(void) {
             case ST_COMMAND_P:
                 if (input == 'T') {
 #ifdef DEBUG_PORT
-                    debug->Put("\r\nPower turned on.");
+                    //debug->Put("\r\nPower turned on.");
 #endif
                     //Do something to renew the power...
                     dc->SetLogSerial(true); //We're turned on, so "respond" to serial with this.
                     pmic->On();
                 } else if (input == 'F') {
 #ifdef DEBUG_PORT
-                    debug->Put("\r\nPower turned off.");
+                    //debug->Put("\r\nPower turned off.");
 #endif
                     CloseLog();
                     DisplayDeviceStatus(kPowerOff);
@@ -641,7 +658,7 @@ void ParseSerialCommand(void) {
                 break;
             case ST_COMMAND_M:
 #ifdef DEBUG_PORT
-                debug->Put("\r\nLogging Master data.");
+                //debug->Put("\r\nLogging Master data.");
 #endif
                 GlobalLogData();
                 serial_state = ST_WAITING;
@@ -715,6 +732,9 @@ int main(void) {
             DisplayDeviceStatus(kDatalogging);
             DataloggingInnerLoop();
         } else {
+#ifdef DEBUG_PORT
+            //debug->Put("\r\nUpdating kFuel in main!");
+#endif
             sensors->Update(Sensors::kFuel, false);
             if (pluggedIn == true) {
                 DisplayDeviceStatus(kCharging);
@@ -726,6 +746,9 @@ int main(void) {
         // Test: Battery is too low?
         if (sensors->fuel_voltage < 3500
                 and sensors->fuel_voltage != sensors->kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+#ifdef DEBUG_PORT
+            debug->Put("\r\nWarning: Low fuel!!!");
+#endif
             LogStatusElement(buffer, kFatal, "Low Voltage");
             CloseLog();
             datalogging = false;

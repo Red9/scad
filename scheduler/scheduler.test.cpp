@@ -51,8 +51,6 @@ void test_SchedulerLowBoth(void)
 	CNT = 0x0;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0x10);
-	
 	TEST_ASSERT_FALSE(scheduler.Run());
 }
 
@@ -61,28 +59,25 @@ void test_SchedulerLowBothOpposite(void)
 	CNT = 0x10;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0x0);
+	CNT = 0x0FFFFFFF;
 	
 	TEST_ASSERT_TRUE(scheduler.Run());
 }
 
 void test_SchedulerHighBoth(void)
 {
-	CNT = 0xFFFFFFF0;
+	CNT = 0xF0000000;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0xFFFFFFFF);
-	
 	TEST_ASSERT_FALSE(scheduler.Run());
 }
 
 void test_SchedulerHighBothOpposite(void)
 {
-	CNT = 0xFFFFFFFF;
+	CNT = 0xF0000000;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0xFFFFFFF0);
-	
+	CNT = 0xFFFFFFFF;
 	TEST_ASSERT_TRUE(scheduler.Run());
 }
 
@@ -91,28 +86,24 @@ void test_SchedulerRollover(void)
 	CNT = 0xFFFFFFFF;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0x0);
-	
 	TEST_ASSERT_FALSE(scheduler.Run());
 }
 
 void test_SchedulerRolloverOpposite(void)
 {
-	CNT = 0x0;
+	CNT = 0xFFFFFFFF;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0xFFFFFFFF);
-	
+	CNT -= 1;
 	TEST_ASSERT_TRUE(scheduler.Run());
 }
 
 void test_SchedulerMedian(void)
 {
-	CNT = 0x0FFFFFFF;
+//Test across the 0xF0000000 boundry.
 	int hz = 100;
+	CNT = 0xF0000000 - Scheduler::GetPeriodTicks(hz);
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0xF0000000);
-	
 	TEST_ASSERT_FALSE(scheduler.Run());
 }
 
@@ -121,7 +112,7 @@ void test_SchedulerMedianOpposite(void)
 	CNT = 0xF0000000;
 	int hz = 100;
 	Scheduler scheduler(hz);
-	scheduler.SetnextReadTime(0x0FFFFFFF);
+	CNT = 0x0FFFFFFF;
 	
 	TEST_ASSERT_TRUE(scheduler.Run());
 }

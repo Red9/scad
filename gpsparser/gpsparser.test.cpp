@@ -9,6 +9,11 @@
 const int kPIN_USER_1 = 18;
 const int kPIN_USER_2 = 19;
 
+
+//TODO(SRLM): Add test to confirm that it ignores PGTOP strings
+// Example: "$PGTOP,11,2*6E\r\n"
+
+
 /*
 
 All tests requires that pins 18 and 19 be connected by a resistor.
@@ -59,7 +64,7 @@ void test_GetMultipleStringsNoWait(void){
 	const char * line1 =
 		FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
 	const char * line2 =
-		FillBuffer("$PGTOP,11,2*6E\r\n");
+		FillBuffer("$GPRMC,1825035232574374,N*46\r\n");
 		
 	TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(), strlen(line0)-2);
 	TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1)-2);

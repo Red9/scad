@@ -2,14 +2,18 @@
 
 Scheduler::Scheduler(int hz)
 {
+    /*
 	readPeriod = (CLKFREQ*10)/hz;
 	nextReadTime = CNT + readPeriod;
+     */
+    periodTicks = GetPeriodTicks(hz);
+    startCNT = CNT;
 }
 
 bool Scheduler::Run()
 {
 	unsigned int currentCNT = CNT;
-
+        /*
 		//Case CNT = High and nextReadTime = Low
 	if( currentCNT>>31==1 && nextReadTime<CLKFREQ )
 		return false;
@@ -26,10 +30,24 @@ bool Scheduler::Run()
 	}
 	
 	return false;
-
+        */
+        
+        
+        if((currentCNT - startCNT) >= periodTicks){
+            startCNT += periodTicks;
+            return true;
+        }else{
+            return false;
+        }
+            
 }
 
-void Scheduler::SetnextReadTime(unsigned int time)
-{
-	nextReadTime = time;
+unsigned int Scheduler::GetPeriodTicks(int hz){
+	return (CLKFREQ*10)/hz;
 }
+
+//void Scheduler::SetnextReadTime(unsigned int time)
+//{
+//	//nextReadTime = time;
+//	startCNT = time - periodTicks;
+//}

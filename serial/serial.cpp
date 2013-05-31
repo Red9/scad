@@ -144,7 +144,7 @@ int Serial::Put(const char * buffer_ptr, const int count){
 
 //TODO(SRLM): This function needs unit testing.
 int Serial::Put(const char * buffer_ptr){
-    Put(buffer_ptr, strlen(buffer_ptr));
+    return Put(buffer_ptr, strlen(buffer_ptr));
 }
 
 //
@@ -310,11 +310,13 @@ void Serial::GetFlush(void)
 
 int Serial::Get(int timeout)
 {
+    
 	if(timeout <= -1){ //No timeout, wait forever
 		int rxbyte = 0;
 		while ((rxbyte = CheckBuffer()) < 0);
 		return (char)rxbyte;
 	}else{
+            //TODO(SRLM): Is there a bug here? Shouldn't tout, etc. be unsigned?
 		int tout = (CLKFREQ/1000)*timeout;
 		int rxbyte;
 		int totaltime = 0;

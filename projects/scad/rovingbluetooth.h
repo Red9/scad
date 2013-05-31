@@ -10,7 +10,7 @@ public:
 	Bluetooth(int rxpin, int txpin, int ctspin, int connectpin);
 	
 	
-	void Put(const char character);
+	int Put(const char character);
 
 	int Put(const char * buffer_ptr, const int count);
 	int Put(const char * buffer_pointer);
@@ -20,9 +20,12 @@ public:
 	int Get(char * buffer, char terminator='\n');
 	void GetFlush(void);
 
+        int GetCount(void);
+        
 private:
 	int baud;
 	Serial serial;
+        Serial serialTx;
 	Pin connection;
 	
 };

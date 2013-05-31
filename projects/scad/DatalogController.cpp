@@ -142,7 +142,7 @@ void DatalogController::Server() {
     killed = false; //Not killed on start.
 
     ConcurrentBuffer *serverBuffer = new ConcurrentBuffer();
-    bufferFree = serverBuffer->GetkSize();
+    bufferFree = serverBuffer->GetFree();
 
     int bytes_pulled = 0;
 
