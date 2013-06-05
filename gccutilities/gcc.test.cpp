@@ -129,23 +129,20 @@ void test_locksetIsEqualToCTrueFalseConstant(void){
 
 }
 
-void test_dummy(void){
-// To test the lock "true" value
-//	int lock = locknew();
-//	
-//	if(lockset(lock) == false){
-//		printf("Lock was false!\n");
-//	}
-//	if(lockset(lock) == true){
-//		printf("Lock was true!\n");
-//	}
-//	if(lockset(lock) != false){
-//		printf("Lock was not false!\n");
-//	}
-//	printf("lockset 'true' value == 0x%X\n", lockset(lock));
-//	
-//	lockclr(lock);
-//	lockret(lock);
+void test_lockretReturnOrderDoesntMatter(void){
+    int lockA = locknew();
+    int lockB = locknew();
+    
+    // Sanity Check
+    TEST_ASSERT_EQUAL_INT(lockB-1, lockA);
+    
+    lockret(lockA);
+    int lockC = locknew();
+    
+    TEST_ASSERT_EQUAL_INT(lockB-1, lockC);
+    
+    lockret(lockA);
+    lockret(lockC);
 }
 
 // -----------------------------------------------------------------------------

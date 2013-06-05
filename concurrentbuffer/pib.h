@@ -35,7 +35,7 @@ public:
 /** Put 3 numbers 2 bytes wide into the buffer.
 
 @param buffer     The buffer object to add the data to.
-@param identifier A single byte identifer for the element
+@param identifier A single byte identifier for the element
 @param cnt        The element timestamp.
 @param a          Number 0, will be masked to 16 bits.
 @param b          Number 1, will be masked to 16 bits.
@@ -47,7 +47,7 @@ static void _3x2(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 /** Put 3 numbers 4 bytes wide into the buffer.
 
 @param buffer     The buffer object to add the data to.
-@param identifier A single byte identifer for the element
+@param identifier A single byte identifier for the element
 @param cnt        The element timestamp.
 @param a          Number 0
 @param b          Number 1
@@ -60,7 +60,7 @@ static void _3x4(ConcurrentBuffer * buffer, const char identifier,
 /** Put 2 numbers 4 bytes wide into the buffer.
 
 @param buffer     The buffer object to add the data to.
-@param identifier A single byte identifer for the element
+@param identifier A single byte identifier for the element
 @param cnt        The element timestamp.
 @param a          Number 0
 @param b          Number 1
@@ -71,7 +71,7 @@ static void _2x4(ConcurrentBuffer * buffer, const char identifier,
 /** Put a terminator ended string into the buffer.
 
 @param buffer     The buffer object to add the data to.
-@param identifier A single byte identifer for the element
+@param identifier A single byte identifier for the element
 @param cnt        The element timestamp.
 @param string     The data to store.
 @param terminator All the data in @a string is stored up to, but not including,

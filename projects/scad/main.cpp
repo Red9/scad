@@ -695,8 +695,6 @@ int main(void) {
         pmic->Off(); //Turn off in case it's unpluged while charging
     }
 
-
-
     Stopwatch buttonTimer;
     int lastButtonPressDuration = 0;
 

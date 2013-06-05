@@ -142,7 +142,6 @@ void DatalogController::Server() {
     killed = false; //Not killed on start.
 
     ConcurrentBuffer *serverBuffer = new ConcurrentBuffer();
-    bufferFree = serverBuffer->GetFree();
 
     int bytes_pulled = 0;
 
@@ -173,7 +172,7 @@ void DatalogController::Server() {
     waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz
 
     //Finish up remaining bytes in buffer here.
-    while (serverBuffer->GetFree() != serverBuffer->GetkSize() - 1) {
+    while (serverBuffer->GetFree() != serverBuffer->GetkSize()) {
         LogSequence(serverBuffer);
     }
 

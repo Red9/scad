@@ -1,135 +1,134 @@
 #include "concurrentbuffer.h"
 
-const int     ConcurrentBuffer::kSize;
-volatile char ConcurrentBuffer::buffer[kSize];
-volatile int  ConcurrentBuffer::head = 0;
-bool          ConcurrentBuffer::initialized = false;
-int           ConcurrentBuffer::lock;
+const int ConcurrentBuffer::kSize;
+volatile char ConcurrentBuffer::buffer_[kSize];
+volatile int ConcurrentBuffer::head_ = 0;
+bool ConcurrentBuffer::initialized_ = false;
+int ConcurrentBuffer::lock_;
 
-ConcurrentBuffer::ConcurrentBuffer(int new_timeout){
-	tail = 0;
-	
-	//TODO(SRLM): How long is this timeout?
-	timeout = (CLKFREQ/1000000)*new_timeout;
-	
-	if(!initialized){
-		lock = locknew();
-		if(lock != -1){
-			initialized = true;
-		}
-	}
+ConcurrentBuffer::ConcurrentBuffer(int timeout_in_us) {
+    tail_ = 0;
+
+    timeout_ = (CLKFREQ / 1000000) * timeout_in_us;
+
+    if (!initialized_) {
+        lock_ = locknew();
+        if (lock_ != -1) {
+            initialized_ = true;
+        }
+    }
 }
 
-void ConcurrentBuffer::StoreByte(char data)
-{
-	buffer[head++] = data;
-	if(head == kSize){
-		head = 0;
-	}
+void ConcurrentBuffer::StoreByte(char data) {
+    buffer_[head_++] = data;
+    if (head_ == kSize) {
+        head_ = 0;
+    }
 }
 
-bool ConcurrentBuffer::Lockset(){
+bool ConcurrentBuffer::Lockset() {
 
-	unsigned int endCNT = CNT + timeout;
-	while(lockset(lock)){
-		if( (int)(endCNT - CNT) < 0){
-			return false;
-		}
-	}
-	return true;
+    unsigned int end_CNT = CNT + timeout_;
+    while (lockset(lock_)) {
+        if ((int) (end_CNT - CNT) < 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
-void ConcurrentBuffer::Lockclear(){
-	lockclr(lock);
-} 
-
-bool ConcurrentBuffer::Put(char data){
-	if(Lockset() == false){
-		return false;
-	}
-	StoreByte(data);
-	Lockclear();
-	return true;
+void ConcurrentBuffer::Lockclear() {
+    lockclr(lock_);
 }
 
-bool ConcurrentBuffer::Put(const char data[], const int size){
-	if(Lockset() == false){
-		return false;
-	}
-	for(int i = 0; i < size; i++){
-		StoreByte(data[i]);
-	}
-	Lockclear();
-	return true;
+bool ConcurrentBuffer::Put(char data) {
+    if (Lockset() == false) {
+        return false;
+    }
+    StoreByte(data);
+    Lockclear();
+    return true;
 }
 
-bool ConcurrentBuffer::Put(const char data[], const int size, const char * string, char terminator){
-	if(Lockset() == false){
-		return false;
-	}
-	for(int i = 0; i < size; i++){
-		StoreByte(data[i]);
-	}
-	
-	do{
-		StoreByte(*string);
-	}while(*(string++) != terminator);
-	
-	Lockclear();
-	return true;
+bool ConcurrentBuffer::Put(const char data[], const int size) {
+    if (Lockset() == false) {
+        return false;
+    }
+    for (int i = 0; i < size; i++) {
+        StoreByte(data[i]);
+    }
+    Lockclear();
+    return true;
 }
 
-char ConcurrentBuffer::Get(){
-	while(head == tail){}
-	
-	char result = buffer[tail++];
-	if(tail == kSize){
-		tail = 0;
-	}
-	return result;
+bool ConcurrentBuffer::PutWithString(const char data[], const int size, const char * string, char terminator) {
+    if (Lockset() == false) {
+        return false;
+    }
+    for (int i = 0; i < size; i++) {
+        StoreByte(data[i]);
+    }
+
+    do {
+        StoreByte(*string);
+    } while (*(string++) != terminator);
+
+    Lockclear();
+    return true;
 }
 
-int ConcurrentBuffer::Get(volatile char *& bytes){
-	//Read from tail.
+char ConcurrentBuffer::Get() {
+    while (head_ == tail_) {
+    }
 
-	//Case: head == tail
-	if(head == tail){
-		return 0;
-	}
-	
-	const int kHead = head;	
-	int difference = 0;
-	
-	if(kHead > tail){
-		difference = kHead - tail;
-	}
-	if(kHead < tail){
-		difference = kSize - tail;
-	}
-	
-	bytes = & buffer[tail];
-	tail += difference;
-	
-	if(tail == kSize){
-		tail = 0;
-	}
-	
-	return difference;
-	
-	//Case: head < tail (head has wrapped around, but tail hasn't yet.
+    char result = buffer_[tail_++];
+    if (tail_ == kSize) {
+        tail_ = 0;
+    }
+    return result;
 }
 
-void ConcurrentBuffer::ResetHead(){
-	head = 0;
+int ConcurrentBuffer::Get(volatile char *& bytes) {
+    //Read from tail.
+
+    //Case: head == tail
+    if (head_ == tail_) {
+        return 0;
+    }
+
+    const int kHead = head_;
+    int difference = 0;
+
+    if (kHead > tail_) {
+        difference = kHead - tail_;
+    }
+    if (kHead < tail_) {
+        difference = kSize - tail_;
+    }
+
+    bytes = &buffer_[tail_];
+    tail_ += difference;
+
+    if (tail_ == kSize) {
+        tail_ = 0;
+    }
+
+    return difference;
+
+    //Case: head < tail (head has wrapped around, but tail hasn't yet.)
 }
 
-int ConcurrentBuffer::GetFree(){
-	const int kHead = head;
-	if(kHead >= tail){ // no wrap-around
-		return kSize - (kHead - tail)-1;
-	}else{            // wrap-around
-		return tail-kHead-1;
-	}
+void ConcurrentBuffer::ResetHead() {
+    head_ = 0;
+}
+
+int ConcurrentBuffer::GetFree() {
+    const int kHead = head_;
+    if (kHead >= tail_) { // no wrap-around
+        return kSize - (kHead - tail_) - 1;
+    } else { // wrap-around
+        return tail_ - kHead - 1;
+    }
 }
 
 
