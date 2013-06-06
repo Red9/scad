@@ -91,7 +91,7 @@ public:
     static const int kErrorBufNotLongwordAligned = -512;
     
     //Open Errors
-    static const int kErrorFileNotFound = -1;
+    static const int kErrorFileNotFound = -1; //TODO(SRLM): For some reason, if I change the value of this error code then things slow way down. Why???
     static const int kErrorNoEmptyDirectoryEntry = -2;
     static const int kErrorBadArgument = -3;
     static const int kErrorNoWritePermission = -6;

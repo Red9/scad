@@ -1,7 +1,7 @@
 
 #include "securedigitalcard.h"
 
-#define CHECK_SDSPI_ERROR {if(Sdspi.CheckError() != SdSafeSPI::kNoError){ return Sdspi.CheckError(); } };
+#define CHECK_SDSPI_ERROR {if(Sdspi.CheckError() != SdSafeSPI::kNoError){ int temp = Sdspi.CheckError(); Sdspi.ClearError(); return temp;} };
 
 static int Min__(int a, int b) {
     return a < b ? a : b;

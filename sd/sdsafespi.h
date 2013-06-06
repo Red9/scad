@@ -5,16 +5,24 @@
  * C++ conversion by SRLM, based on sdsafespi.spin version 0.3.0 by Jonathan
  * "lonesock" Dummer.
  * 
- * Using multiblock SPI mode exclusively.
+ * This uses multiblock SPI mode exclusively.
  * 
  * This is the "SAFE" version...uses
  * - 1 instruction per bit writes
  * - 2 instructions per bit reads
  * 
+ * @warning You should check the error code after each function call. Something
+ * may have gone wrong, and this is the only way to know! If there is an error,
+ * the safest thing to do would be to destroy the object instance, fix the
+ * error, and try again. For some errors, it may be ok to simply clear the error
+ * and try again.
+ * 
  * Notes:
  * - It appears that negative Spi_command is never used in the assembly code.
  * This looks like an old error possibility that is no longer used. Can we take
  * it out?
+ * 
+ * @todo (SRLM): Convert the SD SPI driver to GAS instead of binary.
  * 
  * @author SRLM (srlm@srlmproductions.com)     
  */
@@ -41,31 +49,30 @@ public:
     static const int kErrorSpiEngineNotRunning = -999;
     static const int kErrorCardBusyTimeout = -1000;
 
+    /** Start a new cog with the SPI driver.
+     * 
+     * @warning requires that the pins be both consecutive, and in the order 
+     * -# DO
+     * -# CLK 
+     * -# DI
+     * -# CS
+     * 
+     * @return The card type constant.
+     */
+    int Start(int basepin);
 
-
-
-
-
-
-    /**requires that the pins be
-  both consecutive, and in the order DO CLK DI CS.
+    /**  Start a new cog with the SPI driver.
      * 
      * @param Do
      * @param Clk
      * @param Di
      * @param Cs
-     * @return card type
+     * @return The card type constant.
      */
-    int Start(int Basepin);
     int Start(int Do, int Clk, int Di, int Cs);
 
-
-    /**
-     * Error codes 
-     *
-     */
-    void ReadBlock(int Block_index, char * Buffer_address);
-    void WriteBlock(int Block_index, char * Buffer_address);
+    void ReadBlock(int block_index, char * buffer_address);
+    void WriteBlock(int block_index, char * buffer_address);
 
 
     /** Release the SPI bus and allow other devices to use it. The SPI bus is
@@ -81,52 +88,57 @@ public:
      */
     void Stop(void);
 
+    /** If there was an error in the SD routines then this function will return
+     * an error code.
+     * 
+     * @return The error code.
+     */
     int CheckError(void);
+
+    /** Resets the error flag to kNoError.
+     */
+    void ClearError(void);
 
 private:
     volatile static unsigned char dat[];
 
-
-    int maskAll;
-    int maskDO;
-    int maskDI;
-    int maskCS;
-    int maskCLK;
+    int mask_all;
+    int mask_do;
+    int mask_di;
+    int mask_cs;
+    int mask_clk;
 
     int error;
-    int Spi_engine_cog;
+    int spi_engine_cog;
 
     // these are used for interfacing with the assembly engine
-    volatile int Spi_command;
-    volatile int Spi_block_index; // which 512-byte block to read/write
-    volatile char * Spi_buffer_address; // Accessed by the GAS cog, and points to a data buffer.
+    volatile int spi_command;
+    volatile int spi_block_index; // which 512-byte block to read/write
+    volatile char * spi_buffer_address; // Accessed by the GAS cog, and points to a data buffer.
 
-    /** In case of Bad Things(TM) happening,
-  exit as gracefully as possible.
+    /** In case of Bad Things(TM) happening, exit as gracefully as possible.
      * 
      * @param Abort_code passed through to return.
-     * @return 
      */
-    void Crash(int Abort_code);
+    void Crash(int abort_code);
 
-    /**
-     *  Send down a command and return the reply.
-  Note: slow is an understatement!
-  Note: this uses the assembly DAT variables for pin IDs,
-  which means that if you run this multiple times (say for
-  multiple SD cards), these values will change for each one.
-  But this is OK as all of these functions will be called
-  during the initialization only, before the PASM engine is
-  running.
-     * @param Cmd
-     * @param Val
-     * @param Crc
-     * @return positive number > 1 OR byte
-     * Passes Error code:
-     *  - kErrorCardBusyTimeout
+    /** Send down a command and return the reply.
+     *  
+     * Note: slow is an understatement!
+     * 
+     * Note(SRLM): The note below may not be relevant in the C++ version.
+     * Note: this uses the assembly DAT variables for pin IDs, which means that 
+     * if you run this multiple times (say for multiple SD cards), these values 
+     * will change for each one. But this is OK as all of these functions will 
+     * be called during the initialization only, before the PASM engine is running.
+     * @param command
+     * @param value
+     * @param crc
+     * @return ?
      */
-    int SendCommandSlow(int Cmd, int Val, int Crc);
-    void SendSlow(int Value, int Bits_to_send);
+    int SendCommandSlow(int command, int value, int crc);
+    
+    void SendSlow(int value, int bits_to_send);
 
 
     /**
@@ -145,6 +157,7 @@ private:
     int ReadSlow(void);
 
 
+    // SRLM: I don't know what these functions do...
     int GetSeconds(void);
     int GetMilliseconds(void);
 

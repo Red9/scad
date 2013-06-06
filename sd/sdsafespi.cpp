@@ -4,7 +4,6 @@
 #define YIELD() __asm__ volatile( "" ::: "memory" )
 #define ERROR_CHECK {if(error != kNoError){return error;}} 
 
-//TODO(SRLM): Convert the SD SPI driver to GAS instead of binary.
 volatile unsigned char SdSafeSPI::dat[] = {
     0x2f, 0xf1, 0xbf, 0xa0, 0x31, 0xf3, 0xbf, 0xa0, 0x2b, 0xed, 0xbf, 0xa0, 0x01, 0x80, 0xfe, 0xa4,
     0xf0, 0x81, 0x3e, 0x08, 0xf1, 0x8b, 0xbe, 0xa0, 0xa4, 0x66, 0xfd, 0x5c, 0xf0, 0x81, 0xbe, 0x08,
@@ -88,54 +87,54 @@ volatile unsigned char SdSafeSPI::dat[] = {
     0x00, 0x00, 0x00, 0x00,
 };
 
-int SdSafeSPI::Start(int Basepin) {
-    return Start(Basepin, (Basepin + 1), (Basepin + 2), (Basepin + 3));
+int SdSafeSPI::Start(int basepin) {
+    return Start(basepin, (basepin + 1), (basepin + 2), (basepin + 3));
 }
 
-void SdSafeSPI::ReadBlock(int Block_index, char * Buffer_address) {
-    if (Spi_engine_cog == 0) {
+void SdSafeSPI::ReadBlock(int block_index, char * buffer_address) {
+    if (spi_engine_cog == 0) {
         Crash(kErrorSpiEngineNotRunning);
         return;
     }
-    if ((int) Buffer_address & 0x3) {
+    if ((int) buffer_address & 0x3) {
         Crash(kErrorBlockNotLongAligned);
         return;
     }
-    Spi_block_index = Block_index;
-    Spi_buffer_address = Buffer_address;
-    Spi_command = 'r';
-    while (Spi_command == 'r') {
+    spi_block_index = block_index;
+    spi_buffer_address = buffer_address;
+    spi_command = 'r';
+    while (spi_command == 'r') {
         YIELD();
     }
-    if (Spi_command < 0) {
-        Crash(Spi_command);
+    if (spi_command < 0) {
+        Crash(spi_command);
     }
 }
 
-void SdSafeSPI::WriteBlock(int Block_index, char * Buffer_address) {
-    if (Spi_engine_cog == 0) {
+void SdSafeSPI::WriteBlock(int block_index, char * buffer_address) {
+    if (spi_engine_cog == 0) {
         Crash(kErrorSpiEngineNotRunning);
         return;
     }
-    if ((int) Buffer_address & 0x3) {
+    if ((int) buffer_address & 0x3) {
         Crash(kErrorBlockNotLongAligned);
         return;
     }
-    Spi_block_index = Block_index;
-    Spi_buffer_address = Buffer_address;
-    Spi_command = 'w';
-    while (Spi_command == 'w') {
+    spi_block_index = block_index;
+    spi_buffer_address = buffer_address;
+    spi_command = 'w';
+    while (spi_command == 'w') {
         YIELD();
     }
     
-    if (Spi_command < 0) {
-        Crash(Spi_command);
+    if (spi_command < 0) {
+        Crash(spi_command);
     }
 }
 
 
 
-int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
+int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
 
     // Do all of the card initialization in C++, then hand off the pin
     // information to the assembly cog for hot SPI block R/W action!
@@ -144,31 +143,31 @@ int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
     Stop();
     waitcnt(500 + CLKFREQ * 4 / 1000 + CNT);
 
-    maskDO = 1 << Do;
-    maskDI = 1 << Di;
-    maskCS = 1 << Cs;
-    maskCLK = 1 << Clk;
-    maskAll = maskCS | (1 << Clk) | maskDI;
+    mask_do = 1 << pin_do;
+    mask_di = 1 << pin_di;
+    mask_cs = 1 << pin_cs;
+    mask_clk = 1 << pin_clk;
+    mask_all = mask_cs | (1 << pin_clk) | mask_di;
 
-    ((int *) & dat[1172])[0] = Do; // pinDo
-    ((int *) & dat[1184])[0] = maskDO; // maskDo
-    ((int *) & dat[1176])[0] = Clk; //pinClk
-    ((int *) & dat[1180])[0] = Di; //pinDI
-    ((int *) & dat[1188])[0] = maskDI; //maskDI
-    ((int *) & dat[1192])[0] = maskCS; //maskCS
+    ((int *) & dat[1172])[0] = pin_do; // pinDo
+    ((int *) & dat[1184])[0] = mask_do; // maskDo
+    ((int *) & dat[1176])[0] = pin_clk; //pinClk
+    ((int *) & dat[1180])[0] = pin_di; //pinDI
+    ((int *) & dat[1188])[0] = mask_di; //maskDI
+    ((int *) & dat[1192])[0] = mask_cs; //maskCS
     ((int *) & dat[1200])[0] = 9; //adrShift //block = 512 * index, and 512 = 1 << 9
 
-    ((int *) & dat[1196])[0] = maskAll; // pass the output pin mask via the command register
-    DIRA |= maskAll;
+    ((int *) & dat[1196])[0] = mask_all; // pass the output pin mask via the command register
+    DIRA |= mask_all;
 
     // get the card in a ready state: set DI and CS high, send => 74 clocks
-    OUTA |= maskAll;
+    OUTA |= mask_all;
     for (int i = 0; i < 4096; i++) {
-        OUTA |= 1 << Clk;
-        OUTA &= ~(1 << Clk);
+        OUTA |= 1 << pin_clk;
+        OUTA &= ~(1 << pin_clk);
     }
 
-    Spi_block_index = CNT; //Time hack
+    spi_block_index = CNT; //Time hack
 
     int TmpA = 0;
     for (int i = 0; i < 10; i++) {
@@ -205,7 +204,7 @@ int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
         return 0;
     }
 
-    int Card_type = 0;
+    int card_type = 0;
     if (SendCommandSlow(Cmd8, 426, 135) == 1) { // Is this a SD type 2 card?
         //  Type2 SD, check to see if it's a SDHC card
 
@@ -230,23 +229,23 @@ int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
 
         //  get back the data
         if (ReadSlow32() & (1 << 30)) { //Check the bit
-            Card_type = kCardTypeSDHC;
+            card_type = kCardTypeSDHC;
             ((int *) & dat[1200])[0] = 0; // adrShift
         } else {
-            Card_type = kCardTypeSD;
+            card_type = kCardTypeSD;
         }
         ERROR_CHECK; // For the previous ReadSlow32
     } else {
         //  Either a type 1 SD card, or it's MMC, try SD 1st
         if (SendCommandSlow(Acmd41, 0, 0xE5) < 2) {
             //  this is a type 1 SD card (1 means busy, 0 means done initializing)
-            Card_type = kCardTypeSD;
+            card_type = kCardTypeSD;
             while (SendCommandSlow(Acmd41, 0, 0xE5)) {
                 YIELD();
             }
         } else {
             // mark that it's MMC, and try to initialize
-            Card_type = kCardTypeMMC;
+            card_type = kCardTypeMMC;
             while (SendCommandSlow(Cmd1, 0, 0xF9)) {
                 YIELD();
             }
@@ -260,14 +259,14 @@ int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
     SendCommandSlow(Cmd59, 0, 0x91);
 
     // done with the SPI bus for now
-    OUTA |= maskCS;
+    OUTA |= mask_cs;
 
     // set my counter modes for super fast SPI operation
 
     // writing: NCO single-ended mode, output on DI
-    ((int *) & dat[1212])[0] = (0b00100 << 26) | (Di << 0);
+    ((int *) & dat[1212])[0] = (0b00100 << 26) | (pin_di << 0);
 
-    ((int *) & dat[1220])[0] = (0b00100 << 26) | (Clk << 0); //  NCO, 50% duty cycle
+    ((int *) & dat[1220])[0] = (0b00100 << 26) | (pin_clk << 0); //  NCO, 50% duty cycle
 
     ((int *) & dat[1216])[0] = CLKFREQ >> (1 + 2 + 3); //  how many bytes (8 clocks, >>3) fit into 1/2 of a second (>>1), 4 clocks per instruction (>>2)?
 
@@ -276,23 +275,23 @@ int SdSafeSPI::Start(int Do, int Clk, int Di, int Cs) {
     ((int *) & dat[1256])[0] = CLKFREQ / (1000 / idle_limit); //  convert to counts
 
     // Hand off control to the assembly engine's cog 
-    ((int *) & dat[1204])[0] = (int) (&Spi_buffer_address);
-    ((int *) & dat[1208])[0] = (int) (&Spi_block_index);
-    Spi_command = 0;
+    ((int *) & dat[1204])[0] = (int) (&spi_buffer_address);
+    ((int *) & dat[1208])[0] = (int) (&spi_block_index);
+    spi_command = 0;
 
-    Spi_engine_cog = (cognew((int) (&(*(int *) & dat[0])), (int) (&Spi_command)) + 1);
+    spi_engine_cog = (cognew((int) (&(*(int *) & dat[0])), (int) (&spi_command)) + 1);
 
-    if (Spi_engine_cog == 0) {
+    if (spi_engine_cog == 0) {
         Crash(kErrorSpiEngineNotRunning);
         return 0;
     }
 
-    while (Spi_command != (-1)) {
+    while (spi_command != (-1)) {
         YIELD();
     }
 
-    DIRA &= ~maskAll;
-    return Card_type;
+    DIRA &= ~mask_all;
+    return card_type;
 }
 
 void SdSafeSPI::ReleaseCard(void) {
@@ -300,9 +299,9 @@ void SdSafeSPI::ReleaseCard(void) {
     // running, as this is called from stop, which
     // is called from start/ [8^)  
 
-    if (Spi_engine_cog) {
-        Spi_command = 'z';
-        while (Spi_command == 'z') {
+    if (spi_engine_cog) {
+        spi_command = 'z';
+        while (spi_command == 'z') {
             YIELD();
         }
     }
@@ -311,24 +310,24 @@ void SdSafeSPI::ReleaseCard(void) {
 
 void SdSafeSPI::Stop(void) {
     ReleaseCard();
-    if (Spi_engine_cog) {
-        cogstop(Spi_engine_cog - 1);
-        Spi_engine_cog = 0;
+    if (spi_engine_cog) {
+        cogstop(spi_engine_cog - 1);
+        spi_engine_cog = 0;
     }
 }
 
-void SdSafeSPI::Crash(int Abort_code) {
+void SdSafeSPI::Crash(int abort_code) {
     // and we no longer need to control any pins from here
-    DIRA &= ~maskAll;
-    error = Abort_code;
+    DIRA &= ~mask_all;
+    error = abort_code;
     //return Abort_code;
 }
 
-int SdSafeSPI::SendCommandSlow(int Cmd, int Val, int Crc) {
+int SdSafeSPI::SendCommandSlow(int command, int value, int crc) {
     // if this is an application specific command, handle it
-    if (Cmd & 0x80) {
+    if (command & 0x80) {
         // ACMD<n> is the command sequence of CMD55-CMD<n>
-        Cmd &= 0x7f;
+        command &= 0x7f;
         int ReplyA = SendCommandSlow(Cmd55, 0, 0x65);
         if (ReplyA > 1) {
             return ReplyA;
@@ -336,16 +335,16 @@ int SdSafeSPI::SendCommandSlow(int Cmd, int Val, int Crc) {
     }
 
     //  the CS line needs to go low during this operation
-    OUTA |= maskCS;
-    OUTA &= ~maskCS;
+    OUTA |= mask_cs;
+    OUTA &= ~mask_cs;
 
     //  give the card a few cocks to finish whatever it was doing
     ReadSlow32();
     ERROR_CHECK;
-    SendSlow(Cmd, 8);
-    SendSlow(Val, 32);
-    SendSlow(Crc, 8);
-    if (Cmd == Cmd12) { // if so, stuff byte
+    SendSlow(command, 8);
+    SendSlow(value, 32);
+    SendSlow(crc, 8);
+    if (command == Cmd12) { // if so, stuff byte
         ReadSlow();
         ERROR_CHECK;
     }
@@ -360,18 +359,18 @@ int SdSafeSPI::SendCommandSlow(int Cmd, int Val, int Crc) {
     return ReplyB;
 }
 
-void SdSafeSPI::SendSlow(int Value, int Bits_to_send) {
-    Value = (__builtin_propeller_rev(Value, 32 - Bits_to_send));
+void SdSafeSPI::SendSlow(int value, int bits_to_send) {
+    value = (__builtin_propeller_rev(value, 32 - bits_to_send));
     
-    for(int i = 0; i < Bits_to_send; i++){
-        OUTA &= ~maskCLK;
-        if(Value & 1){
-            OUTA |= maskDI;
+    for(int i = 0; i < bits_to_send; i++){
+        OUTA &= ~mask_clk;
+        if(value & 1){
+            OUTA |= mask_di;
         }else{
-            OUTA &= ~maskDI;
+            OUTA &= ~mask_di;
         }
-        Value = ((unsigned)Value) >>1;
-        OUTA |= maskCLK;
+        value = ((unsigned)value) >>1;
+        OUTA |= mask_clk;
     }
 }
 
@@ -387,15 +386,15 @@ int SdSafeSPI::ReadSlow32(void) {
 }
 
 int SdSafeSPI::ReadSlow(void) {
-    OUTA |= maskDI; // we need the DI line high so a read can occur
+    OUTA |= mask_di; // we need the DI line high so a read can occur
 
     int R = 0;
     for (int i = 0; i < 8; i++) { // Get 8 bits
-        OUTA &= ~maskCLK;
-        OUTA |= maskCLK;
-        R += R + ((INA & maskDO) ? 1 : 0);
+        OUTA &= ~mask_clk;
+        OUTA |= mask_clk;
+        R += R + ((INA & mask_do) ? 1 : 0);
     }
-    if ((CNT - Spi_block_index) > (CLKFREQ << 2)) {
+    if ((CNT - spi_block_index) > (CLKFREQ << 2)) {
         Crash(kErrorCardBusyTimeout);
         return 0;
     }
@@ -406,31 +405,35 @@ int SdSafeSPI::CheckError(void){
     return error;
 }
 
+void SdSafeSPI::ClearError(void){
+    error = kNoError;
+}
+
 int SdSafeSPI::GetSeconds(void) {
-    if (Spi_engine_cog == 0) {
+    if (spi_engine_cog == 0) {
         Crash(kErrorSpiEngineNotRunning);
         return 0;
     }
-    Spi_command = 't';
+    spi_command = 't';
     //  seconds are in SPI_block_index, remainder is in SPI_buffer_address
-    while (Spi_command == 't') {
+    while (spi_command == 't') {
         YIELD();
     }
-    return Spi_block_index;
+    return spi_block_index;
 }
 
 int SdSafeSPI::GetMilliseconds(void) {
     int Ms = 0;
-    if (Spi_engine_cog == 0) {
+    if (spi_engine_cog == 0) {
         Crash(kErrorSpiEngineNotRunning);
         return 0;
     }
-    Spi_command = 't';
+    spi_command = 't';
     //seconds are in SPI_block_index, remainder is in SPI_buffer_address
-    while (Spi_command == 't') {
+    while (spi_command == 't') {
         YIELD();
     }
-    Ms = (Spi_block_index * 1000);
-    Ms = (Ms + (((int) Spi_buffer_address * 1000) / CLKFREQ));
+    Ms = (spi_block_index * 1000);
+    Ms = (Ms + (((int) spi_buffer_address * 1000) / CLKFREQ));
     return Ms;
 }
