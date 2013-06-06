@@ -3,6 +3,27 @@
 // spin2cpp.linux --main test_nl.spin 
 //
 
+
+/**
+ *
+ *   SPI interface routines for SD & SDHC & MMC cards
+
+  Jonathan "lonesock" Dummer
+  version 0.3.0  2009 July 19
+
+  Using multiblock SPI mode exclusively.
+
+  This is the "SAFE" version...uses
+  * 1 instruction per bit writes
+  * 2 instructions per bit reads
+
+  For the fsrw project:
+  fsrw.sf.net
+ * 
+ * It appears that Spi_command < 0 is never used in the assembly code.
+ * 
+ */
+
 #ifndef safe_spi_Class_Defined__
 #define safe_spi_Class_Defined__
 
@@ -10,55 +31,98 @@
 
 class SdSafeSPI {
 public:
-  static const int Type_mmc = 1;
-  static const int Type_sd = 2;
-  static const int Type_sdhc = 3;
-  static const int Err_card_not_reset = -1;
-  static const int Err_3v3_not_supported = -2;
-  static const int Err_ocr_failed = -3;
-  static const int Err_block_not_long_aligned = -4;
-  static const int Err_asm_no_read_token = 100;
-  static const int Err_asm_block_not_written = 101;
-  static const int Err_spi_engine_not_running = -999;
-  static const int Err_card_busy_timeout = -1000;
-  static const int Cmd0 = 64;
-  static const int Cmd1 = 65;
-  static const int Acmd41 = 233;
-  static const int Cmd8 = 72;
-  static const int Cmd9 = 73;
-  static const int Cmd10 = 74;
-  static const int Cmd12 = 76;
-  static const int Cmd13 = 77;
-  static const int Acmd13 = 205;
-  static const int Cmd16 = 80;
-  static const int Cmd17 = 81;
-  static const int Cmd18 = 82;
-  static const int Cmd23 = 87;
-  static const int Acmd23 = 215;
-  static const int Cmd24 = 88;
-  static const int Cmd25 = 89;
-  static const int Cmd55 = 119;
-  static const int Cmd58 = 122;
-  static const int Cmd59 = 123;
-  volatile static uint8_t dat[];
-  int32_t	Start(int32_t Basepin);
-  int32_t	Readblock(int32_t Block_index, char * Buffer_address);
-  int32_t	Writeblock(int32_t Block_index, char * Buffer_address);
-  int32_t	Get_seconds(void);
-  int32_t	Get_milliseconds(void);
-  int32_t	Start_explicit(int32_t Do, int32_t Clk, int32_t Di, int32_t Cs);
-  int32_t	Release(void);
-  int32_t	Stop(void);
+    static const int Type_mmc = 1;
+    static const int Type_sd = 2;
+    static const int Type_sdhc = 3;
+    
+    static const int kErrorCardNotReset = -1;
+    static const int kError3v3NotSupported = -2;
+    static const int kErrorOcrFailed = -3;
+    static const int kErrorBlockNotLongAligned = -4;
+    
+    // These errors are for the assembly engine...they are negated inside, and need to be <= 511
+    static const int kErrorAsmNoReadToken = 100;
+    static const int kErrorAsmBlockNotWritten = 101;
+    
+    // NOTE: errors -128 to -255 are reserved for reporting R1 response errors
+    
+    static const int kErrorSpiEngineNotRunning = -999;
+    static const int kErrorCardBusyTimeout = -1000;
+    
+    //  SDHC/SD/MMC command set for SPI
+    static const int Cmd0 = 0x40+0; //64;
+    static const int Cmd1 = 0x40+1; //65;
+    static const int Acmd41 = 0xC0+41; //233
+    static const int Cmd8 = 0x40+8; //72;
+    static const int Cmd9 = 0x40+9; // 73;
+    static const int Cmd10 = 0x40+10; //74;
+    static const int Cmd12 = 0x40+12; //76;
+    static const int Cmd13 = 0x40+13; //77;
+    static const int Acmd13 = 0xC0+13; //205;
+    static const int Cmd16 = 0x40+16; //80;
+    static const int Cmd17 = 0x40+17; //81;
+    static const int Cmd18 = 0x40+18;
+    static const int Cmd23 = 0x40+23;
+    static const int Acmd23 = 0xC0+23;
+    static const int Cmd24 = 0x40+24;
+    static const int Cmd25 = 0x40+25;
+    static const int Cmd55 = 0x40+55;
+    static const int Cmd58 = 0x40+58;
+    static const int Cmd59 = 0x40+59;
+    
+    
+    volatile static uint8_t dat[];
+    int32_t Start(int32_t Basepin);
+    int32_t Readblock(int32_t Block_index, char * Buffer_address);
+    int32_t Writeblock(int32_t Block_index, char * Buffer_address);
+    int32_t Get_seconds(void);
+    int32_t Get_milliseconds(void);
+    int32_t Start_explicit(int32_t Do, int32_t Clk, int32_t Di, int32_t Cs);
+    void Release(void);
+    
+    /** kill the assembly driver cog.
+     */
+    void Stop(void);
 private:
-  int32_t	volatile Spi_engine_cog;
-  int32_t	volatile Spi_command;
-  int32_t	volatile Spi_block_index;
-  char *	volatile Spi_buffer_address;
-  int32_t	Crash(int32_t Abort_code);
-  int32_t	Send_cmd_slow(int32_t Cmd, int32_t Val, int32_t Crc);
-  int32_t	Send_slow(int32_t Value, int32_t Bits_to_send);
-  int32_t	Read_32_slow(void);
-  int32_t	Read_slow(void);
+    int Spi_engine_cog;
+    
+    // these are used for interfacing with the assembly engine
+    int volatile Spi_command; 
+    int volatile Spi_block_index; // which 512-byte block to read/write
+    char * volatile Spi_buffer_address; // Accessed by the GAS cog, and points to a data buffer.
+    
+    /** In case of Bad Things(TM) happening,
+  exit as gracefully as possible.
+     * 
+     * @param Abort_code passed through to return.
+     * @return 
+     */
+    int Crash(int Abort_code);
+    
+    /**
+     *  Send down a command and return the reply.
+  Note: slow is an understatement!
+  Note: this uses the assembly DAT variables for pin IDs,
+  which means that if you run this multiple times (say for
+  multiple SD cards), these values will change for each one.
+  But this is OK as all of these functions will be called
+  during the initialization only, before the PASM engine is
+  running.
+     * @param Cmd
+     * @param Val
+     * @param Crc
+     * @return 
+     */
+    int32_t Send_cmd_slow(int32_t Cmd, int32_t Val, int32_t Crc);
+    int32_t Send_slow(int32_t Value, int32_t Bits_to_send);
+    int32_t Read_32_slow(void);
+    int32_t Read_slow(void);
+    
+    int maskAll;
+    int maskDO;
+    int maskDI;
+    int maskCS;
+    
 };
 
 #endif

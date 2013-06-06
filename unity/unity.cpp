@@ -14,7 +14,7 @@
 #define UNITY_SKIP_EXECUTION  { if ((Unity.CurrentTestFailed != 0) || (Unity.CurrentTestIgnored != 0)) {return;} }
 #define UNITY_PRINT_EOL       { UNITY_OUTPUT_CHAR('\n'); }
 
-struct _Unity Unity = { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , { 0 } };
+struct _Unity Unity = { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0, { 0 } };
 
 const char* UnityStrNull     = "NULL";
 const char* UnityStrSpacer   = ". ";
@@ -1096,7 +1096,7 @@ void UnityDefaultTestRun(UnityTestFunction Func, const char* FuncName, const int
     Unity.NumberOfTests++; 
     if (TEST_PROTECT())
     {
-        setUp();
+        setUp();        
         Func();
     }
     if (TEST_PROTECT() && !(Unity.CurrentTestIgnored))
@@ -1114,13 +1114,33 @@ void UnityBegin(void)
     Unity.TestIgnores = 0;
     Unity.CurrentTestFailed = 0;
     Unity.CurrentTestIgnored = 0;
+    Unity.StartCNT = CNT;
 }
 
+
+
 //-----------------------------------------------
+
+void UnityPrintTotalExecutionTime(void){
+    int currentCNT = CNT;
+    
+    int seconds = (currentCNT - Unity.StartCNT) / CLKFREQ;
+    int milliseconds = (currentCNT - Unity.StartCNT - seconds*CLKFREQ) / (CLKFREQ/1000);
+    
+    UnityPrint("Test Suite Total Time ");
+    UnityPrintNumber(seconds);
+    UnityPrint(".");
+    UnityPrintNumber(milliseconds);
+    UnityPrint("s");
+    UNITY_PRINT_EOL;
+}
+
+
 int UnityEnd(void)
 {
     UnityPrint("-----------------------");
     UNITY_PRINT_EOL;
+    UnityPrintTotalExecutionTime();
     UnityPrintNumber(Unity.NumberOfTests);
     UnityPrint(" Tests ");
     UnityPrintNumber(Unity.TestFailures);

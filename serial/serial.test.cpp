@@ -88,7 +88,7 @@ void cog_DoNothing(void * arg){
 }
 
 
-int CountNumberOfFreeCogs(void){
+int help_CountNumberOfFreeCogs(void){
     const int stacksize = sizeof(_thread_state_t) + sizeof(int) * 10;
     int * cog_stack = (int*) malloc(stacksize);
     int cog_id = cogstart(cog_DoNothing, NULL, cog_stack, stacksize);
@@ -96,7 +96,7 @@ int CountNumberOfFreeCogs(void){
     int free_cogs = 0;
     
     if(cog_id != -1){
-        free_cogs = CountNumberOfFreeCogs() + 1;
+        free_cogs = help_CountNumberOfFreeCogs() + 1;
         cogstop(cog_id);
     }
     
@@ -106,22 +106,22 @@ int CountNumberOfFreeCogs(void){
 }
 
 void test_StopStopsCog(void){
-    int beforeCount = CountNumberOfFreeCogs();
+    int beforeCount = help_CountNumberOfFreeCogs();
     sut.Stop();
-    TEST_ASSERT_EQUAL_INT(beforeCount + 1, CountNumberOfFreeCogs());
+    TEST_ASSERT_EQUAL_INT(beforeCount + 1, help_CountNumberOfFreeCogs());
 }
 
 void test_DestructorCallsStop(void){
     sut.Stop();
     
-    int beforeCount = CountNumberOfFreeCogs();
+    int beforeCount = help_CountNumberOfFreeCogs();
     {
         Serial temp;
         temp.Start(rxpin, txpin, baud);
-        TEST_ASSERT_EQUAL_INT(beforeCount - 1, CountNumberOfFreeCogs());
+        TEST_ASSERT_EQUAL_INT(beforeCount - 1, help_CountNumberOfFreeCogs());
     }
     
-    TEST_ASSERT_EQUAL_INT(beforeCount, CountNumberOfFreeCogs());
+    TEST_ASSERT_EQUAL_INT(beforeCount, help_CountNumberOfFreeCogs());
 }
 
 // -----------------------------------------------------------------------------

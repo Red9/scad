@@ -7,6 +7,8 @@
 #ifndef UNITY_INTERNALS_H
 #define UNITY_INTERNALS_H
 
+#include <propeller.h>
+
 #include <stdio.h>
 #include <setjmp.h>
 
@@ -311,6 +313,8 @@ struct _Unity
     UNITY_COUNTER_TYPE TestIgnores;
     UNITY_COUNTER_TYPE CurrentTestFailed;
     UNITY_COUNTER_TYPE CurrentTestIgnored;
+    
+    int StartCNT;
     jmp_buf AbortFrame;
 };
 

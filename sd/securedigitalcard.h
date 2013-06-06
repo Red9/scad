@@ -1,12 +1,3 @@
-//TODO(SRLM): Mount_explicit seems to hang when there is no card in the slot.
-
-//TODO(SRLM): I think the functions with buffer in them should have "volatile"
-//in the function declaration (since the buffer can be modified by PASM).
-
-//TODO(SRLM): I should add a unit test or something for the "no SD card" condition...
-// At this time, it should return -1 (and *not* hang/freeze).
-
-
 /** FAT32 SD card interface.
 
 This class is based on the Spin version of FSRW 2.6 by Rokicki and Lonesock.
@@ -31,350 +22,431 @@ with FAT32 with 32K clusters, use the following command under linux:
 
 Note: the mkdosfs command will format the entire disk, and erase all information
 on it.
+ * 
+ * @warning Untested with multiple instances!!!
 
 @author SRLM (srlm@srlmproductions.com)
-@date 2012-12-12
-@version 1.0
+@date 2013-06-05
+@version 1.1
 
 Version History
-	+ 1.0 Ported from FSRW.
+ *  + 1.1 Cleaned up code, refactored.
+    + 1.0 Ported from FSRW.
 
-
-*/
+ * Possible improvements:
+ * Write a function that gets a string:
+     int   Get(char * Ubuf, char EndOfStringChar);
+ * 
+ * 
+ */
 
 #ifndef SRLM_PROPGCC_SECUREDIGITAL_CARD_H__
 #define SRLM_PROPGCC_SECUREDIGITAL_CARD_H__
+
+#include <propeller.h>
+#include <stdio.h>
 
 #include <stdint.h>
 #include "sdsafespi.h"
 
 class SecureDigitalCard {
 public:
+    ~SecureDigitalCard();
+
+    /**
+    Mounts a volume. Closes any open files (if this is a remount). Requires a cog
+    for the SD SPI driver.
+
+    @param basepin pins must be in the following order, from basepin up:
+    -# Basepin +0: DO
+    -# Basepin +1: CLK
+    -# Basepin +2: DI
+    -# Basepin +3: CS
+
+    @return One of the following values:
+    + 0:    Success.
+    + -1:   card not reset (usually means no card detected)
+    + -2:   3.3v not supported (?)
+    + -3:   OCR failed (?)
+    + -4:   block not long aligned (from @a SdSafeSPI)
+    ...
+    + -20:  not a FAT16 or FAT32 volume
+    + -21:  bad bytes per sector
+    + -22:  bad sectors per cluster
+    + -23:  not two FATs (what does this mean?)
+    + -24:  bad FAT signature
+    ...
+    + -512: Buf and Buf2 not longword aligned (was the class data members modified?)
+    + -999: No card detected
+     */
+    int Mount(int Basepin);
+
+    static const int kErrorNotFatVolume = -20;
+    static const int kErrorBadBytesPerSector = -21;
+    static const int kErrorBadSectorsPerCluster = -22;
+    static const int kErrorNotTwoFats = -23;
+    static const int kErrorBadFatSignature = -24;
+    static const int kErrorBufNotLongwordAligned = -512;
+    
+    
+    /**
+    Mount a volume with explicit pin numbers. Does not require adjacent pins.
 
 
-/**
-Mounts a volume. Closes any open files (if this is a remount). Requires a cog
-for the SD SPI driver.
+    @param DO  The SPI Data Out pin (ouput relative to Propeller).
+    @param CLK The SPI Clock pin.
+    @param DI  The SPI Data In pin (input relative to Propeller).
+    @param CS  The Chip Select pin.
+    @return see @a Mount(int) for return codes
+     */
+    int Mount(int DO, int CLK, int DI, int CS);
 
-@param basepin pins must be in the following order, from basepin up:
--# Basepin +0: DO
--# Basepin +1: CLK
--# Basepin +2: DI
--# Basepin +3: CS
+    /**
+    Closes any open files, and unmounts the SD card. Frees a cog.
+     * @return zero on success, negative error code on failure.
+     */
+    int Unmount(void);
 
-@return One of the following values:
-+ 0:    Success.
-+ -1:   card not reset (usually means no card detected)
-+ -2:   3.3v not supported (?)
-+ -3:   OCR failed (?)
-+ -4:   block not long aligned (from @a SdSafeSPI)
-...
-+ -20:  not a FAT16 or FAT32 volume
-+ -21:  bad bytes per sector
-+ -22:  bad sectors per cluster
-+ -23:  not two FATs (what does this mean?)
-+ -24:  bad FAT signature
-...
-+ -512: Buf and Buf2 not longword aligned (was the class data members modified?)
-+ -999: No card detected
-*/
-int Mount(int Basepin);
+    /**
+    Close any currently open file, and open a new one with the given file name and
+    mode.
+     * 
+     
 
-/**
-Mount a volume with explicit pin numbers. Does not require adjacent pins.
+    If the file did not exist, and the mode was not "w" or "a", -1 will be returned.
+     Otherwise a negative error code will be returned.
 
+    If the file is successfully opened then the current file size in bytes will be
+    returned.
 
-@param DO  The SPI Data Out pin (ouput relative to Propeller).
-@param CLK The SPI Clock pin.
-@param DI  The SPI Data In pin (input relative to Propeller).
-@param CS  The Chip Select pin.
-@return see @a Mount(int) for return codes
-*/
-int Mount(int DO, int CLK, int DI, int CS);
+    If the mode is 'd', and the file exists, a 0 will be returned. If the file
+    doesn't exist, then a -1 will be returned.
 
-/**
-Closes any open files, and unmounts the SD card. Frees a cog.
-*/
-int Unmount(void);
+    If the mode is 'a', and the file exists, a ??? will be returned. If the file
+    doesn't exist, then a -1 will be returned.
 
-/**
-Close any currently open file, and open a new one with the given file name and
-mode.
+     Return error codes include (found below):
+     * + SDSPI error codes
+     * 
 
-If the file did not exist, and the mode was not "w" or "a", -1 will be returned.
- Otherwise a negative error code will be returned.
+    @param Filename Filename in 8.3 format. The filename will be converted to
+                    uppercase. Valid characters include A through Z, digits 0 through 9, space, and '$', '%', '-', '_', '@', '~', '`', '!', '(', ')', '{', '}', '^', '#', '&' and a single '.'. Filenames can be shorter than 8.3. The filename is not correct, and the behavior for invalid filenames is undefined.
+    @param Mode can be
+    + 'r' (read)
+    + 'w' (write)
+    + 'a' (append)
+    + 'd' (delete)
+    @return See discussion above.
 
-If the file is successfully opened then the current file size in bytes will be
-returned.
+     */
+    int Open(const char * Filename, const char Mode);
+    
+    static const int kErrorFileNotFound = -1;
+    static const int kErrorNoEmptyDirectoryEntry = -2;
+    static const int kErrorBadArgument = -3;
+    static const int kErrorNoWritePermission = -6;
+    static const int kErrorEofWhileFollowingChain = -7;
+    static const int kErrorFileNotOpenForWriting = -27;
 
-If the mode is 'd', and the file exists, a 0 will be returned. If the file
-doesn't exist, then a -1 will be returned.
+    /**
+    Flush and close the currently open file if any.  Also reset the pointers to
+    valid values. Also, releases the SD pins to tristate.
 
-If the mode is 'a', and the file exists, a ??? will be returned. If the file
-doesn't exist, then a -1 will be returned.
+    @return If there is no error, 0 will be returned.
+     */
+    int Close(void);
 
-@todo (SRLM): the return code conditions need to be completed.
+    /** Read bytes into the buffer from currently open file.
 
-@param Filename Filename in 8.3 format. The filename will be converted to
-                uppercase.
-@param Mode can be
-+ 'r' (read)
-+ 'w' (write)
-+ 'a' (append)
-+ 'd' (delete)
-@return See discussion above.
+    @todo(SRLM): The return value in this function is pretty useless. You could know
+    that you have reached the end when return != count, but if it returns -1 then
+    you have no way of knowing how many bytes are in the buffer.
 
-*/
-int Open(const char * Filename, const char Mode);
-  
-/**
-Flush and close the currently open file if any.  Also reset the pointers to
-valid values. Also, releases the SD pins to tristate.
+    If you try to read past the end of a file, then the remaining bytes will be put
+    into the buffer, and a -1 will be returned (Note: the number of bytes read is
+    NOT returned in this case).
 
-@return If there is no error, 0 will be returned.
-*/
-int Close(void);
+    @param read_buffer The buffer to store the data. The buffer may be as large as you want.
+    @param bytes_to_read_count The number of bytes to read.
+    @return  Returns the number of bytes successfully read, or a negative number if
+             there is an error. Returns -1 if the end of the file is reached. (Note:
+             the number of bytes read is NOT returned in this case).
 
-/** Read bytes into the buffer from currently open file.
+     */
+    int Get(char * read_buffer, int bytes_to_read_count);
 
-@todo(SRLM): The return value in this function is pretty useless. You could know
-that you have reached the end when return != count, but if it returns -1 then
-you have no way of knowing how many bytes are in the buffer.
+    /** Read and return a single character from the currently open file.
 
-If you try to read past the end of a file, then the remaining bytes will be put
-into the buffer, and a -1 will be returned (Note: the number of bytes read is
-NOT returned in this case).
+    @return -1 if the end of the file is reached. A negative number for an error.
+            Otherwise, returns the character in the lower byte.
+     */
+    int Get(void);
 
-@param Ubuf The buffer to store the data. The buffer may be as large as you want.
-@param Count the number of bytes to read.
-@return  Returns the number of bytes successfully read, or a negative number if
-         there is an error. Returns -1 if the end of the file is reached. (Note:
-         the number of bytes read is NOT returned in this case).
-
-*/
-int Get(char * Ubuf, int Count);
-  
-/** Read and return a single character from the currently open file.
-
-@return -1 if the end of the file is reached. A negative number for an error.
-        Otherwise, returns the character in the lower byte.
-*/
-int Get(void);
-  
-//TODO(SRLM): Write a function that gets a string:
-//  int   Get(char * Ubuf, char EndOfStringChar);
+   
 
 
-/** Write bytes from buffer into the currently open file.
+    /** Write bytes from buffer into the currently open file.
 
-@warning does not check to make sure that a file is actually open...
+    @warning does not check to make sure that a file is actually open...
 
-@param The buffer to pull the data from. The buffer may be as large as you want.
-@param Count the number of bytes to write.
-@return the number of bytes successfully written, or a negative number if there
-        was an error.
-*/
-int Put(const char * Ubuf, int Count);
-  
-/** Write a null-terminated string to the file.
+    @param The buffer to pull the data from. The buffer may be as large as you want.
+    @param Count the number of bytes to write.
+    @return the number of bytes successfully written, or a negative number if there
+            was an error.
+     */
+    int Put(const char * Ubuf, int Count);
 
-@warning does not check to make sure that a file is actually open...
-@param B The null-terminated string to write. No size limitations.
-@return the number of bytes successfully written, or a negative number if there
-        is an error.
-*/
-int Put(const char * B);
+    /** Write a null-terminated string to the file.
 
-/** Write a single character into the file open for write.
+    @warning does not check to make sure that a file is actually open...
+    @param B The null-terminated string to write. No size limitations.
+    @return the number of bytes successfully written, or a negative number if there
+            is an error.
+     */
+    int Put(const char * B);
 
-@warning does not check to make sure that a file is actually open...
-@param    C The character to write.
-@return  0 if successful, a negative number if an error occurred.
-*/
-int Put(const char C);
+    /** Write a single character into the file open for write.
 
-/** Set the current date and time for file creation and last modified.
+    @warning does not check to make sure that a file is actually open...
+    @param    C The character to write.
+    @return  0 if successful, a negative number if an error occurred.
+     */
+    int Put(const char C);
 
-This date and time will remain constant until the next time SetDate() is called.
+    /** Set the current date and time for file creation and last modified.
 
-@warning paramater limits are not checked. Ie, a month of 13 will not generate
-an error.
+    This date and time will remain constant until the next time SetDate() is called.
 
-@param Year   The year   (range 1980 - 2106, all 4 digits!)
-@param Month  The month  (range 1-12)
-@param Day    The day    (range 1-31)
-@param Hour   The hour   (range 0-23)
-@param Minute The minute (range 0-59)
-@param Second The second (range 0-59)
-@return the FAT16 date format (you can safely ignore the return in all cases,
-        unless you want to test the correctness of the function).
-*/
-int SetDate(int Year, int Month, int Day, int Hour, int Minute, int Second);
+    @warning parameter limits are not checked. Ie, a month of 13 will not generate
+    an error.
 
-/** Change the read pointer to a different position in the file.
+    @param Year   The year   (range 1980 - 2106, all 4 digits!)
+    @param Month  The month  (range 1-12)
+    @param Day    The day    (range 1-31)
+    @param Hour   The hour   (range 0-23)
+    @param Minute The minute (range 0-59)
+    @param Second The second (range 0-59)
+    @return the FAT16 date format (you can safely ignore the return in all cases,
+            unless you want to test the correctness of the function).
+     */
+    int SetDate(int Year, int Month, int Day, int Hour, int Minute, int Second);
 
-Seek() works only in 'r' (read) mode.
+    /** Change the read pointer to a different position in the file.
 
-@param position The position to seek to, relative to the beginning of the file.
-@returns 0 on success, a negative number on failure (such as seeking during
-         write)
-*/
-int Seek(int position);
+    Seek() works only in 'r' (read) mode.
 
-/*
-Close the currently open file, and set up the read buffer for
-   calls to nextfile().
-   Returns negative on error (only occurs if there is an error closing the file).
- TODO(SRLM): UNTESTED
-*/
-//  int	Opendir(void);
-  
-/*
-Find the next file in the root directory and extract its
- (8.3) name into fbuf.  Fbuf must be sized to hold at least
- 13 characters (8 + 1 + 3 + 1).  If there is no next file,
- -1 will be returned.  If there is, 0 will be returned.
+    @param position The position to seek to, relative to the beginning of the file. Units?
+    @returns 0 on success, a negative number on failure (such as seeking during
+             write)
+     */
+    int Seek(int position);
+
+    /*
+    Close the currently open file, and set up the read buffer for
+       calls to nextfile().
+       Returns negative on error (only occurs if there is an error closing the file).
+     
+     */
+    int OpenRootDirectory(void);
+
+    /*
+    Find the next file in the root directory and extract its
+     (8.3) name into fbuf.  Fbuf must be sized to hold at least
+     13 characters (8 + 1 + 3 + 1).  If there is no next file,
+     kErrorFileNotFound will be returned.  If there is, 0 will be returned.
  
- TODO(SRLM): UNTESTED
-*/
-//  int	Nextfile(char * Fbuf);
-  
-  
-/** Get the FAT cluster size.
-@returns the size of the cluster, in bytes.
-*/
-int GetClusterSize(void);
-  
-/** Get the current FAT cluster count.
+     If an error occurs a negative number is returned.
+     */
+    int NextFile(char * filename);
+    
+    
 
-@return the cluster count.
-*/
-//What does this mean? I (SRLM) don't know. I also don't know how to test it, so it is not tested.
-int GetClusterCount(void);
-  
+
+    /** Get the FAT cluster size.
+    @returns the size of the cluster, in bytes.
+     */
+    int GetClusterSize(void);
+
+    /** Get the current FAT cluster count.
+
+    @return the cluster count.
+     */
+    //What does this mean? I (SRLM) don't know. I also don't know how to test it, so it is not tested.
+    int GetClusterCount(void);
+
 private:
+    
+    // Note: these filesystem numbers should not be changed!
+    static const int kFileSystemUnknown = 0;
+    static const int kFileSystemFAT16 = 1;
+    static const int kFileSystemFAT32 = 2;
+    
 
-  static const int Sectorsize = 512;
-  static const int Sectorshift = 9;
-  static const int Dirsize = 32;
-  static const int Dirshift = 5;
-  SdSafeSPI Sdspi;
+    static const int Sectorsize = 512;
+    static const int Sectorshift = 9;
+    static const int Dirsize = 32;
+    static const int Dirshift = 5;
+    SdSafeSPI Sdspi;
 
-  int32_t	Fclust;
-  int32_t	Filesize;
-  int32_t	Floc;
-  int32_t	Frem;
-  int32_t	Bufat;
-  int32_t	Bufend;
-  int32_t	Direntry;
-  int32_t	Writelink;
-  int32_t	Fatptr;
-  int32_t	Firstcluster;
-  int32_t	Errno;
-  int32_t	Filesystem;
-  int32_t	Rootdir;
-  int32_t	Rootdirend;
-  int32_t	Dataregion;
-  int32_t	Clustershift;
-  int32_t	Clustersize;
-  int32_t	Fat1;
-  int32_t	Totclusters;
-  int32_t	Sectorsperfat;
-  int32_t	Endofchain;
-  int32_t	Pdate;
-  int32_t	Lastread;
-  int32_t	Dirty;
-  
-/*
-  Buffering:  two sector buffers.  These two buffers must be longword
-  aligned!  To ensure this, make sure they are the first byte variables
-  defined in this object.
-*/
-  uint8_t	volatile Buf[512];
-  uint8_t	volatile Buf2[512];
-  uint8_t	Padname[11];
-  
-/*
-On metadata writes, if we are updating the FAT region, also update
- the second FAT region.
+    int current_cluster_;
+    int total_filesize_;
+    int seek_position_;
+    int remaining_cluster_bytes_;
+    int current_buffer_location_;
+    int bufend; // The last valid character (read) or free position (write)
+    int directory_entry_position_;
+    int cluster_write_offset_;
+    int last_fat_entry_;
+    int first_cluster_of_file_;
+    int error_code_;
+    int filesystem;
+    int rootdir;
+    int rootdirend;
+    int dataregion;
+    int clustershift;
+    int clustersize;
+    int Fat1;
+    int Totclusters;
+    int Sectorsperfat;
+    int Endofchain;
+    int Pdate;
+    int Lastread;
+    int Dirty;
+
+    /*
+      Buffering:  two sector buffers.  These two buffers must be longword
+      aligned!  To ensure this, make sure they are the first byte variables
+      defined in this object.
+     * 
+     * These buffers don't seem to need to be volatile (all unit tests pass
+     * whether they are or not), but for some reason the code seems to run 4%
+     * faster if they are declared volatile. So, here they are.
+     */
+    char Buf[512];
+    char Buf2[512];
+    char Padname[11];
+
+    /*
+    On metadata writes, if we are updating the FAT region, also update
+     the second FAT region.
  
- Returns negative error or 0 for success
-*/
-  int	Writeblock2(int N, char * B);
-  int32_t	Flushifdirty(void);
-  int32_t	Readblockc(int32_t N);
-  
-  
-  
-/*
-Read a byte-reversed word from a (possibly odd) address.
-*/
-  int	Brword(char * b);
-  
-/*
-Read a byte-reversed long from a (possibly odd) address.
-*/
-  int	Brlong(char * b);
+     Returns negative error or 0 for success
+     */
+    int Writeblock2(int N, char * B);
+    
+    /* If the metadata block is dirty, write it out.
+     */
+    int Flushifdirty(void);
+    
+    /* Read a block into the metadata buffer, if that block is not already
+'   there.
+     */
+    int Readblockc(int N);
 
-/*
-Read a cluster entry.
-*/
-  int	Brclust(char * B);
-  
-/*
-Write a byte-reversed word to a (possibly odd) address, and
-  mark the metadata buffer as dirty.
-*/
-  void	Brwword(char * w, int v);
-  
-/*
-Write a byte-reversed long to a (possibly odd) address, and
- mark the metadata buffer as dirty.
-*/
-  void	Brwlong(char * w, int v);
-  
-/*
- Write a cluster entry.
-*/
-  void	Brwclust(char * w, int v);
-  int	Getfstype(void);
-  
-/*
-Read a byte address from the disk through the metadata buffer and
- return a pointer to that location.
-*/
-  char *	Readbytec(int32_t Byteloc);
-  
-/*
-Read a fat location and return a pointer to the location of that
- entry.
-*/
-  char *	Readfat(int32_t Clust);
-  
-/*
-Follow the fat chain and update the writelink.
-*/
-  int32_t	Followchain(void);
-  
-  int32_t	Nextcluster(void);
-  
-/*
-Free an entire cluster chain.  Used by remove and by overwrite.
-  Assumes the pointer has already been cleared/set to end of chain.
-*/
-  int32_t	Freeclusters(int32_t Clust);
 
-/*
-This is just a pass-through function to allow the block layer
- to tristate the I/O pins to the card.
-*/
-  void	Release(void);
-  
-  int32_t	Datablock(void);
-  int32_t	Uc(int32_t C);
-  int32_t	Pflushbuf(int32_t Rcnt, int32_t Metadata);
-  int32_t	Pflush(void);
-  int32_t	Pfillbuf(void);
+
+    /*
+    Read a byte-reversed word from a (possibly odd) address.
+     */
+    int Brword(char * b);
+
+    /*
+    Read a byte-reversed long from a (possibly odd) address.
+     */
+    int Brlong(char * b);
+
+    /*
+    Read a cluster entry.
+     */
+    int Brclust(char * B);
+
+    /*
+    Write a byte-reversed word to a (possibly odd) address, and
+      mark the metadata buffer as dirty.
+     */
+    void Brwword(char * w, int v);
+
+    /*
+    Write a byte-reversed long to a (possibly odd) address, and
+     mark the metadata buffer as dirty.
+     */
+    void Brwlong(char * w, int v);
+
+    /*
+     Write a cluster entry.
+     */
+    void Brwclust(char * w, int v);
+    int Getfstype(void);
+
+    /*
+    Read a byte address from the disk through the metadata buffer and
+     return a pointer to that location.
+     */
+    char * Readbytec(int Byteloc);
+
+    /*
+    Read a fat location and return a pointer to the location of that
+     entry.
+     */
+    char * Readfat(int Clust);
+
+    /*
+    Follow the fat chain and update the writelink.
+     */
+    int Followchain(void);
+    
+    /*
+     Read the next cluster and return it.  Set up writelink to point to the cluster we just read, for later updating.  If the cluster number is bad, return a negative number.
+     */
+
+    int Nextcluster(void);
+
+    /*
+    Free an entire cluster chain.  Used by remove and by overwrite.
+      Assumes the pointer has already been cleared/set to end of chain.
+     */
+    int Freeclusters(int Clust);
+
+    /*
+    This is just a pass-through function to allow the block layer
+     to tristate the I/O pins to the card.
+     */
+    void Release(void);
+
+    /* Calculate the block address of the current data location.
+     */
+    int Datablock(void);
+    
+    /*
+    Compute the upper case version of a character.
+     * */
+    char ConvertToUppercase(char C);
+    
+    
+    /*
+     Flush the current buffer, if we are open for write.  This may
+'   allocate a new cluster if needed.  If metadata is true, the
+'   metadata is written through to disk including any FAT cluster
+'   allocations and also the file size in the directory entry.
+     */
+    int Pflushbuf(int Rcnt, int Metadata);
+    
+    
+    
+    /*
+     * Call flush with the current data buffer location, and the flush
+'   metadata flag set.
+     * 
+     */
+    int Pflush(void);
+    /*
+    Get some data into an empty buffer.  If no more data is available,
+'   return -1.  Otherwise return the number of bytes read into the
+'   buffer.
+     * */
+    int Pfillbuf(void);
+    
+    
 };
 
 #endif // SRLM_PROPGCC_SECUREDIGITAL_CARD_H__
