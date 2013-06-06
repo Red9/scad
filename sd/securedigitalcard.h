@@ -77,16 +77,39 @@ public:
     + -24:  bad FAT signature
     ...
     + -512: Buf and Buf2 not longword aligned (was the class data members modified?)
-    + -999: No card detected
      */
     int Mount(int Basepin);
 
+    static const int kNoError = SdSafeSPI::kNoError;
+    
+    // Mount Errors
     static const int kErrorNotFatVolume = -20;
     static const int kErrorBadBytesPerSector = -21;
     static const int kErrorBadSectorsPerCluster = -22;
     static const int kErrorNotTwoFats = -23;
     static const int kErrorBadFatSignature = -24;
     static const int kErrorBufNotLongwordAligned = -512;
+    
+    //Open Errors
+    static const int kErrorFileNotFound = -1;
+    static const int kErrorNoEmptyDirectoryEntry = -2;
+    static const int kErrorBadArgument = -3;
+    static const int kErrorNoWritePermission = -6;
+    static const int kErrorEofWhileFollowingChain = -7;
+    static const int kErrorFileNotOpenForWriting = -27;
+    
+   
+    // SdSafeSPI Errors
+    static const int kErrorCardNotReset = SdSafeSPI::kErrorCardNotReset;
+    static const int kError3v3NotSupported = SdSafeSPI::kError3v3NotSupported;
+    static const int kErrorOcrFailed = SdSafeSPI::kErrorOcrFailed;
+    static const int kErrorBlockNotLongAligned = SdSafeSPI::kErrorBlockNotLongAligned;
+    // These errors are negated since the are thrown as negative in ASM section.
+    static const int kErrorAsmNoReadToken = -SdSafeSPI::kErrorAsmNoReadToken;
+    static const int kErrorAsmBlockNotWritten = -SdSafeSPI::kErrorAsmBlockNotWritten;
+    // NOTE: errors -128 to -255 are reserved for reporting R1 response errors (SRLM ???)
+    static const int kErrorSpiEngineNotRunning = SdSafeSPI::kErrorSpiEngineNotRunning;
+    static const int kErrorCardBusyTimeout = SdSafeSPI::kErrorCardBusyTimeout;
     
     
     /**
@@ -141,18 +164,11 @@ public:
      */
     int Open(const char * Filename, const char Mode);
     
-    static const int kErrorFileNotFound = -1;
-    static const int kErrorNoEmptyDirectoryEntry = -2;
-    static const int kErrorBadArgument = -3;
-    static const int kErrorNoWritePermission = -6;
-    static const int kErrorEofWhileFollowingChain = -7;
-    static const int kErrorFileNotOpenForWriting = -27;
 
-    /**
-    Flush and close the currently open file if any.  Also reset the pointers to
-    valid values. Also, releases the SD pins to tristate.
 
-    @return If there is no error, 0 will be returned.
+    /** Flush and close the currently open file if any.  Also reset the pointers to valid values. Also, releases the SD pins to tristate.
+     * 
+     * @return If there is no error, 0 will be returned.
      */
     int Close(void);
 

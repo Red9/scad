@@ -48,25 +48,24 @@ int help_DeleteAllFiles(void) {
     return count;
 }
 
-void cog_DoNothing(void * arg){
-    waitcnt(CLKFREQ*50 + CNT);
+void cog_DoNothing(void * arg) {
+    waitcnt(CLKFREQ * 50 + CNT);
 }
 
-
-int help_CountNumberOfFreeCogs(void){
-    const int stacksize = sizeof(_thread_state_t) + sizeof(int) * 10;
+int help_CountNumberOfFreeCogs(void) {
+    const int stacksize = sizeof (_thread_state_t) + sizeof (int) * 10;
     int * cog_stack = (int*) malloc(stacksize);
     int cog_id = cogstart(cog_DoNothing, NULL, cog_stack, stacksize);
-    
+
     int free_cogs = 0;
-    
-    if(cog_id != -1){
+
+    if (cog_id != -1) {
         free_cogs = help_CountNumberOfFreeCogs() + 1;
         cogstop(cog_id);
     }
-    
+
     free(cog_stack);
-    
+
     return free_cogs;
 }
 
@@ -98,17 +97,17 @@ void test_MultipleUnmounts(void) {
     TEST_ASSERT_EQUAL_INT(0, sut.Unmount());
 }
 
-void test_MountNoSd(void){
-    TEST_ASSERT_EQUAL_INT(-999, sut.Mount(kDoPinNoSd, kClkPinNoSd, kDiPinNoSd, kCsPinNoSd));
+void test_MountNoSd(void) {
+    TEST_ASSERT_EQUAL_INT(SecureDigitalCard::kErrorCardNotReset, sut.Mount(kDoPinNoSd, kClkPinNoSd, kDiPinNoSd, kCsPinNoSd));
 }
 
-void test_UnmountFreesCog(void){
+void test_UnmountFreesCog(void) {
     int cogsFreeBefore = help_CountNumberOfFreeCogs();
     sut.Unmount();
-    TEST_ASSERT_EQUAL_INT(cogsFreeBefore+1, help_CountNumberOfFreeCogs());
+    TEST_ASSERT_EQUAL_INT(cogsFreeBefore + 1, help_CountNumberOfFreeCogs());
 }
 
-void test_DestructorFreesCog(void){
+void test_DestructorFreesCog(void) {
     sut.Unmount();
     int cogsFreeBefore = help_CountNumberOfFreeCogs();
     {
@@ -150,10 +149,9 @@ void test_CloseFileTwice(void) {
     TEST_ASSERT_EQUAL_INT(0, sut.Close());
 }
 
-
-void help_TestFilename(const char * filename){
+void help_TestFilename(const char * filename) {
     char letter = CNT & 0x7F; //Semi random noise...
-    
+
     sut.Open(filename, 'w');
     sut.Put(letter);
     sut.Open(filename, 'r');
@@ -161,25 +159,24 @@ void help_TestFilename(const char * filename){
     TEST_ASSERT_EQUAL_INT(-1, sut.Get());
 }
 
-
-void test_OpenSpecialCharacterFilenames(void){
+void test_OpenSpecialCharacterFilenames(void) {
     help_TestFilename("$%-_@~`!.(){");
     help_TestFilename("}^#& ");
 }
 
-void test_OpenFilenameWithExtensionOnly(void){
+void test_OpenFilenameWithExtensionOnly(void) {
     help_TestFilename(".WAT");
 }
 
-void test_OpenFilenameWithoutExtension(void){
+void test_OpenFilenameWithoutExtension(void) {
     help_TestFilename("Hello");
 }
 
-void test_OpenShorterFilenameThan8dot3(void){
+void test_OpenShorterFilenameThan8dot3(void) {
     help_TestFilename("a.a");
 }
 
-void test_OpenEmptyFilename(void){
+void test_OpenEmptyFilename(void) {
     help_TestFilename("");
 }
 
@@ -292,25 +289,25 @@ void test_GetBufferPastEndOfFile(void) {
     TEST_ASSERT_EQUAL_STRING("World", buffer);
 }
 
-void test_WriteLargeFile(void){
+void test_WriteLargeFile(void) {
     sut.Open("RANDOM.RND", 'w');
-    
+
     const int kAlphabetCount = 2048;
-    
-    for(int i = 0; i < kAlphabetCount; i++){
-        for(int letter = 'a'; letter <= 'z'; letter++){
+
+    for (int i = 0; i < kAlphabetCount; i++) {
+        for (int letter = 'a'; letter <= 'z'; letter++) {
             TEST_ASSERT_EQUAL_INT(0, sut.Put(letter));
         }
     }
-    
+
     sut.Open("RANDOM.RND", 'r');
-    for(int i = 0; i < kAlphabetCount; i++){
-        for(int letter = 'a'; letter <= 'z'; letter++){
+    for (int i = 0; i < kAlphabetCount; i++) {
+        for (int letter = 'a'; letter <= 'z'; letter++) {
             TEST_ASSERT_EQUAL_INT(letter, sut.Get());
         }
     }
-    
-    TEST_ASSERT_EQUAL_INT(-1, sut.Get());    
+
+    TEST_ASSERT_EQUAL_INT(-1, sut.Get());
 }
 
 
@@ -450,10 +447,8 @@ void test_getNextFileFindsAllFiles(void) {
 
 }
 
-
-
 void test_getNextFileFindsCorrectFiles(void) {
-    
+
 
     const int FILECOUNT = 3;
 

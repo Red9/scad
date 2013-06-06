@@ -1,6 +1,8 @@
 
 #include "securedigitalcard.h"
 
+#define CHECK_SDSPI_ERROR {if(Sdspi.CheckError() != SdSafeSPI::kNoError){ return Sdspi.CheckError(); } };
+
 static int Min__(int a, int b) {
     return a < b ? a : b;
 }
@@ -14,7 +16,7 @@ SecureDigitalCard::~SecureDigitalCard(void){
 }
 
 void SecureDigitalCard::Release(void) {
-    Sdspi.Release();
+    Sdspi.ReleaseCard();
 }
 
 /**
@@ -24,16 +26,14 @@ void SecureDigitalCard::Release(void) {
  *  - 0
  */
 int SecureDigitalCard::Writeblock2(int N, char * B) {
-    error_code_ = Sdspi.Writeblock(N, B);
+    Sdspi.WriteBlock(N, B);
     if (error_code_ < 0) {
         return error_code_;
     }
     if (N >= Fat1) {
         if (N < (Fat1 + Sectorsperfat)) {
-            error_code_ = Sdspi.Writeblock((N + Sectorsperfat), B);
-            if (error_code_ < 0) {
-                return error_code_;
-            }
+            Sdspi.WriteBlock((N + Sectorsperfat), B);
+            CHECK_SDSPI_ERROR;
         }
     }
     return 0;
@@ -61,10 +61,8 @@ int SecureDigitalCard::Readblockc(int N) {
         if (error_code_ < 0) {
             return error_code_;
         }
-        error_code_ = Sdspi.Readblock(N, (char *) (&Buf2));
-        if (error_code_ < 0) {
-            return error_code_;
-        }
+        Sdspi.ReadBlock(N, (char *) (&Buf2));
+        CHECK_SDSPI_ERROR;
         Lastread = N;
     }
     return 0;
@@ -147,21 +145,21 @@ int SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
     if (error_code_ < 0) {
         return error_code_;
     }
-    Sdspi.Start_explicit(Do, Clk, Di, Cs);
+    Sdspi.Start(Do, Clk, Di, Cs);
+    if(Sdspi.CheckError() != SdSafeSPI::kNoError){
+        return Sdspi.CheckError();
+    }
     Lastread = (-1);
     Dirty = 0;
-    error_code_ = Sdspi.Readblock(0, (char *) (&Buf));
-    if (error_code_ < 0) {
-        return error_code_;
-    }
+    Sdspi.ReadBlock(0, (char *) (&Buf));
+    CHECK_SDSPI_ERROR;
+    
     if (Getfstype() != kFileSystemUnknown) {
         Start = 0;
     } else {
         Start = Brlong(((char *) (&Buf) + 454));
-        error_code_ = Sdspi.Readblock(Start, (char *) (&Buf));
-        if (error_code_ < 0) {
-            return error_code_;
-        }
+        Sdspi.ReadBlock(Start, (char *) (&Buf));
+        CHECK_SDSPI_ERROR;
     }
     filesystem = Getfstype();
     if (filesystem == kFileSystemUnknown) {
@@ -349,10 +347,9 @@ int SecureDigitalCard::Pflushbuf(int Rcnt, int Metadata) {
             }
         }
         if (remaining_cluster_bytes_ >= Sectorsize) {
-            error_code_ = Sdspi.Writeblock(Datablock(), (char *) (&Buf));
-            if (error_code_ < 0) {
-                return error_code_;
-            }
+            Sdspi.WriteBlock(Datablock(), (char *) (&Buf));
+            CHECK_SDSPI_ERROR;
+            
             if (Rcnt == Sectorsize) { // full buffer, clear it
                 seek_position_ = (seek_position_ + Rcnt);
                 remaining_cluster_bytes_ = (remaining_cluster_bytes_ - Rcnt);
@@ -394,10 +391,9 @@ int SecureDigitalCard::Pfillbuf(void) {
         }
         remaining_cluster_bytes_ = (Min__(clustersize, (total_filesize_ - seek_position_)));
     }
-    error_code_ = Sdspi.Readblock(Datablock(), (char *) (&Buf));
-    if (error_code_ < 0) {
-        return error_code_;
-    }
+    Sdspi.ReadBlock(Datablock(), (char *) (&Buf));
+    CHECK_SDSPI_ERROR;
+    
     int R = Sectorsize;
     if ((seek_position_ + R) >= total_filesize_) {
         R = (total_filesize_ - seek_position_);
@@ -426,7 +422,7 @@ int SecureDigitalCard::Close(void) {
     directory_entry_position_ = 0;
     current_cluster_ = 0;
     first_cluster_of_file_ = 0;
-    Sdspi.Release();
+    Sdspi.ReleaseCard();
     return R;
 }
 
@@ -568,10 +564,9 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                         cluster_write_offset_ = 0;
                         directory_entry_position_ = Dirptr;
                         if (current_buffer_location_) {
-                            error_code_ = Sdspi.Readblock(Datablock(), (char *) (&Buf));
-                            if (error_code_ < 0) {
-                                return error_code_;
-                            }
+                            Sdspi.ReadBlock(Datablock(), (char *) (&Buf));
+                            CHECK_SDSPI_ERROR;
+                            
                             remaining_cluster_bytes_ = (Freeentry - (seek_position_ & (Freeentry - 1)));
                         } else {
                             if ((current_cluster_ < 2) || (remaining_cluster_bytes_ == Freeentry)) {
