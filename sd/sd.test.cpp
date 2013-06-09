@@ -38,7 +38,7 @@ int help_DeleteAllFiles(void) {
 
         char filename [13];
         sut.OpenRootDirectory();
-        if (sut.NextFile(filename) == -1) {
+        if (sut.NextFile(filename) != true) {
             break;
         }
         sut.Open(filename, 'd');
@@ -127,31 +127,46 @@ void test_DestructorFreesCog(void) {
 // File operations (open, close, etc.)
 // -----------------------------------------------------------------------------
 
-void test_OpenNonexistentFileForRead(void) {
-    TEST_ASSERT_EQUAL_INT(-1, sut.Open("RANDOM.RND", 'r'));
+void test_OpenExistingFileForWrite(void){
+    sut.Open("RANDOM.RND", 'w');
+    sut.Put('a');
+    sut.Open("RANDOM.RND", 'w');
+    sut.Put('b');
+    sut.Open("RANDOM.RND", 'r');
+    TEST_ASSERT_EQUAL_INT('b', sut.Get());
+    
 }
 
-void test_OpenNonexistentFileForWriteThenDeleteFile(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'w'));
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'd')); //Cleanup
+void test_OpenNonexistentFileForRead(void) {
+    sut.Open("RANDOM.RND", 'r');
+    TEST_ASSERT_TRUE(sut.HasError());
+}
+
+void test_OpenNonexistentFileForWrite(void) {
+    sut.Open("RANDOM.RND", 'w');
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void test_OpenForDeleteNonexistentFile(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'd'));
+    sut.Open("RANDOM.RND", 'd');
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void test_OpenForAppendNonexistentFile(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'a'));
+    sut.Open("RANDOM.RND", 'a');
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void test_OpenTooLongFilename(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("REALLONGNAME.RND", 'w'));
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("REALLONG.RND", 'd'));
+    sut.Open("REALLONGNAME.RND", 'w');
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void test_CloseFileTwice(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Close());
-    TEST_ASSERT_EQUAL_INT(0, sut.Close());
+    sut.Close();    
+    TEST_ASSERT_FALSE(sut.HasError());
+    sut.Close();
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void help_TestFilename(const char * filename) {
@@ -244,18 +259,12 @@ void test_GetCharAfterEndOfFile(void) {
 }
 
 void test_PutCharAppend(void) {
-    int size = sut.Open("APPEND.TXT", 'a');
-    TEST_ASSERT_TRUE(size >= 0);
+    sut.Open("APPEND.TXT", 'a');
     TEST_ASSERT_EQUAL_INT(0, sut.Put('-'));
-    TEST_ASSERT_EQUAL_INT(size + 1, sut.Open("APPEND.TXT", 'r'));
+    sut.Open("APPEND.TXT", 'r');
+    TEST_ASSERT_EQUAL_INT('-', sut.Get());
+    TEST_ASSERT_EQUAL_INT(-1, sut.Get());
 }
-
-//void test_PutCharNoOpenFile(void)
-//{
-//	//turns out that it doesn't actually check to make sure the file is open...
-//	TEST_ASSERT_EQUAL_INT(0, sut.Close());
-//	TEST_ASSERT_EQUAL_INT(0, sut.Put('a'));
-//}
 
 void test_Put(void) {
     sut.Open("RANDOM.RND", 'w');
@@ -319,31 +328,6 @@ void test_WriteLargeFile(void) {
 // -----------------------------------------------------------------------------
 // Test file system functionality
 // -----------------------------------------------------------------------------
-
-void test_GetFilesizeAfterOpenForRead(void) {
-    sut.Open("RANDOM.RND", 'w');
-    sut.Put("Hello");
-    TEST_ASSERT_EQUAL_INT(5, sut.Open("RANDOM.RND", 'r'));
-}
-
-void test_GetFilesizeForWrite(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'w'));
-}
-
-void test_GetFilesizeAfterWrite(void) {
-    sut.Open("RANDOM.RND", 'w');
-    sut.Put("Hello");
-    TEST_ASSERT_EQUAL_INT(5, sut.Open("RANDOM.RND", 'r'));
-}
-
-void test_GetFilesizeAfterOpenForAppend(void) {
-    sut.Open("RANDOM.RND", 'a');
-    sut.Put("Hello");
-    sut.Open("RANDOM.RND", 'a');
-    sut.Put("World");
-    TEST_ASSERT_EQUAL_INT(10, sut.Open("RANDOM.RND", 'r'));
-
-}
 
 void test_SetDate(void) {
     // Fat16 date and time information here:
@@ -442,7 +426,7 @@ void test_getNextFileFindsAllFiles(void) {
 
         char filename [13];
         sut.OpenRootDirectory();
-        if (sut.NextFile(filename) == -1) {
+        if (sut.NextFile(filename) != true) {
             break;
         }
         sut.Open(filename, 'd');
@@ -481,7 +465,7 @@ void test_getNextFileFindsCorrectFiles(void) {
     sut.OpenRootDirectory();
 
     char nextFilename[13];
-    while (sut.NextFile(nextFilename) != -1) {
+    while (sut.NextFile(nextFilename) == true) {
         int i;
         for (i = 0; i < FILECOUNT; i++) {
             if (strcmp(filenames[i], nextFilename) == 0) {
