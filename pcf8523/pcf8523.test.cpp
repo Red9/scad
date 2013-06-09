@@ -27,12 +27,6 @@ void tearDown(void){
 	delete sut;
 }
 
-//TODO(SRLM): What's wrong with this test?
-//void test_PassNullBuss(void){
-//	PCF8523 rtc(NULL);
-//	TEST_ASSERT_FALSE(rtc.GetStatus());
-//}
-
 void test_SaveCurrentClock(void){
 	//Saves the current clock so that we don't have to keep putting the time back in.
 	//It's ok if it get's off by a second or two.
@@ -90,5 +84,11 @@ void test_SetGetClockNoWeekday(void){
 void test_RestoreCurrentClock(void){
 	sut->SetClock(startYear, startMonth, startDay, startHour, startMinute, startSecond);
 	TEST_IGNORE();
+}
+
+
+void test_GetStatusIsFalseForNoBus(void){
+    PCF8523 dummy(nullptr);
+    TEST_ASSERT_FALSE(dummy.GetStatus());
 }
 

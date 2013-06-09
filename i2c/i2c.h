@@ -60,7 +60,6 @@ i2cBase base;
 
 @param scl The I2C SCL pin. Defaults to the Propeller default SCL pin.
 @param sda The I2C SDA pin. Defaults to the Propeller default SDA pin.
-@todo(SRLM): Move this function into the class constructor.
 */
 void Initialize(int scl = 28, int sda = 29);
 
@@ -77,7 +76,6 @@ following format:
     +--------+----+-------+-----+----+
 
 
-@todo(SRLM): make it return a bool instead of int.
 @return true if ack was received, false otherwise.
 */
 bool Ping(unsigned char device);
@@ -97,7 +95,6 @@ Reference: ST
 @param device  the 7 bit slave I2C address (in bits 7-1, with bit 0 set to 0)
 @param address the 8 bit slave register address
 @param byte    the 8 bits of data to store at @a address.
-@todo(SRLM):   Change the return to bool (and make it meaningful!).
 @return        false if one or more nAcks is received, true otherwise
 */
 bool Put(unsigned char device, unsigned char address, char byte);
@@ -139,7 +136,6 @@ Reference: ST
 @param bytes   the set of bytes to store on @a device, starting at register @a
                address.
 @param size    the number of bytes to write
-@todo(SRLM):   Change the return to bool (and make it meaningful!).
 @return        false if one or more nAcks is received, true otherwise
 */
 bool Put(unsigned char device, unsigned char address, char * bytes, int size);
@@ -162,7 +158,6 @@ Reference: ST
 @param address the 8 bit slave register address.
 @param bytes   the address to begin storing the read bytes at.
 @param size    the number of bytes to read.
-@todo(SRLM):   Change the return to bool (and make it meaningful!).
 @return        false if one or more nAcks is received, true otherwise
 */
 bool Get(unsigned char device, unsigned char address, char * bytes, int size);
@@ -183,7 +178,6 @@ Reference: MS
 
 @param device  the 7 bit slave I2C address (in bits 7-1, with bit 0 set to 0)
 @param byte    the 8 bits of data to send to @a device
-@todo(SRLM):   Change the return to bool (and make it meaningful!).
 @return        false if one or more nAcks is received, true otherwise
 */
 bool Put(unsigned char device, char byte);
@@ -205,7 +199,6 @@ Reference: MS
 @param device  the 7 bit slave I2C address (in bits 7-1, with bit 0 set to 0)
 @param bytes   the address to begin storing the read bytes at.
 @param size    the number of bytes to read.
-@todo(SRLM):   Change the return to bool (and make it meaningful!).
 @return        false if one or more nAcks is received, true otherwise
 */
 
@@ -214,7 +207,6 @@ bool Get(unsigned char device, char * bytes, int size);
 
 /*
 Pass through methods to base:
-TODO(SRLM): Test pass through methods
 */
 
 /** Passthrough to base. See i2cBase::Start() for more details. */

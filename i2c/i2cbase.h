@@ -63,13 +63,12 @@ unsigned int SCLMask;
 unsigned int SDAMask;
 
 
-	//Clock delay values:
+	//Clock delay values (@80MHz system clock):
 	// 1600 == 25kHz
 	//  400 == 100kHz
 	//  100 == 400kHz
 	//   90 == 444kHz
 	//   32 == 1.25MHz
-	
 int clockDelay;
 
 };

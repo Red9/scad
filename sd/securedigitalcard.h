@@ -26,12 +26,6 @@ on it.
  * @warning Untested with multiple instances!!!
 
 @author SRLM (srlm@srlmproductions.com)
-@date 2013-06-05
-@version 1.1
-
-Version History
- *  + 1.1 Cleaned up code, refactored.
-    + 1.0 Ported from FSRW.
 
  * Possible improvements:
  * Write a function that gets a string:
@@ -96,6 +90,8 @@ public:
     static const int kErrorBadArgument = -3;
     static const int kErrorNoWritePermission = -6;
     static const int kErrorEofWhileFollowingChain = -7;
+    static const int kErrorBadClusterValue = -9;
+    static const int kErrorBadClusterNumber = -26;
     static const int kErrorFileNotOpenForWriting = -27;
     
    
@@ -135,18 +131,17 @@ public:
     mode.
      * 
      
+     * Deleting a file will not result in kErrorFileNotFound, even if the file is not found
 
-    If the file did not exist, and the mode was not "w" or "a", -1 will be returned.
+    If the file did not exist, and the mode was not "w" or "a" , -1 will be returned.
      Otherwise a negative error code will be returned.
 
     If the file is successfully opened then the current file size in bytes will be
     returned.
 
-    If the mode is 'd', and the file exists, a 0 will be returned. If the file
-    doesn't exist, then a -1 will be returned.
+    If the mode is 'd', and no error occurs, a 0 will be returned. File not found is not an error.
 
-    If the mode is 'a', and the file exists, a ??? will be returned. If the file
-    doesn't exist, then a -1 will be returned.
+    If the mode is 'a' and no error occurs a 0 will be returned. File not found is not an error.
 
      Return error codes include (found below):
      * + SDSPI error codes
@@ -174,10 +169,6 @@ public:
 
     /** Read bytes into the buffer from currently open file.
 
-    @todo(SRLM): The return value in this function is pretty useless. You could know
-    that you have reached the end when return != count, but if it returns -1 then
-    you have no way of knowing how many bytes are in the buffer.
-
     If you try to read past the end of a file, then the remaining bytes will be put
     into the buffer, and a -1 will be returned (Note: the number of bytes read is
     NOT returned in this case).
@@ -185,8 +176,7 @@ public:
     @param read_buffer The buffer to store the data. The buffer may be as large as you want.
     @param bytes_to_read_count The number of bytes to read.
     @return  Returns the number of bytes successfully read, or a negative number if
-             there is an error. Returns -1 if the end of the file is reached. (Note:
-             the number of bytes read is NOT returned in this case).
+             there is an error. If the end of file has been reached, then this may be less than bytes_to_read_count.
 
      */
     int Get(char * read_buffer, int bytes_to_read_count);
@@ -290,6 +280,27 @@ public:
     //What does this mean? I (SRLM) don't know. I also don't know how to test it, so it is not tested.
     int GetClusterCount(void);
 
+    
+    
+    
+    
+    /** If there was an error in the SD routines then this function will return
+     * an error code.
+     * 
+     * @return The error code.
+     */
+    bool HasError(void);
+
+    /** Resets the error flag to kNoError.
+     */
+    void ClearError(void);
+    
+    /**
+     */
+    int GetError(void);
+    
+    
+    
 private:
     
     // Note: these filesystem numbers should not be changed!
@@ -314,7 +325,7 @@ private:
     int cluster_write_offset_;
     int last_fat_entry_;
     int first_cluster_of_file_;
-    int error_code_;
+    //int error_code_;
     int filesystem;
     int rootdir;
     int rootdirend;
@@ -328,6 +339,9 @@ private:
     int Pdate;
     int Lastread;
     int Dirty;
+    
+    
+    int error;
 
     /*
       Buffering:  two sector buffers.  These two buffers must be longword
@@ -342,17 +356,22 @@ private:
     char Buf2[512];
     char Padname[11];
 
+    /** In case of Bad Things(TM) happening, exit as gracefully as possible.
+     * 
+     * @param Abort_code passed through to return.
+     */
+    void SetErrorCode(int abort_code);
+    
+    
     /*
     On metadata writes, if we are updating the FAT region, also update
      the second FAT region.
- 
-     Returns negative error or 0 for success
      */
-    int Writeblock2(int N, char * B);
+    void Writeblock2(int N, char * B);
     
     /* If the metadata block is dirty, write it out.
      */
-    int Flushifdirty(void);
+    void Flushifdirty(void);
     
     /* Read a block into the metadata buffer, if that block is not already
 '   there.
@@ -397,6 +416,7 @@ private:
     /*
     Read a byte address from the disk through the metadata buffer and
      return a pointer to that location.
+     * @todo(SRLM): Make sure all calls have a RET_IF_ERROR
      */
     char * Readbytec(int Byteloc);
 

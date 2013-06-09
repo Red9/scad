@@ -15,7 +15,6 @@ const int kClkPinNoSd = 20;
 const int kDiPinNoSd = 19;
 const int kCsPinNoSd = 21;
 
-
 /**
  * 
  * Hardware requirements:
@@ -70,6 +69,7 @@ int help_CountNumberOfFreeCogs(void) {
 }
 
 void setUp(void) {
+    sut.ClearError();
     mountResult = sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin);
 }
 
@@ -132,11 +132,11 @@ void test_OpenNonexistentFileForWriteThenDeleteFile(void) {
 }
 
 void test_OpenForDeleteNonexistentFile(void) {
-    TEST_ASSERT_EQUAL_INT(-1, sut.Open("RANDOM.RND", 'd'));
+    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'd'));
 }
 
 void test_OpenForAppendNonexistentFile(void) {
-    TEST_ASSERT_EQUAL_INT(-1, sut.Open("RANDOM.RND", 'd'));
+    TEST_ASSERT_EQUAL_INT(0, sut.Open("RANDOM.RND", 'a'));
 }
 
 void test_OpenTooLongFilename(void) {
@@ -222,7 +222,7 @@ void test_PutChar(void) {
 }
 
 void test_GetCharFromExistingFile(void) {
-    sut.Open("RANDOM.RND", 'd');
+    sut.Open("RANDOM.RND", 'd');    
     sut.Open("RANDOM.RND", 'w');
     sut.Put('x');
     sut.Open("RANDOM.RND", 'r');
@@ -285,7 +285,7 @@ void test_GetBufferPastEndOfFile(void) {
 
     char buffer[10];
     sut.Open("RANDOM.RND", 'r');
-    TEST_ASSERT_EQUAL_INT(-1, sut.Get(buffer, 10));
+    TEST_ASSERT_EQUAL_INT(6, sut.Get(buffer, 10));
     TEST_ASSERT_EQUAL_STRING("World", buffer);
 }
 

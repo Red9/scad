@@ -1,6 +1,3 @@
-//TODO: Add assert that bool is 4 bytes (or puttable in register?). (Static_assertion)
-//TODO(SRLM): Do the ASM sections need to be volatile?
-
 #include "i2cbase.h"
 
 #define i2c_float_scl_high (DIRA &= ~SCLMask)
@@ -26,7 +23,7 @@ unsigned char i2cBase::ReadByte(const bool acknowledge){
     int result;
 	int datamask, nextCNT, temp;
 
-	__asm__ volatile(
+	__asm__ (
 	"         fcache #(GetByteEnd - GetByteStart)\n\t"
 	"         .compress off                   \n\t"
 	/* Setup for receive loop */
@@ -84,44 +81,16 @@ unsigned char i2cBase::ReadByte(const bool acknowledge){
 	);
 
 	return result;
-
-//    uint8_t byte = 0;
-//    int count;
-
-//    i2c_float_sda_high;
-
-//    for (count = 8; --count >= 0; ) {
-//        byte <<= 1;
-//        i2c_float_scl_high;
-//        waitcnt(CNT + halfCycle);
-//        byte |= (INA & SDAMask) ? 1 : 0;
-//        i2c_set_scl_low;
-//        waitcnt(CNT + halfCycle);
-//    }
-
-//    // acknowledge
-//    if (acknowledge)
-//        i2c_set_sda_low;
-//    else
-//        i2c_float_sda_high;
-//    //Send SCL 
-//    //Clock out the ack bit
-//    i2c_float_scl_high;
-//    i2c_set_scl_low;
-//    
-//    i2c_set_sda_low;
-
-//    return byte;
 }
 
 bool i2cBase::SendByte(const unsigned char byte){
 	static_assert((int)true == 1, "Boolean true must be 1 for inline assembly to work.");
-
+    
     int result;
 
 	int datamask, nextCNT, temp;
 
-	__asm__ volatile(
+	__asm__ (
 	"         fcache #(PutByteEnd - PutByteStart)\n\t"
 	"         .compress off                  \n\t"
 	/* Setup for transmit loop */
@@ -173,48 +142,12 @@ bool i2cBase::SendByte(const unsigned char byte){
 	);
 
 	return result;
-
-//C++ version:
-//    int count;
-//    /* send the byte, high bit first */
-//    for (count = 8; --count >= 0; ) {
-//    	//Change byte while clock is low
-//        if (byte & 0x80)
-//            i2c_float_sda_high;
-//        else
-//            i2c_set_sda_low;
-//            
-//        //Send clock high pulse
-//        i2c_float_scl_high;
-//        waitcnt(CNT + halfCycle);
-//		//Prepare byte for next time around
-//        byte <<= 1;
-
-//        i2c_set_scl_low;
-//        
-//     } 
-//    
-//    /* receive the acknowledgement from the slave */
-
-//    i2c_float_sda_high; //DIRA &= ~SDAMask
-//    i2c_float_scl_high;
-//    
-//    result = !((INA & SDAMask) != 0);
-//    i2c_set_scl_low;  // DIRA |= SCLMask
-//    
-//    //Pull SDA low
-//    i2c_set_sda_low;
-
-//    return result; //Ack or NAK
-
 }
 
 void i2cBase::Initialize(const int SCLPin, const int SDAPin)
 {
 	SCLMask = 1 << SCLPin;
 	SDAMask = 1 << SDAPin;
-	
-	
 	
 	//Set pins to input
 	i2c_float_scl_high;

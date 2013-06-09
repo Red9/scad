@@ -43,7 +43,7 @@ Set the control registers of the accelerometer:
  + Block data continuous update (default)
  + data LSB @ lower address (default)
  + Full scale +-16G
- + High resolution output enable (?TODO(SRLM): what does this mean? datasheet is no help)
+ + High resolution output enable (SRLM: what does this mean? datasheet is no help)
  + 00 (no functionality)
  + SPI interface mode (default, not used)
      
@@ -58,7 +58,7 @@ Set the control registers of the Magn :
      + 00000 (no functionality)
    - MR_REG_M:
      + 000000 (no functionality)
-     + Continuous conversion mode (TODO: What does this actually mean? Datasheet is no help)
+     + Continuous conversion mode (SRLM: What does this actually mean? Datasheet is no help)
      
 @param  i2cbus The bus that the LSM303DLHC is on.
 @return        true when both devices are successfully initialized.

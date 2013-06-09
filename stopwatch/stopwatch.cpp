@@ -1,5 +1,12 @@
 #include "stopwatch.h"
 
+#ifdef UNIT_TEST
+#define CNT unit_CNT
+#define CLKFREQ unit_CLKFREQ
+extern unsigned int unit_CNT;
+extern unsigned int unit_CLKFREQ;
+#endif
+
 Stopwatch::Stopwatch(void) {
     Reset();
 }

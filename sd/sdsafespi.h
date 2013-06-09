@@ -93,11 +93,15 @@ public:
      * 
      * @return The error code.
      */
-    int CheckError(void);
+    bool HasError(void);
 
     /** Resets the error flag to kNoError.
      */
     void ClearError(void);
+    
+    /**
+     */
+    int GetError(void);
 
 private:
     volatile static unsigned char dat[];
@@ -120,7 +124,7 @@ private:
      * 
      * @param Abort_code passed through to return.
      */
-    void Crash(int abort_code);
+    void SetErrorCode(int abort_code);
 
     /** Send down a command and return the reply.
      *  

@@ -1,8 +1,8 @@
 #include "unity.h"
 #include "stopwatch.h"
 
-unsigned int CNT;
-unsigned int CLKFREQ = 80000000;
+unsigned int unit_CNT;
+unsigned int unit_CLKFREQ = 80000000;
 
 void setUp(void)
 {
@@ -21,38 +21,38 @@ void tearDown(void)
 
 void test_short_basic_case(void){
 	const int milliseconds = 10000;
-	CNT = 0;
+	unit_CNT = 0;
 	Stopwatch sw;
 	sw.Start();
-	CNT = CLKFREQ/1000 * milliseconds;
+	unit_CNT = unit_CLKFREQ/1000 * milliseconds;
 	TEST_ASSERT_EQUAL_INT(milliseconds, sw.GetElapsed());
 }
 
 
 void test_long_basic_case(void){
 	const int milliseconds = 50000;
-	CNT = 0;
+	unit_CNT = 0;
 	Stopwatch sw;
 	sw.Start();
-	CNT = CLKFREQ/1000 * milliseconds;
+	unit_CNT = unit_CLKFREQ/1000 * milliseconds;
 	TEST_ASSERT_EQUAL_INT(milliseconds, sw.GetElapsed());
 }
 
 void test_short_rollover_case(void){
 	const int milliseconds = 5000;
-	CNT = 0xFfffFfff;
+	unit_CNT = 0xFfffFfff;
 	Stopwatch sw;
 	sw.Start();
-	CNT = CNT + CLKFREQ/1000 * milliseconds;
+	unit_CNT = unit_CNT + unit_CLKFREQ/1000 * milliseconds;
 	TEST_ASSERT_EQUAL_INT(milliseconds, sw.GetElapsed());
 }
 
 void test_long_rollover_case(void){
 	const int milliseconds = 50000;
-	CNT = 0xFfffFfff;
+	unit_CNT = 0xFfffFfff;
 	Stopwatch sw;
 	sw.Start();
-	CNT = CNT + CLKFREQ/1000 * milliseconds;
+	unit_CNT = unit_CNT + unit_CLKFREQ/1000 * milliseconds;
 	TEST_ASSERT_EQUAL_INT(milliseconds, sw.GetElapsed());
 }
 

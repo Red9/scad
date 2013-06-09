@@ -2,7 +2,13 @@
 #include "sdsafespi.h"
 
 #define YIELD() __asm__ volatile( "" ::: "memory" )
-#define ERROR_CHECK {if(error != kNoError){return error;}} 
+//#define ERROR_CHECK {if(error != kNoError){return error;}} 
+
+
+#define RET_IF_ERROR_INT if(HasError()){return error;}
+#define RET_IF_ERROR if(HasError()){return;}
+#define THROW_INT(value) {SetErrorCode((value)); return error;}
+#define THROW(value) {SetErrorCode((value)); return;}
 
 volatile unsigned char SdSafeSPI::dat[] = {
     0x2f, 0xf1, 0xbf, 0xa0, 0x31, 0xf3, 0xbf, 0xa0, 0x2b, 0xed, 0xbf, 0xa0, 0x01, 0x80, 0xfe, 0xa4,
@@ -93,12 +99,12 @@ int SdSafeSPI::Start(int basepin) {
 
 void SdSafeSPI::ReadBlock(int block_index, char * buffer_address) {
     if (spi_engine_cog == 0) {
-        Crash(kErrorSpiEngineNotRunning);
-        return;
+        THROW(kErrorSpiEngineNotRunning);
+        
     }
     if ((int) buffer_address & 0x3) {
-        Crash(kErrorBlockNotLongAligned);
-        return;
+        THROW(kErrorBlockNotLongAligned);
+        
     }
     spi_block_index = block_index;
     spi_buffer_address = buffer_address;
@@ -107,18 +113,17 @@ void SdSafeSPI::ReadBlock(int block_index, char * buffer_address) {
         YIELD();
     }
     if (spi_command < 0) {
-        Crash(spi_command);
+        THROW(spi_command);
     }
 }
 
 void SdSafeSPI::WriteBlock(int block_index, char * buffer_address) {
     if (spi_engine_cog == 0) {
-        Crash(kErrorSpiEngineNotRunning);
-        return;
+        THROW(kErrorSpiEngineNotRunning);
+        
     }
     if ((int) buffer_address & 0x3) {
-        Crash(kErrorBlockNotLongAligned);
-        return;
+        THROW(kErrorBlockNotLongAligned);
     }
     spi_block_index = block_index;
     spi_buffer_address = buffer_address;
@@ -128,7 +133,7 @@ void SdSafeSPI::WriteBlock(int block_index, char * buffer_address) {
     }
     
     if (spi_command < 0) {
-        Crash(spi_command);
+        THROW(spi_command);
     }
 }
 
@@ -180,16 +185,16 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
 
                     for (int jk = 0; jk < 4; jk++) {
                         ReadSlow32(); // these extra clocks are required for some MMC cards
-                        ERROR_CHECK;
+                        RET_IF_ERROR_INT;
                     }
                     SendSlow(0xFD, 8); // stop token
                     ReadSlow32();
-                    ERROR_CHECK;
+                    RET_IF_ERROR_INT;
                     
                     while (ReadSlow() != 0xFF) {
-                        ERROR_CHECK;
+                        RET_IF_ERROR_INT;
                     }
-                    ERROR_CHECK;
+                    RET_IF_ERROR_INT;
                 } else {
                     //  exit multiblock read mode
                     SendCommandSlow(Cmd12, 0, 0x61);
@@ -200,8 +205,7 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
     }
     if (TmpA != 1) {
         //  the reset command failed!
-        Crash(kErrorCardNotReset);
-        return 0;
+        THROW_INT(kErrorCardNotReset);
     }
 
     int card_type = 0;
@@ -209,11 +213,11 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
         //  Type2 SD, check to see if it's a SDHC card
 
         if ((ReadSlow32() & 0x1ff) != 0x1AA) { //check the supported voltage
-            ERROR_CHECK;
-            Crash(kError3v3NotSupported);
-            return 0;
+            RET_IF_ERROR_INT;
+            THROW_INT(kError3v3NotSupported);
+            
         }
-        ERROR_CHECK; // For the previous ReadSlow32
+        RET_IF_ERROR_INT;
 
         //  try to initialize the type 2 card with the High Capacity bit
         while (SendCommandSlow(Acmd41, ((1 << 30)), 0x77)) {
@@ -222,8 +226,7 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
 
         // the card is initialized, let's read back the High Capacity bit
         if (SendCommandSlow(Cmd58, 0, 0xFD) != 0) {
-            Crash(kErrorOcrFailed);
-            return 0;
+            THROW_INT(kErrorOcrFailed);
         }
 
 
@@ -234,7 +237,7 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
         } else {
             card_type = kCardTypeSD;
         }
-        ERROR_CHECK; // For the previous ReadSlow32
+        RET_IF_ERROR_INT; // For the previous ReadSlow32
     } else {
         //  Either a type 1 SD card, or it's MMC, try SD 1st
         if (SendCommandSlow(Acmd41, 0, 0xE5) < 2) {
@@ -282,8 +285,7 @@ int SdSafeSPI::Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
     spi_engine_cog = (cognew((int) (&(*(int *) & dat[0])), (int) (&spi_command)) + 1);
 
     if (spi_engine_cog == 0) {
-        Crash(kErrorSpiEngineNotRunning);
-        return 0;
+        THROW_INT(kErrorSpiEngineNotRunning);
     }
 
     while (spi_command != (-1)) {
@@ -316,7 +318,7 @@ void SdSafeSPI::Stop(void) {
     }
 }
 
-void SdSafeSPI::Crash(int abort_code) {
+void SdSafeSPI::SetErrorCode(int abort_code) {
     // and we no longer need to control any pins from here
     DIRA &= ~mask_all;
     error = abort_code;
@@ -340,13 +342,13 @@ int SdSafeSPI::SendCommandSlow(int command, int value, int crc) {
 
     //  give the card a few cocks to finish whatever it was doing
     ReadSlow32();
-    ERROR_CHECK;
+    RET_IF_ERROR_INT;
     SendSlow(command, 8);
     SendSlow(value, 32);
     SendSlow(crc, 8);
     if (command == Cmd12) { // if so, stuff byte
         ReadSlow();
-        ERROR_CHECK;
+        RET_IF_ERROR_INT;
     }
 
     //  read back the response (spec declares 1-8 reads max for SD, MMC is 0-8)
@@ -354,7 +356,7 @@ int SdSafeSPI::SendCommandSlow(int command, int value, int crc) {
     int Time_stamp = 9;
     do {
         ReplyB = ReadSlow();
-        ERROR_CHECK;
+        RET_IF_ERROR_INT;
     } while ((ReplyB & 0x80) && (Time_stamp--));
     return ReplyB;
 }
@@ -379,7 +381,7 @@ int SdSafeSPI::ReadSlow32(void) {
     for (int i = 0; i < 4; i++) {
         R <<= 8;
         R |= ReadSlow();
-        ERROR_CHECK;
+        RET_IF_ERROR_INT;
     }
     return R;
 
@@ -395,24 +397,27 @@ int SdSafeSPI::ReadSlow(void) {
         R += R + ((INA & mask_do) ? 1 : 0);
     }
     if ((CNT - spi_block_index) > (CLKFREQ << 2)) {
-        Crash(kErrorCardBusyTimeout);
-        return 0;
+        THROW_INT(kErrorCardBusyTimeout);
+        RET_IF_ERROR_INT;
     }
     return R;
 }
 
-int SdSafeSPI::CheckError(void){
-    return error;
+bool SdSafeSPI::HasError(void){
+    return error != kNoError;
 }
 
 void SdSafeSPI::ClearError(void){
     error = kNoError;
 }
 
+int SdSafeSPI::GetError(void){
+    return error;
+}
+
 int SdSafeSPI::GetSeconds(void) {
     if (spi_engine_cog == 0) {
-        Crash(kErrorSpiEngineNotRunning);
-        return 0;
+        THROW_INT(kErrorSpiEngineNotRunning);
     }
     spi_command = 't';
     //  seconds are in SPI_block_index, remainder is in SPI_buffer_address
@@ -425,8 +430,7 @@ int SdSafeSPI::GetSeconds(void) {
 int SdSafeSPI::GetMilliseconds(void) {
     int Ms = 0;
     if (spi_engine_cog == 0) {
-        Crash(kErrorSpiEngineNotRunning);
-        return 0;
+        THROW_INT(kErrorSpiEngineNotRunning);
     }
     spi_command = 't';
     //seconds are in SPI_block_index, remainder is in SPI_buffer_address

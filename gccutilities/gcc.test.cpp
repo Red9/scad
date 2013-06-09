@@ -4,12 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-
-
 #include "unity.h"
-
-//TODO: Add test for shadow registers being used (is that possible to test?)
-//TODO: Add test for bool sized 4 bytes...
 
 
 void setUp(void){
@@ -48,10 +43,24 @@ void test_ShiftRightUnsignedNumber(void){
 	TEST_ASSERT_EQUAL_HEX32(0x0FFFFFFF, x);
 }
 
-//TODO(SRLM): Add tests:
-// -Right shift positive signed
-// -Left shift unsigned
 
+void test_ShiftRightSignedPositiveHighBitSet(void){
+    volatile signed int x = 0xFfffFfff;
+    x = x >> 16;
+    TEST_ASSERT_EQUAL_HEX32(0xFfffFfff, x);
+}
+
+void test_ShiftRightSignedPositiveHighBitNotSet(void){
+    volatile signed int x = 0xFfff;
+    x = x >> 8;
+    TEST_ASSERT_EQUAL_HEX32(0xFf, x);
+}
+
+void test_LeftShiftUnsigned(void){
+    volatile unsigned int x = 0xF;
+    x = x << 16;
+    TEST_ASSERT_EQUAL_HEX32(0xF0000, x);
+}
 
 // -----------------------------------------------------------------------------
 // Propeller.h lock tests
@@ -516,7 +525,9 @@ void test_UnsignedReverseRolloverSubtraction(void){
 // -----------------------------------------------------------------------------
 
 
-
+void test_nullptrIsTheSameAsNULL(void){
+    TEST_ASSERT_TRUE(nullptr == NULL);
+}
 
 
 

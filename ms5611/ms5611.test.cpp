@@ -170,7 +170,10 @@ void test_TouchTimeoutHasNoEffectWhenCalledSlowly(void){
 	}
 }
 
-
+void test_GetStatusIsFalseForNoBus(void){
+    MS5611 dummy(nullptr);
+    TEST_ASSERT_FALSE(dummy.GetStatus());
+}
 
 
 

@@ -1,5 +1,4 @@
 #include <string.h>
-
 #include "unity.h"
 #include "c++-alloc.h"
 
@@ -9,112 +8,126 @@
 const int kPIN_USER_1 = 18;
 const int kPIN_USER_2 = 19;
 
-
-//TODO(SRLM): Add test to confirm that it ignores PGTOP strings
-// Example: "$PGTOP,11,2*6E\r\n"
-
-
-/*
-
+/* Hardware:
 All tests requires that pins 18 and 19 be connected by a resistor.
-
-*/
-
-
+ */
 
 GPSParser * sut;
 
-void setUp(void){
-	sut = new GPSParser(kPIN_USER_1, kPIN_USER_2, 9600);
+void setUp(void) {
+    sut = new GPSParser(kPIN_USER_1, kPIN_USER_2, 9600);
 }
 
-void tearDown(void){
-	delete sut;
+void tearDown(void) {
+    delete sut;
 }
 
-const char * FillBuffer(const char * string){
-	for(int i = 0; string[i] != '\0'; i++){
-		sut->Put(string[i]);
-	}
-	
-	return string;
+char FillBuffer(const char letter) {
+    sut->getSerial()->Put(letter);
+    return letter;
 }
 
+const char * FillBuffer(const char * string) {
+    for (int i = 0; string[i] != '\0'; i++) {
+        sut->getSerial()->Put(string[i]);
+    }
 
-
-//void test_fail(void){
-//	TEST_FAIL();
-//}
-
-void test_GetIncompleteString(void){
-	//const char * line = 
-	FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.");
-	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
+    return string;
 }
 
-void test_GetCompleteString(void){
-	const char * line =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
-	TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line)-2);
-}
-	
-void test_GetMultipleStringsNoWait(void){
-	const char * line0 =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n" );
-	const char * line1 =
-		FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
-	const char * line2 =
-		FillBuffer("$GPRMC,1825035232574374,N*46\r\n");
-		
-	TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(), strlen(line0)-2);
-	TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1)-2);
-	TEST_ASSERT_EQUAL_MEMORY(line2, sut->Get(), strlen(line2)-2);
+void test_GetIncompleteString(void) {
+    //const char * line = 
+    FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.");
+    TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
 }
 
-void test_NullAfterString(void){
-	const char * line =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
-	
-	TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line)-2);
-	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
+void test_GetCompleteString(void) {
+    const char * line =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+    TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line) - 2);
 }
 
-void test_GetPartialStringAtBeginning(void){
-	//const char * line0 = 
-		FillBuffer(".00,N,0.00,K,N*32\r\n");
-	const char * line1 =
-		FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
-		
-	TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1)-2);
-	TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
-	
+void test_GetMultipleStringsNoWait(void) {
+    const char * line0 =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+    const char * line1 =
+            FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
+    const char * line2 =
+            FillBuffer("$GPRMC,1825035232574374,N*46\r\n");
+
+    TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(), strlen(line0) - 2);
+    TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1) - 2);
+    TEST_ASSERT_EQUAL_MEMORY(line2, sut->Get(), strlen(line2) - 2);
 }
-	
-	
 
+void test_NullAfterString(void) {
+    const char * line =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
 
+    TEST_ASSERT_EQUAL_MEMORY(line, sut->Get(), strlen(line) - 2);
+    TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
+}
 
-//void test_getGPS(void){
-////Routine to echo GPS received data to terminal.
-//	const int kPIN_GPS_TX = 24; //Tx from the Propeller
-//	const int kPIN_GPS_RX = 25; //Rx to the Propeller
-//	const int kPIN_GPS_FIX = 26;
-//	Serial gps;
-//	gps.Start(kPIN_GPS_RX, kPIN_GPS_TX, 9600);
-//	for(;;){
-//		printf("%c", gps.Get());
-//	}
-//}
+void test_GetPartialStringAtBeginning(void) {
+    //const char * line0 = 
+    FillBuffer(".00,N,0.00,K,N*32\r\n");
+    const char * line1 =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
 
+    TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1) - 2);
+    TEST_ASSERT_EQUAL_INT(NULL, sut->Get());
 
+}
 
+void test_DiscardPgtopSentences(void) {
+    const char * line0 =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+    //const char * line1 =
+    FillBuffer("$PGTOP,11,2*6E\r\n");
+    FillBuffer("$PGTOP,11,2O23052*6E\r\n");
+    FillBuffer("$PGTOP,11,240509172450125270*6E\r\n");
+    FillBuffer("$PGTOP,[){*}){[*}*+{[)+*11,2*6E\r\n");
+    const char * line2 =
+            FillBuffer("$GPRMC,1825035232574374,N*46\r\n");
 
+    TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(), strlen(line0) - 2);
+    TEST_ASSERT_EQUAL_MEMORY(line2, sut->Get(), strlen(line2) - 2);
+    TEST_ASSERT_TRUE(sut->Get() == NULL);
+}
 
+void test_MaxBytesCutoff(void) {
+    const char * line0 = FillBuffer("$GPRMC Dummy Sentence");
+    char buffer[100];
+    TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)), strlen(line0));
+}
 
+void test_MaxBytesCutoffWithMoreBytesInBuffer(void) {
+    const char * line0 = FillBuffer("$GPRMC Dummy Sentence");
+    FillBuffer("Some noise...");
+    const char * line1 = FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
+    char buffer[100];
+    TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)), strlen(line0));
+    TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1) - 2);
+}
 
-
-
-
+void test_SwitchBetweenBuffers(void){
+    const int kNmeaLength = 85;
+    char bufferA[kNmeaLength];
+    char bufferB[kNmeaLength];
+    
+    const char * line0 =
+            FillBuffer("$GPRMC,180252.087,V,,,,,0.00,0.00,290113,,,N*46\r\n");
+    const char * line1 =
+            FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
+    const char * line2 =
+            FillBuffer("$GPRMC,1825035232574374,N*46\r\n");
+    
+    
+    TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(bufferA, kNmeaLength), strlen(line0) - 2);
+    TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(bufferB, kNmeaLength), strlen(line1) - 2);
+    TEST_ASSERT_EQUAL_MEMORY(line2, sut->Get(bufferA, kNmeaLength), strlen(line2) - 2);
+    
+}
 
 /*
 Sample GPS Data, no Fix:
@@ -138,4 +151,4 @@ $GPGSV,1,1,00*79
 $GPRMC,180255.087,V,,,,,0.00,0.00,290113,,,N*41
 $GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32
 
-*/
+ */
