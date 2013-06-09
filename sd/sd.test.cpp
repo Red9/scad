@@ -30,7 +30,6 @@ const int kCsPinNoSd = 21;
 
 
 SecureDigitalCard sut;
-int mountResult = -1;
 
 int help_DeleteAllFiles(void) {
     const int MAXIMUM_FILE_COUNT = 1000;
@@ -70,7 +69,7 @@ int help_CountNumberOfFreeCogs(void) {
 
 void setUp(void) {
     sut.ClearError();
-    mountResult = sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin);
+    sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin);
 }
 
 void tearDown(void) {
@@ -83,22 +82,28 @@ void tearDown(void) {
 // -----------------------------------------------------------------------------
 
 void test_Mount(void) {
-    TEST_ASSERT_EQUAL_INT(0, mountResult);
+    //Assume: mount in setUp();
+    TEST_ASSERT_FALSE(sut.HasError());
 }
 
 void test_MountMultiple(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin));
-    TEST_ASSERT_EQUAL_INT(0, sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin));
+    sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin);
+    TEST_ASSERT_FALSE(sut.HasError());
+    sut.Mount(kDoPin, kClkPin, kDiPin, kCsPin);
+    TEST_ASSERT_FALSE(sut.HasError());
 
 }
 
 void test_MultipleUnmounts(void) {
-    TEST_ASSERT_EQUAL_INT(0, sut.Unmount());
-    TEST_ASSERT_EQUAL_INT(0, sut.Unmount());
+    sut.Unmount();
+    TEST_ASSERT_EQUAL_INT(0, sut.GetError());
+    sut.Unmount();
+    TEST_ASSERT_EQUAL_INT(0, sut.GetError());
 }
 
 void test_MountNoSd(void) {
-    TEST_ASSERT_EQUAL_INT(SecureDigitalCard::kErrorCardNotReset, sut.Mount(kDoPinNoSd, kClkPinNoSd, kDiPinNoSd, kCsPinNoSd));
+    sut.Mount(kDoPinNoSd, kClkPinNoSd, kDiPinNoSd, kCsPinNoSd);
+    TEST_ASSERT_EQUAL_INT(SecureDigitalCard::kErrorCardNotReset, sut.GetError());
 }
 
 void test_UnmountFreesCog(void) {

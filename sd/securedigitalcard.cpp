@@ -1,11 +1,10 @@
 
 #include "securedigitalcard.h"
 
-#define RET_IF_ERROR_INT if(HasError()){return GetError();}
+#define RET_IF_ERROR_NULL if(HasError()){return NULL;}
 #define RET_IF_ERROR if(HasError()){return;}
 #define THROW_INT(value) {SetErrorCode((value)); return GetError();}
 #define THROW(value) {SetErrorCode((value)); return;}
-
 
 static int Min__(int a, int b) {
     return a < b ? a : b;
@@ -15,7 +14,7 @@ static int Shr__(unsigned int a, unsigned int b) {
     return (a >> b);
 }
 
-SecureDigitalCard::~SecureDigitalCard(void){
+SecureDigitalCard::~SecureDigitalCard(void) {
     Unmount();
 }
 
@@ -40,18 +39,17 @@ void SecureDigitalCard::Flushifdirty(void) {
         RET_IF_ERROR;
         Dirty = 0;
     }
-   
+
 }
 
-int SecureDigitalCard::Readblockc(int N) {
+void SecureDigitalCard::Readblockc(int N) {
     if (N != Lastread) {
         Flushifdirty();
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR;
         Sdspi.ReadBlock(N, (char *) (&Buf2));
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR;
         Lastread = N;
     }
-    return 0;
 }
 
 int SecureDigitalCard::Brword(char * b) {
@@ -90,17 +88,15 @@ void SecureDigitalCard::Brwclust(char *w, int v) {
     }
 }
 
-int SecureDigitalCard::Unmount(void) {
+void SecureDigitalCard::Unmount(void) {
     Close();
-    RET_IF_ERROR_INT;
     Sdspi.Stop();
-    return 0;
 }
 
 int SecureDigitalCard::Getfstype(void) {
     const int kFAT1 = 'F' + ('A' << 8) + ('T' << 16) + ('1' << 24);
     const int kFAT3 = 'F' + ('A' << 8) + ('T' << 16) + ('3' << 24);
-    
+
     if ((Brlong(&Buf[0x36]) == kFAT1) && (Buf[58] == '6')) {
         return kFileSystemFAT16;
     }
@@ -110,7 +106,7 @@ int SecureDigitalCard::Getfstype(void) {
     return kFileSystemUnknown;
 }
 
-int SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
+void SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
     int Start, Sectorspercluster, Reserved, Rootentries, Sectors;
     if (Pdate == 0) {
         SetDate(2010, 1, 1, 0, 0, 0);
@@ -121,38 +117,38 @@ int SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
     //and -Os it takes 16 bytes. It can be commented out if you're sure that
     //Buf and Buf2 are longword aligned.
     if ((((int) Buf) & 0b11) != 0)
-        THROW_INT(kErrorBufNotLongwordAligned);
+        THROW(kErrorBufNotLongwordAligned);
     if ((((int) Buf2) & 0b11) != 0)
-        THROW_INT(kErrorBufNotLongwordAligned);
+        THROW(kErrorBufNotLongwordAligned);
 
     Unmount();
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR;
+
     Sdspi.Start(Do, Clk, Di, Cs);
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR;
+
     Lastread = (-1);
     Dirty = 0;
     Sdspi.ReadBlock(0, (char *) (&Buf));
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR;
+
     if (Getfstype() != kFileSystemUnknown) {
         Start = 0;
     } else {
         Start = Brlong(((char *) (&Buf) + 454));
         Sdspi.ReadBlock(Start, (char *) (&Buf));
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR;
     }
     filesystem = Getfstype();
     if (filesystem == kFileSystemUnknown) {
-        THROW_INT(kErrorNotFatVolume);
+        THROW(kErrorNotFatVolume);
     }
     if (Brword(((char *) (&Buf) + 11)) != Sectorsize) {
-        THROW_INT(kErrorBadBytesPerSector);
+        THROW(kErrorBadBytesPerSector);
     }
     Sectorspercluster = Buf[13];
     if (Sectorspercluster & (Sectorspercluster - 1)) {
-        THROW_INT(kErrorBadSectorsPerCluster);
+        THROW(kErrorBadSectorsPerCluster);
     }
     clustershift = 0;
     while (Sectorspercluster > 1) {
@@ -163,7 +159,7 @@ int SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
     clustersize = (Sectorsize << clustershift);
     Reserved = Brword(((char *) (&Buf) + 14));
     if (Buf[16] != 2) {
-        THROW_INT(kErrorNotTwoFats);
+        THROW(kErrorNotTwoFats);
     }
     Sectors = Brword(((char *) (&Buf) + 19));
     if (Sectors == 0) {
@@ -186,20 +182,19 @@ int SecureDigitalCard::Mount(int Do, int Clk, int Di, int Cs) {
         Endofchain = 65520;
     }
     if (Brword(((char *) (&Buf) + 510)) != 43605) {
-        THROW_INT(kErrorBadFatSignature);
+        THROW(kErrorBadFatSignature);
     }
     Totclusters = (Shr__(((Sectors - dataregion) + Start), clustershift));
-    return 0;
 }
 
-int SecureDigitalCard::Mount(int Basepin) {
-    return Mount(Basepin, (Basepin + 1), (Basepin + 2), (Basepin + 3));
+void SecureDigitalCard::Mount(int Basepin) {
+    Mount(Basepin, (Basepin + 1), (Basepin + 2), (Basepin + 3));
 }
 
 char * SecureDigitalCard::Readbytec(int Byteloc) {
     Readblockc((Shr__(Byteloc, Sectorshift)));
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR_NULL;
+
     return ((char *) (&Buf2) + (Byteloc & 0x1ff));
 }
 
@@ -212,7 +207,7 @@ int SecureDigitalCard::Followchain(void) {
     char * temp;
     int R = 0;
     temp = Readfat(current_cluster_);
-    RET_IF_ERROR_INT;
+    RET_IF_ERROR_NULL;
     R = Brclust(temp);
     cluster_write_offset_ = last_fat_entry_;
     return R;
@@ -220,30 +215,28 @@ int SecureDigitalCard::Followchain(void) {
 
 int SecureDigitalCard::Nextcluster(void) {
     int R = Followchain();
-    RET_IF_ERROR_INT;
+    RET_IF_ERROR_NULL;
     if ((R < 2) || (R >= Totclusters)) {
         THROW_INT(kErrorBadClusterValue);
     }
     return R;
 }
 
-int SecureDigitalCard::Freeclusters(int Clust) {
-    
+void SecureDigitalCard::Freeclusters(int Clust) {
+
 
     while (Clust < Endofchain) {
         if (Clust < 2) {
-            THROW_INT(kErrorBadClusterNumber);
+            THROW(kErrorBadClusterNumber);
         }
         char * Bp = Readfat(Clust);
-        RET_IF_ERROR_INT;
-        
+        RET_IF_ERROR;
+
         Clust = Brclust(Bp);
         Brwclust(Bp, 0);
     }
     Flushifdirty();
-    RET_IF_ERROR_INT;
-    
-    return 0;
+    RET_IF_ERROR;
 }
 
 int SecureDigitalCard::Datablock(void) {
@@ -270,8 +263,8 @@ int SecureDigitalCard::Pflushbuf(int Rcnt, int Metadata) {
             int Count = 2;
             while (1) {
                 Readfat(Cluststart);
-                RET_IF_ERROR_INT;
-                
+                RET_IF_ERROR_NULL;
+
                 int I;
                 {
                     int _limit__0025 = (Sectorsize - (1 << filesystem));
@@ -322,8 +315,8 @@ int SecureDigitalCard::Pflushbuf(int Rcnt, int Metadata) {
         }
         if (remaining_cluster_bytes_ >= Sectorsize) {
             Sdspi.WriteBlock(Datablock(), (char *) (&Buf));
-            RET_IF_ERROR_INT;
-            
+            RET_IF_ERROR_NULL;
+
             if (Rcnt == Sectorsize) { // full buffer, clear it
                 seek_position_ = (seek_position_ + Rcnt);
                 remaining_cluster_bytes_ = (remaining_cluster_bytes_ - Rcnt);
@@ -334,11 +327,11 @@ int SecureDigitalCard::Pflushbuf(int Rcnt, int Metadata) {
     }
     if ((Rcnt < 0) || (Metadata)) { // update metadata even if error
         Readblockc((Shr__(directory_entry_position_, Sectorshift))); // flushes unwritten FAT too
-        RET_IF_ERROR_INT;
-        
+        RET_IF_ERROR_NULL;
+
         Brwlong((((char *) (&Buf2) + (directory_entry_position_ & (Sectorsize - filesystem))) + 28), (seek_position_ + current_buffer_location_));
         Flushifdirty();
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR_NULL;
     }
     if (Rcnt < 0) {
         THROW_INT(Rcnt);
@@ -351,7 +344,7 @@ int SecureDigitalCard::Pflush(void) {
 }
 
 int SecureDigitalCard::Pfillbuf(void) {
-    
+
     if (seek_position_ >= total_filesize_) {
         return -1;
     }
@@ -363,8 +356,8 @@ int SecureDigitalCard::Pfillbuf(void) {
         remaining_cluster_bytes_ = (Min__(clustersize, (total_filesize_ - seek_position_)));
     }
     Sdspi.ReadBlock(Datablock(), (char *) (&Buf));
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR_NULL;
+
     int R = Sectorsize;
     if ((seek_position_ + R) >= total_filesize_) {
         R = (total_filesize_ - seek_position_);
@@ -380,7 +373,7 @@ int SecureDigitalCard::Close(void) {
     int R = 0;
     if (directory_entry_position_) {
         R = Pflush();
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR_NULL;
     }
     current_buffer_location_ = 0;
     bufend = 0;
@@ -407,7 +400,7 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
 
 
     Close();
-    RET_IF_ERROR_INT;
+    RET_IF_ERROR_NULL;
 
 
     int I = 0;
@@ -438,8 +431,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
         if (Dirptr >= _limit__0027) _step__0028 = -_step__0028;
         do {
             S = Readbytec(Dirptr);
-            RET_IF_ERROR_INT;
-            
+            RET_IF_ERROR_NULL;
+
             if ((Freeentry == 0) && (((S)[0] == 0) || ((S)[0] == 0xe5))) {
                 Freeentry = Dirptr;
             }
@@ -476,11 +469,11 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                     Brwword(S, 0xe5);
                     if (current_cluster_) {
                         Freeclusters(current_cluster_);
-                        RET_IF_ERROR_INT;
+                        RET_IF_ERROR_NULL;
                     }
                     Flushifdirty();
-                    RET_IF_ERROR_INT;
-                    
+                    RET_IF_ERROR_NULL;
+
                     return 0;
                 }
 
@@ -493,8 +486,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                     directory_entry_position_ = Dirptr;
                     if (current_cluster_) {
                         Freeclusters(current_cluster_);
-                        RET_IF_ERROR_INT;
-                        
+                        RET_IF_ERROR_NULL;
+
                     }
                     bufend = Sectorsize;
                     current_cluster_ = 0;
@@ -515,8 +508,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                                 THROW_INT(kErrorEofWhileFollowingChain);
                             }
                             current_cluster_ = Nextcluster();
-                            RET_IF_ERROR_INT;
-                            
+                            RET_IF_ERROR_NULL;
+
                             remaining_cluster_bytes_ = (remaining_cluster_bytes_ - Freeentry);
                         }
                         seek_position_ = (total_filesize_ & 0xfffffe00);
@@ -526,8 +519,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                         directory_entry_position_ = Dirptr;
                         if (current_buffer_location_) {
                             Sdspi.ReadBlock(Datablock(), (char *) (&Buf));
-                            RET_IF_ERROR_INT;
-                            
+                            RET_IF_ERROR_NULL;
+
                             remaining_cluster_bytes_ = (Freeentry - (seek_position_ & (Freeentry - 1)));
                         } else {
                             if ((current_cluster_ < 2) || (remaining_cluster_bytes_ == Freeentry)) {
@@ -538,8 +531,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
                         }
                         if (current_cluster_ >= 2) {
                             Followchain();
-                            RET_IF_ERROR_INT;
-                            
+                            RET_IF_ERROR_NULL;
+
                         }
                         return 0;
                     } else {
@@ -550,11 +543,11 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
             Dirptr = (Dirptr + _step__0028);
         } while (((_step__0028 > 0) && (Dirptr <= _limit__0027)) || ((_step__0028 < 0) && (Dirptr >= _limit__0027)));
     }
-    
-    if(Mode == 'd'){ //If we got here it's because we didn't find anything to delete.
+
+    if (Mode == 'd') { //If we got here it's because we didn't find anything to delete.
         return 0;
     }
-    
+
     if ((Mode != 'w') && (Mode != 'a')) {
         THROW_INT(kErrorFileNotFound);
     }
@@ -564,8 +557,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
     }
     // write (or new append): create valid directory entry
     S = Readbytec(directory_entry_position_);
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR_NULL;
+
     memset((void *) S, 0, 1 * (Dirsize));
     memcpy((void *) S, (void *) &Padname, 1 * (11));
     Brwword((S + 0x1a), 0);
@@ -577,8 +570,8 @@ int SecureDigitalCard::Open(const char * filename, const char Mode) {
         Brwword(Readbytec((directory_entry_position_ + Dirsize)), 0);
     }
     Flushifdirty();
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR_NULL;
+
     cluster_write_offset_ = 0;
     current_cluster_ = 0;
     bufend = Sectorsize;
@@ -592,7 +585,7 @@ int SecureDigitalCard::Get(char * read_buffer, int bytes_to_read_count) {
         if (current_buffer_location_ >= bufend) {
             T = Pfillbuf();
             if (T <= 0) {
-                if(R > 0){
+                if (R > 0) {
                     return R;
                 }
                 return T;
@@ -616,7 +609,7 @@ int SecureDigitalCard::Get(void) {
     int T;
     if (current_buffer_location_ >= bufend) {
         T = Pfillbuf();
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR_NULL;
         if (T <= 0) {
             return (-1);
         }
@@ -630,8 +623,8 @@ int SecureDigitalCard::Put(const char * Ubuf, int Count) {
     while (Count > 0) {
         if (current_buffer_location_ >= bufend) {
             Pflushbuf(current_buffer_location_, 0);
-            RET_IF_ERROR_INT;
-            
+            RET_IF_ERROR_NULL;
+
         }
         T = (Min__((bufend - current_buffer_location_), Count));
         if (((T | (int) Ubuf) | current_buffer_location_) & 0x3) {
@@ -677,8 +670,8 @@ int SecureDigitalCard::Seek(int position) {
     }
     while (position >= (delta + clustersize)) {
         current_cluster_ = Nextcluster();
-        RET_IF_ERROR_INT;
-        
+        RET_IF_ERROR_NULL;
+
         seek_position_ = (seek_position_ + clustersize);
         delta = (delta + clustersize);
         remaining_cluster_bytes_ = (Min__(clustersize, (total_filesize_ - seek_position_)));
@@ -694,23 +687,22 @@ int SecureDigitalCard::Seek(int position) {
         seek_position_ = (position & -Sectorsize);
         remaining_cluster_bytes_ = (delta - seek_position_);
         Pfillbuf();
-        RET_IF_ERROR_INT;
+        RET_IF_ERROR_NULL;
     }
     current_buffer_location_ = position & (Sectorsize - 1);
     return 0;
 }
 
-int SecureDigitalCard::OpenRootDirectory(void) {
+void SecureDigitalCard::OpenRootDirectory(void) {
 
     Close();
-    RET_IF_ERROR_INT;
-    
+    RET_IF_ERROR;
+
     int Off = (rootdir - (dataregion << Sectorshift));
     current_cluster_ = (Shr__(Off, (clustershift + Sectorshift)));
     seek_position_ = (Off - (current_cluster_ << (clustershift + Sectorshift)));
     remaining_cluster_bytes_ = (rootdirend - rootdir);
     total_filesize_ = (seek_position_ + remaining_cluster_bytes_);
-    return 0;
 }
 
 int SecureDigitalCard::NextFile(char * filename) {
@@ -764,23 +756,23 @@ int SecureDigitalCard::GetClusterCount(void) {
     return Totclusters;
 }
 
-void SecureDigitalCard::SetErrorCode(int new_error_code){
+void SecureDigitalCard::SetErrorCode(int new_error_code) {
     error = new_error_code;
 }
 
-bool SecureDigitalCard::HasError(void){
+bool SecureDigitalCard::HasError(void) {
     return (error != kNoError) || Sdspi.HasError();
 }
 
-void SecureDigitalCard::ClearError(void){
+void SecureDigitalCard::ClearError(void) {
     error = kNoError;
     Sdspi.ClearError();
 }
 
-int SecureDigitalCard::GetError(void){
-    if(error != kNoError){
+int SecureDigitalCard::GetError(void) {
+    if (error != kNoError) {
         return error;
-    }else{
+    } else {
         return Sdspi.GetError();
     }
 }

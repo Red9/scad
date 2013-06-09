@@ -72,7 +72,7 @@ public:
     ...
     + -512: Buf and Buf2 not longword aligned (was the class data members modified?)
      */
-    int Mount(int Basepin);
+    void Mount(int Basepin);
 
     static const int kNoError = SdSafeSPI::kNoError;
     
@@ -111,20 +111,19 @@ public:
     /**
     Mount a volume with explicit pin numbers. Does not require adjacent pins.
 
+     * May set an error code (you should check!)
 
     @param DO  The SPI Data Out pin (ouput relative to Propeller).
     @param CLK The SPI Clock pin.
     @param DI  The SPI Data In pin (input relative to Propeller).
     @param CS  The Chip Select pin.
-    @return see @a Mount(int) for return codes
      */
-    int Mount(int DO, int CLK, int DI, int CS);
+    void Mount(int DO, int CLK, int DI, int CS);
 
     /**
     Closes any open files, and unmounts the SD card. Frees a cog.
-     * @return zero on success, negative error code on failure.
      */
-    int Unmount(void);
+    void Unmount(void);
 
     /**
     Close any currently open file, and open a new one with the given file name and
@@ -250,10 +249,9 @@ public:
     /*
     Close the currently open file, and set up the read buffer for
        calls to nextfile().
-       Returns negative on error (only occurs if there is an error closing the file).
      
      */
-    int OpenRootDirectory(void);
+    void OpenRootDirectory(void);
 
     /*
     Find the next file in the root directory and extract its
@@ -376,7 +374,7 @@ private:
     /* Read a block into the metadata buffer, if that block is not already
 '   there.
      */
-    int Readblockc(int N);
+    void Readblockc(int N);
 
 
 
@@ -441,7 +439,7 @@ private:
     Free an entire cluster chain.  Used by remove and by overwrite.
       Assumes the pointer has already been cleared/set to end of chain.
      */
-    int Freeclusters(int Clust);
+    void Freeclusters(int Clust);
 
     /*
     This is just a pass-through function to allow the block layer
