@@ -41,7 +41,7 @@ public:
 @param b          Number 1, will be masked to 16 bits.
 @param c          Number 2, will be masked to 16 bits.
 */
-static void _3x2(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+static void _3x2(char identifier, unsigned int cnt,
 		unsigned int a, unsigned int b, unsigned int c);
 
 /** Put 3 numbers 4 bytes wide into the buffer.
@@ -53,7 +53,7 @@ static void _3x2(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
 @param b          Number 1
 @param c          Number 2
 */
-static void _3x4(ConcurrentBuffer * buffer, const char identifier,
+static void _3x4(const char identifier,
                    const unsigned int cnt,
                    const int a, const int b, const int c);
 
@@ -65,7 +65,7 @@ static void _3x4(ConcurrentBuffer * buffer, const char identifier,
 @param a          Number 0
 @param b          Number 1
 */
-static void _2x4(ConcurrentBuffer * buffer, const char identifier,
+static void _2x4(const char identifier,
                    const unsigned int cnt, const int a, const int b);
 
 /** Put a terminator ended string into the buffer.
@@ -77,7 +77,7 @@ static void _2x4(ConcurrentBuffer * buffer, const char identifier,
 @param terminator All the data in @a string is stored up to, but not including,
                   this character.
 */
-static void _string(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+static void _string(char identifier, unsigned int cnt,
 		const char * string, char terminator);
 
 

@@ -1,6 +1,6 @@
 #include "pib.h"
 
-void PIB::_3x2(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+void PIB::_3x2(char identifier, unsigned int cnt,
         unsigned int a, unsigned int b, unsigned int c) {
     const int data_size = 11;
     char data[data_size];
@@ -22,11 +22,11 @@ void PIB::_3x2(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
     data[10] = (c & 0xFF00) >> 8;
     data[ 9] = (c & 0xFF) >> 0;
 
-    while (buffer->Put(data, data_size) == false) {
+    while (ConcurrentBuffer::Put(data, data_size) == false) {
     }
 }
 
-void PIB::_2x4(ConcurrentBuffer * buffer, const char identifier,
+void PIB::_2x4(const char identifier,
         const unsigned int cnt, const int a, const int b) {
     const int data_size = 13;
     char data[data_size];
@@ -48,11 +48,11 @@ void PIB::_2x4(ConcurrentBuffer * buffer, const char identifier,
     data[10] = (b & 0xFF00) >> 8;
     data[9] = (b & 0xFF) >> 0;
 
-    while (buffer->Put(data, data_size) == false) {
+    while (ConcurrentBuffer::Put(data, data_size) == false) {
     }
 }
 
-void PIB::_3x4(ConcurrentBuffer * buffer, const char identifier,
+void PIB::_3x4(const char identifier,
         const unsigned int cnt,
         const int a, const int b, const int c) {
     const int data_size = 17;
@@ -80,11 +80,11 @@ void PIB::_3x4(ConcurrentBuffer * buffer, const char identifier,
     data[14] = (c & 0xFF00) >> 8;
     data[13] = (c & 0xFF) >> 0;
 
-    while (buffer->Put(data, data_size) == false) {
+    while (ConcurrentBuffer::Put(data, data_size) == false) {
     }
 }
 
-void PIB::_string(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
+void PIB::_string(char identifier, unsigned int cnt,
         const char * string, char terminator) {
     const int data_size = 5;
     char data[data_size];
@@ -96,7 +96,7 @@ void PIB::_string(ConcurrentBuffer * buffer, char identifier, unsigned int cnt,
     data[2] = (cnt & 0xFF00) >> 8;
     data[1] = (cnt & 0xFF) >> 0;
 
-    while (buffer->PutWithString(data, data_size, string, terminator) == false) {
+    while (ConcurrentBuffer::PutWithString(data, data_size, string, terminator) == false) {
     }
 
 }

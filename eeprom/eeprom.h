@@ -17,16 +17,17 @@ This driver was written to work with the AT24C512C EEPROM from Atmel.
 class Eeprom {
 public:
 
-/** Create an @a Eeprom instance.
+/** Start an @a Eeprom instance.
 
-@warning Requires that the A0, A1, and A2 pins of the be tied to ground.
+@warning Requires that the A0, A1, and A2 pins of the EEPROM to be tied to ground.
 
 @todo(SRLM): Does this class interfere with other I2C drivers?
 @param scl The I2C SCL pin. Defaults to the Propeller default SCL pin.
 @param sda The I2C SDA pin. Defaults to the Propeller default SDA pin.
 */
-Eeprom(int scl = 28, int sda = 29);
 
+
+void Start(int scl = 28, int sda = 29);
 
 /** Put a byte into the EEPROM.
 @param  address the two byte address to write to.

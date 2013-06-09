@@ -10,9 +10,9 @@
 enum LogLevel {
     kAll, kFatal, kError, kWarn, kInfo, kDebug
 };
-extern void LogStatusElement(ConcurrentBuffer *, const LogLevel, const char *);
+extern void LogStatusElement(const LogLevel, const char *);
 
-Sensors::Sensors() {
+Sensors::Sensors(void) {
     fuel_soc = 0;
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
@@ -27,8 +27,6 @@ Sensors::Sensors() {
         //TODO(SRLM): fix that something.
     }
 
-    //ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
     killed = false;
 
     for (int i = 0; i < SensorTypeLength; i++) {
@@ -37,18 +35,13 @@ Sensors::Sensors() {
 
 }
 
-Sensors::~Sensors() {
+Sensors::~Sensors(void) {
     if (lockID >= 0 and lockID <= 7) {
         lockret(lockID);
     }
-
-    delete buffer;
-    buffer = NULL;
 }
 
-void Sensors::init() {
-    ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
+void Sensors::init(void) {
     //I2C
     bus = new i2c();
     //bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
@@ -56,29 +49,29 @@ void Sensors::init() {
 
     fuel = new MAX17048(bus);
     if (fuel->GetStatus() == false) {
-        LogStatusElement(buffer, kError, "Failed to initialize the MAX17048");
+        LogStatusElement( kError, "Failed to initialize the MAX17048");
     } else {
         ReadFuel();
     }
 
     lsm = new LSM303DLHC;
     if (!lsm->Init(bus)) {
-        LogStatusElement(buffer, kError, "Failed to initialize the LSM303DLHC.");
+        LogStatusElement(kError, "Failed to initialize the LSM303DLHC.");
     }
 
     l3g = new L3GD20;
     if (!l3g->Init(bus)) {
-        LogStatusElement(buffer, kError, "Failed to initialize the L3GD20.");
+        LogStatusElement( kError, "Failed to initialize the L3GD20.");
     }
 
     rtc = new PCF8523(bus, board::kPIN_PCF8523_SQW);
     if (rtc->GetStatus() == false) {
-        LogStatusElement(buffer, kError, "Failed to initialize the PCF8523.");
+        LogStatusElement(kError, "Failed to initialize the PCF8523.");
     }
 
     baro = new MS5611(bus);
     if (baro->GetStatus() == false) {
-        LogStatusElement(buffer, kError, "Failed to initialize the MS5611.");
+        LogStatusElement(kError, "Failed to initialize the MS5611.");
     }
 
 #ifdef EXTERNAL_IMU
@@ -88,12 +81,12 @@ void Sensors::init() {
 
     lsm2 = new LSM303DLHC;
     if (!lsm2->Init(bus2)) {
-        LogStatusElement(buffer, kError, "Failed to initialize the external LSM303DLHC.");
+        LogStatusElement(kError, "Failed to initialize the external LSM303DLHC.");
     }
 
     l3g2 = new L3GD20;
     if (!l3g2->Init(bus2)) {
-        LogStatusElement(buffer, kError, "Failed to initialize the external L3GD20.");
+        LogStatusElement(kError, "Failed to initialize the external L3GD20.");
     }
 #endif
 
@@ -101,7 +94,7 @@ void Sensors::init() {
     gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX,
             board::kPIN_GPS_FIX);
     if (gps->GetStatus() == false) {
-        LogStatusElement(buffer, kError, "Failed to initialize the GPS.");
+        LogStatusElement(kError, "Failed to initialize the GPS.");
     }
 }
 
@@ -122,7 +115,7 @@ void Sensors::ControlledRead() {
     if (readControl[kAccl]) {
         ReadAccl();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+            PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
         }
         readControl[kAccl] = false;
     }
@@ -130,7 +123,7 @@ void Sensors::ControlledRead() {
     if (readControl[kGyro]) {
         ReadGyro();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+            PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
         }
         readControl[kGyro] = false;
     }
@@ -138,22 +131,22 @@ void Sensors::ControlledRead() {
     if (readControl[kMagn]) {
         ReadMagn();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+            PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
         }
         readControl[kMagn] = false;
     }
     if (readControl[kFuel]) {
         ReadFuel();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+            PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
         }
         readControl[kFuel] = false;
     }
     if (readControl[kTime]) {
         ReadDateTime();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'T', CNT, hour, minute, second);
-            PIB::_3x2(buffer, 'D', CNT, year, month, day);
+            PIB::_3x2('T', CNT, hour, minute, second);
+            PIB::_3x2('D', CNT, year, month, day);
         }
         readControl[kTime] = false;
     }
@@ -161,7 +154,7 @@ void Sensors::ControlledRead() {
     if (readControl[kBaro] && baro->Touch() == true) {
         ReadBaro();
         if (controlledIntoBuffer) {
-            PIB::_2x4(buffer, 'E', CNT, pressure, temperature);
+            PIB::_2x4('E', CNT, pressure, temperature);
         }
         readControl[kBaro] = false;
     }
@@ -169,7 +162,7 @@ void Sensors::ControlledRead() {
 
     if (readControl[kGPS] && (gpsString = gps->Get()) != NULL) {
         if (controlledIntoBuffer) {
-            PIB::_string(buffer, 'P', CNT, gpsString, '\0');
+            PIB::_string('P', CNT, gpsString, '\0');
         }
         readControl[kGPS] = false;
     }
@@ -179,7 +172,7 @@ void Sensors::ControlledRead() {
     if (readControl[kAccl2]) {
         ReadAccl2();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+            PIB::_3x2('B', CNT, accl2_x, accl2_y, accl2_z);
         }
         readControl[kAccl2] = false;
     }
@@ -187,7 +180,7 @@ void Sensors::ControlledRead() {
     if (readControl[kGyro2]) {
         ReadGyro2();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+            PIB::_3x2('H', CNT, gyro2_x, gyro2_y, gyro2_z);
         }
         readControl[kGyro2] = false;
     }
@@ -195,7 +188,7 @@ void Sensors::ControlledRead() {
     if (readControl[kMagn2]) {
         ReadMagn2();
         if (controlledIntoBuffer) {
-            PIB::_3x2(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+            PIB::_3x2('N', CNT, magn2_x, magn2_y, magn2_z);
         }
         readControl[kMagn2] = false;
     }
@@ -206,7 +199,7 @@ void Sensors::ControlledRead() {
 void Sensors::AutoRead(void) {
 
 
-    AddScales(buffer);
+    AddScales();
 
     char * gpsString = NULL;
     //Flush GPS buffer.
@@ -231,7 +224,7 @@ void Sensors::AutoRead(void) {
 
     //Make sure to log fuel at least once...
     ReadFuel();
-    PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+    PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
 
     while (automaticRead == true) {
 
@@ -241,42 +234,42 @@ void Sensors::AutoRead(void) {
 
         if (acclScheduler.Run()) {
             ReadAccl();
-            PIB::_3x2(buffer, 'A', CNT, accl_x, accl_y, accl_z);
+            PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
             readControl[kAccl] = false;
         }
 
         if (gyroScheduler.Run()) {
             ReadGyro();
-            PIB::_3x2(buffer, 'G', CNT, gyro_x, gyro_y, gyro_z);
+            PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
             readControl[kGyro] = false;
         }
 
         if (magnScheduler.Run()) {
             ReadMagn();
-            PIB::_3x2(buffer, 'M', CNT, magn_x, magn_y, magn_z);
+            PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
             readControl[kMagn] = false;
         }
         if (fuelScheduler.Run()) {
             ReadFuel();
-            PIB::_3x2(buffer, 'F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+            PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
             readControl[kFuel] = false;
         }
         if (timeScheduler.Run()) {
             ReadDateTime();
-            PIB::_3x2(buffer, 'T', CNT, hour, minute, second);
-            PIB::_3x2(buffer, 'D', CNT, year, month, day);
+            PIB::_3x2('T', CNT, hour, minute, second);
+            PIB::_3x2('D', CNT, year, month, day);
             readControl[kTime] = false;
         }
 
         if (baro->Touch() == true) {
             ReadBaro();
-            PIB::_2x4(buffer, 'E', CNT, pressure, temperature);
+            PIB::_2x4('E', CNT, pressure, temperature);
             readControl[kBaro] = false;
         }
 
 
         if ((gpsString = gps->Get()) != NULL) {
-            PIB::_string(buffer, 'P', CNT, gpsString, '\0');
+            PIB::_string('P', CNT, gpsString, '\0');
             readControl[kGPS] = false;
         }
 
@@ -284,19 +277,19 @@ void Sensors::AutoRead(void) {
 #ifdef EXTERNAL_IMU
         if (accl2Scheduler.Run()) {
             ReadAccl2();
-            PIB::_3x2(buffer, 'B', CNT, accl2_x, accl2_y, accl2_z);
+            PIB::_3x2('B', CNT, accl2_x, accl2_y, accl2_z);
             readControl[kAccl2] = false;
         }
 
         if (gyro2Scheduler.Run()) {
             ReadGyro2();
-            PIB::_3x2(buffer, 'H', CNT, gyro2_x, gyro2_y, gyro2_z);
+            PIB::_3x2('H', CNT, gyro2_x, gyro2_y, gyro2_z);
             readControl[kGyro2] = false;
         }
 
         if (magn2Scheduler.Run()) {
             ReadMagn2();
-            PIB::_3x2(buffer, 'N', CNT, magn2_x, magn2_y, magn2_z);
+            PIB::_3x2('N', CNT, magn2_x, magn2_y, magn2_z);
             readControl[kMagn2] = false;
         }
 #endif
@@ -331,21 +324,21 @@ void Sensors::Update(SensorType type, bool new_putIntoBuffer) {
     }
 }
 
-void Sensors::AddScales(ConcurrentBuffer * buffer) {
+void Sensors::AddScales() {
     //Baro
 
     const float baroScaleFloatPressure = 1.0f; // 0.01millibar * 100pascals
     const float baroScaleFloatTemperature = 0.01f;
     const int baroScalePressure = *(int *) &baroScaleFloatPressure;
     const int baroScaleTemperature = *(int *) &baroScaleFloatTemperature;
-    PIB::_2x4(buffer, 'E' | 0x80, CNT, baroScalePressure, baroScaleTemperature);
+    PIB::_2x4('E' | 0x80, CNT, baroScalePressure, baroScaleTemperature);
 
     //Accl
     const float acclScaleFloat = 0.00735f; // 0.012g / 16 * 9.8m/s^2
     const int acclScale = *(int *) &acclScaleFloat;
-    PIB::_3x4(buffer, 'A' | 0x80, CNT, acclScale, acclScale, acclScale);
+    PIB::_3x4('A' | 0x80, CNT, acclScale, acclScale, acclScale);
 #ifdef EXTERNAL_IMU
-    PIB::_3x4(buffer, 'B' | 0x80, CNT, acclScale, acclScale, acclScale);
+    PIB::_3x4('B' | 0x80, CNT, acclScale, acclScale, acclScale);
 #endif
 
     //Magn
@@ -353,16 +346,16 @@ void Sensors::AddScales(ConcurrentBuffer * buffer) {
     const int magnScaleXY = *(int *) &magnScaleFloatXY;
     const float magnScaleFloatZ = 4.87804878e-7f; // 1/205gauss * 0.0001 tesla
     const int magnScaleZ = *(int *) &magnScaleFloatZ;
-    PIB::_3x4(buffer, 'M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+    PIB::_3x4('M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
 #ifdef EXTERNAL_IMU
-    PIB::_3x4(buffer, 'N' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
+    PIB::_3x4('N' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
 #endif
 
     const float gyroScaleFloat = 0.001221730475f; // 0.070degrees * 0.0174532925 radians
     const int gyroScale = *(int *) &gyroScaleFloat;
-    PIB::_3x4(buffer, 'G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+    PIB::_3x4('G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
 #ifdef EXTERNAL_IMU
-    PIB::_3x4(buffer, 'H' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+    PIB::_3x4('H' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
 #endif
 
 }

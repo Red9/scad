@@ -1,7 +1,7 @@
 #include "eeprom.h"
 
-Eeprom::Eeprom(int scl, int sda){
-	base.Initialize(scl, sda);
+void Eeprom::Start(int scl, int sda){
+    base.Initialize(scl, sda);
 }
 
 
@@ -17,6 +17,9 @@ bool Eeprom::PollForAcknowledge(){
 	}
 	return true;
 }
+
+
+
 
 bool Eeprom::Put(unsigned short address, char bytes [], int size){
 //The lower seven bits define an EEPROM page, so we need a bit of magic to make

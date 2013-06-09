@@ -34,6 +34,7 @@ void test_Warning(void){
 
 void test_SingleByteReadWrite(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x8121 + addressOffset;
 	char data = 0xA9 + dataOffset;
 	TEST_ASSERT_TRUE(mem.Put(address, data));
@@ -65,6 +66,7 @@ void test_SingleByteReadWrite(void){
 
 void test_PageWriteSingleByteRead(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x80F5 + addressOffset;
 	int size = 500;
 	char data [size];
@@ -78,6 +80,7 @@ void test_PageWriteSingleByteRead(void){
 
 void test_PageReadWrite(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x80F7 + addressOffset;
 	int size = 500;
 	char output [size];
@@ -97,6 +100,7 @@ void test_PageReadWrite(void){
 
 void test_PageReadDoesntBufferOverflow(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x8223 + addressOffset;
 	int size = 200;
 	char output [size];
@@ -113,6 +117,7 @@ void test_PageReadDoesntBufferOverflow(void){
 
 void test_PutGetInt(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x9B21 + addressOffset;
 	int size = 4;
 	int bytes = 5367+dataOffset;
@@ -124,6 +129,7 @@ void test_PutGetInt(void){
 
 void test_PutGetShort(void){
 	Eeprom mem;
+    mem.Start();
 	unsigned short address = 0x965D + addressOffset;
 	int size = 2;
 	int bytes = 525+dataOffset;

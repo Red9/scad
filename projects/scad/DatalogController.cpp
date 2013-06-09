@@ -50,9 +50,8 @@ bool DatalogController::InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
 
 
 
-    int mount = sd->Mount(kPIN_SD_DO, kPIN_SD_CLK,
-            kPIN_SD_DI, kPIN_SD_CS);
-    if (mount != 0) {
+    sd->Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
+    if (sd->HasError() == true) {
         //		debug->Put("Failed to mount SD card: %i\n\r", mount);
         return false;
     } else {
@@ -96,7 +95,8 @@ bool DatalogController::OpenFile(int fileNumber, int identifier) {
     strcat(buffer, "F");
     strcat(buffer, Numbers::Dec(fileNumber));
     strcat(buffer, ".RNB");
-    if(sd->Open(buffer, 'w') < 0){
+    sd->Open(buffer, 'w');
+    if(sd->HasError() == true){
         return false;
     }
 

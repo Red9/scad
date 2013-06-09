@@ -40,7 +40,7 @@ for current limiting resistors.
 @param DLIM2Pin The pin connected to DLIM2 pin on the MAX8819
 
 */
-Max8819(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin);
+void Start(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin);
 
 ~Max8819();
 
@@ -95,9 +95,12 @@ enum{HIGH, MEDIUM, LOW, OFF};
 
 
 
-inline Max8819::Max8819(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin) 
-	: cen_mask(1 << CENpin), chg_mask(1 << CHGpin), en_mask(1 << ENpin), 
-		dlim1_mask(1 << DLIM1pin), dlim2_mask(1 << DLIM2pin){
+void inline Max8819::Start(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin) {
+    cen_mask = 1 << CENpin;
+    chg_mask = 1 << CHGpin;
+    en_mask = 1 << ENpin;
+    dlim1_mask = 1 << DLIM1pin;
+    dlim2_mask = 1 << DLIM2pin;
     DIRA |= cen_mask;   // Set to output
     DIRA |= en_mask;    // Set to output
     DIRA |= dlim1_mask; // Set to output

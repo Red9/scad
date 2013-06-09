@@ -3,19 +3,32 @@
 const int ConcurrentBuffer::kSize;
 volatile char ConcurrentBuffer::buffer_[kSize];
 volatile int ConcurrentBuffer::head_ = 0;
-bool ConcurrentBuffer::initialized_ = false;
-int ConcurrentBuffer::lock_;
+int ConcurrentBuffer::lock_ = -1;
+unsigned int ConcurrentBuffer::timeout_;
 
-ConcurrentBuffer::ConcurrentBuffer(int timeout_in_us) {
+ConcurrentBuffer::ConcurrentBuffer(){
     tail_ = 0;
+}
 
+bool ConcurrentBuffer::Start(int timeout_in_us) {
+    
+    Stop();
+    
     timeout_ = (CLKFREQ / 1000000) * timeout_in_us;
 
-    if (!initialized_) {
+    if (lock_ == -1) {
         lock_ = locknew();
         if (lock_ != -1) {
-            initialized_ = true;
+            return true;
         }
+    }
+    return false;
+}
+
+void ConcurrentBuffer::Stop(){
+    if(lock_ >= 0){
+        lockret(lock_);
+        lock_ = -1;
     }
 }
 

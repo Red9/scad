@@ -83,10 +83,9 @@ const int kBoardGamma = 0x00000004;
 
 //TODO: Do any of these need to be volatile?
 
-//Serial     * serial = NULL;
-Max8819 * pmic = NULL;
-Elum * elum = NULL;
-Eeprom * eeprom = NULL;
+Max8819 pmic;;
+Elum elum;
+Eeprom eeprom;
 Sensors * sensors = NULL;
 DatalogController * dc = NULL;
 
@@ -100,8 +99,6 @@ Bluetooth * bluetooth = NULL;
 const int kBLUETOOTH_BAUD = 460800;
 
 #endif
-
-//Pin * led = NULL;
 
 
 /*
@@ -152,40 +149,40 @@ void DisplayDeviceStatus(DeviceState state) {
 
     if (currentState == kUnknownError) {
         //Alternate red and green triple
-        elum->Pattern(Elum::kTriple);
+        elum.Pattern(Elum::kTriple);
     } else if (currentState == kNoSD) {
         //Alternate red and green
-        elum->Pattern(Elum::kSingle);
+        elum.Pattern(Elum::kSingle);
     } else if (currentState == kCharging) {
         if (kFuelSoc < 90) {//pmic->GetCharge() == true){
             //Fade LED in and out
-            elum->Fade(5);
+            elum.Fade(5);
         } else {
             //Done charging status
-            elum->Fade(1000);
+            elum.Fade(1000);
         }
     } else if (currentState == kDatalogging) {
         if (kFuelSoc > 25) {
             //Flash green LED
-            elum->Flash(Elum::GREEN, 1000, kFuelSoc * 10);
+            elum.Flash(Elum::GREEN, 1000, kFuelSoc * 10);
 
         } else {
             //Flash red LED
             //Plus one for the 0 case.
-            elum->Flash(Elum::RED, 1000, (kFuelSoc + 1) * 9);
+            elum.Flash(Elum::RED, 1000, (kFuelSoc + 1) * 9);
         }
     } else if (currentState == kPowerOn
             || currentState == kWaiting) {
-        elum->On(Elum::GREEN);
+        elum.On(Elum::GREEN);
     } else {
         //If nothing else, then turn off LED.
-        elum->Off();
+        elum.Off();
     }
 
 
 }
 
-void LogVElement(ConcurrentBuffer * buffer) {
+void LogVElement() {
     char string [200];
     string[0] = '\0';
 
@@ -201,29 +198,29 @@ void LogVElement(ConcurrentBuffer * buffer) {
     strcat(string, Numbers::Hex(boardVersion, 8));
     strcat(string, " ");
 
-    PIB::_string(buffer, 'V', CNT, string, '\0');
+    PIB::_string('V', CNT, string, '\0');
 
 }
 
-void LogRElement(ConcurrentBuffer * buffer) {
-    PIB::_string(buffer, 'R', CNT, (char *) dc->GetCurrentFilename(), '\0');
+void LogRElement() {
+    PIB::_string('R', CNT, (char *) dc->GetCurrentFilename(), '\0');
 }
 
-void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message) {
+void LogStatusElement(const LogLevel level, const char * message) {
     char completeMessage[70];
     completeMessage[0] = '\0';
     strcat(completeMessage, LogLevelIdentifier[level]);
     strcat(completeMessage, message);
-    PIB::_string(buffer, 'S', CNT, completeMessage, '\0');
+    PIB::_string('S', CNT, completeMessage, '\0');
 }
 
-void LogStatusElement(ConcurrentBuffer * buffer, const LogLevel level, const char * message, const int numberA) {
+void LogStatusElement(const LogLevel level, const char * message, const int numberA) {
     char completeMessage[70];
     completeMessage[0] = '\0';
     strcat(completeMessage, LogLevelIdentifier[level]);
     strcat(completeMessage, message);
     strcat(completeMessage, Numbers::Dec(numberA));
-    PIB::_string(buffer, 'S', CNT, completeMessage, '\0');
+    PIB::_string('S', CNT, completeMessage, '\0');
 }
 
 void SensorsServerRunner(void * parameter) {
@@ -272,8 +269,11 @@ int GetSDCannonNumber(SecureDigitalCard * sd, int lastFileNumber, int identifier
         strcat(buffer, "F");
         strcat(buffer, Numbers::Dec(currentNumber));
         strcat(buffer, ".RNB");
-        int result = sd->Open(buffer, 'r');
-        if (result == -1) break;
+        sd->Open(buffer, 'r');
+        if (sd->HasError()){
+            sd->ClearError();
+            break;
+        }
 
         currentNumber = (currentNumber + 1) % 1000;
     }
@@ -291,11 +291,12 @@ int GetSDCannonNumber(SecureDigitalCard * sd, int lastFileNumber, int identifier
  * @return the best guess canon number.
  */
 int GetCanonNumber(void) {
-    int canonNumber = eeprom->Get(kEepromCanonNumberAddress, 4);
+    int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
 
     SecureDigitalCard sd = SecureDigitalCard();
-    if (sd.Mount(board::kPIN_SD_DO, board::kPIN_SD_CLK,
-            board::kPIN_SD_DI, board::kPIN_SD_CS) < 0) {
+    sd.Mount(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+            board::kPIN_SD_DI, board::kPIN_SD_CS);
+    if (sd.HasError()) {
         //error!
     } else {
         int newCanonNumber = GetSDCannonNumber(&sd, canonNumber, unitNumber);
@@ -334,11 +335,8 @@ bool SetupLogSerial(int newCanonNumber) {
 }
 
 void GlobalLogData(void) {
-    //Do global log setup stuff
-    ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
-    LogVElement(buffer);
-    LogRElement(buffer); //TODO(SRLM): make sure that the filename is correctly stored
+    LogVElement();
+    LogRElement(); //TODO(SRLM): make sure that the filename is correctly stored
 
 }
 
@@ -351,7 +349,7 @@ void SetupLog(bool newLogSD, bool newLogSerial) {
             //return -1;
             return;
         } else {
-            eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
+            eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
         }
     } else {
         dc->SetLogSD(false);
@@ -359,7 +357,7 @@ void SetupLog(bool newLogSD, bool newLogSerial) {
 
     if (newLogSerial == true) {
         SetupLogSerial(canonNumber);
-        eeprom->Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
+        eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
     } else {
         dc->SetLogSerial(false);
     }
@@ -372,7 +370,7 @@ void SetupLog(bool newLogSD, bool newLogSerial) {
 
     datalogging = true;
 
-    pmic->On(); //Make sure we don't lose power while datalogging!
+    pmic.On(); //Make sure we don't lose power while datalogging!
 
 }
 
@@ -388,12 +386,9 @@ void CloseLog() {
 }
 
 void DataloggingInnerLoop(void) {
-    ConcurrentBuffer buffer = ConcurrentBuffer();
-
-
     if (dc->GetBufferFree() < ConcurrentBuffer::GetkSize() / 2) {
         //led->low(); //On
-        LogStatusElement(&buffer, kInfo, "SDBuffer free less than 50%!");
+        LogStatusElement(kInfo, "SDBuffer free less than 50%!");
     }
     //----------------------------------------------------------------------
 
@@ -403,15 +398,15 @@ void DataloggingInnerLoop(void) {
 void init(void) {
 
     //Power
-    pmic = new Max8819(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
+    pmic.Start(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
-    pmic->SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
+    pmic.SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
 
     //EEPROM
-    eeprom = new Eeprom;
-    unitNumber = eeprom->Get(kEepromUnitAddress, 4);
-    boardVersion = eeprom->Get(kEepromBoardAddress, 4);
+    eeprom.Start();
+    unitNumber = eeprom.Get(kEepromUnitAddress, 4);
+    boardVersion = eeprom.Get(kEepromBoardAddress, 4);
 
 #ifdef BLUETOOTH
     bluetooth = new Bluetooth(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
@@ -437,7 +432,7 @@ void init(void) {
 
 
     //LEDs and Button
-    elum = new Elum(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
+    elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
 
 
     datalogging = false;
@@ -645,14 +640,14 @@ void ParseSerialCommand(void) {
 #endif
                     //Do something to renew the power...
                     dc->SetLogSerial(true); //We're turned on, so "respond" to serial with this.
-                    pmic->On();
+                    pmic.On();
                 } else if (input == 'F') {
 #ifdef DEBUG_PORT
                     //debug->Put("\r\nPower turned off.");
 #endif
                     CloseLog();
                     DisplayDeviceStatus(kPowerOff);
-                    pmic->Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
+                    pmic.Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
                 }
                 serial_state = ST_WAITING;
                 break;
@@ -681,18 +676,15 @@ int main(void) {
     debug->Start(31, 30, 115200);
     debug->Put("\r\nSCAD Debug Port: ");
 #endif
-    //Buffer
-    ConcurrentBuffer * buffer = new ConcurrentBuffer();
-
     bool pluggedIn = true; //Assume plugged in
-    while (elum->GetButton()) { //Check the plugged in assumption
+    while (elum.GetButton()) { //Check the plugged in assumption
         pluggedIn = false; //If it's not plugged in, then the button will be pressed.
-        pmic->On(); //It's not plugged in, so we should keep the power on...
+        pmic.On(); //It's not plugged in, so we should keep the power on...
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
 
     if (pluggedIn) {
-        pmic->Off(); //Turn off in case it's unpluged while charging
+        pmic.Off(); //Turn off in case it's unpluged while charging
     }
 
     Stopwatch buttonTimer;
@@ -701,7 +693,7 @@ int main(void) {
     while (true) {
 
         //Time the button:
-        if (elum->GetButton() == true) {
+        if (elum.GetButton() == true) {
             if (buttonTimer.GetStarted() == false) {
                 buttonTimer.Start();
             }
@@ -747,7 +739,7 @@ int main(void) {
 #ifdef DEBUG_PORT
             debug->Put("\r\nWarning: Low fuel!!!");
 #endif
-            LogStatusElement(buffer, kFatal, "Low Voltage");
+            LogStatusElement(kFatal, "Low Voltage");
             CloseLog();
             datalogging = false;
             break;
@@ -766,10 +758,10 @@ int main(void) {
 
 
     //Spin while the button is pressed.
-    while (elum->GetButton()) {
+    while (elum.GetButton()) {
     }
     waitcnt(CLKFREQ + CNT);
-    pmic->Off();
+    pmic.Off();
 
 
     //If we have reached this loop, then we are still plugged in...

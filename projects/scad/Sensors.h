@@ -54,14 +54,14 @@ public:
         kAccl2, kGyro2, kMagn2, kNone
     };
 
-    Sensors();
-    virtual ~Sensors();
+    Sensors(void);
+    virtual ~Sensors(void);
 
     /** Setup to start the sensors Server. Must be called once (and only
      *  once).
      *
      */
-    void init();
+    void init(void);
     
     /** This function serves requests for sensor data. When not datalogging,
      * it spins and waits for requests for specific data. When datalogging,
@@ -128,14 +128,12 @@ private:
     volatile bool readControl[SensorTypeLength];
     volatile bool automaticRead;
 
-    ConcurrentBuffer * buffer;
-
     volatile bool controlledIntoBuffer;
 
     void AutoRead(void);
     void ControlledRead(void);
 
-    void AddScales(ConcurrentBuffer * buffer);
+    void AddScales(void);
 
     void ReadDateTime(void);
 

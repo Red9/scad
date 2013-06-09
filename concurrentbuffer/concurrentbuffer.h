@@ -32,11 +32,21 @@
 class ConcurrentBuffer {
 public:
 
+    ConcurrentBuffer();
+    
     /**
      * @param new_timeout The maximum amount of time to wait for a @a Put(), in 
      *      microseconds. Default is 1 second timeout.
+     * @return true if successfully started, false otherwise.
      */
-    ConcurrentBuffer(int timeout_in_us = 1000000);
+    static bool Start(int timeout_in_us = 1000000);
+    
+    
+    /** Stops the concurrent buffer. Should only be called when all there is no
+     * chance of a Put (or a Get!).
+     * 
+     */
+    static void Stop();
 
     /**Put a byte in the buffer.
      * 
@@ -47,7 +57,7 @@ public:
      * @param data the byte of data to add.
      * @returns true if data is added to the buffer, false if timeout occurs
      */
-    bool Put(char data);
+    static bool Put(char data);
 
     /** Put an array of bytes in the buffer.
      * 
@@ -59,7 +69,7 @@ public:
      * @param length The number of bytes to add,
      * @returns true if data is added to the buffer, false if timeout occurs
      */
-    bool Put(const char data[], const int size);
+    static bool Put(const char data[], const int size);
 
     /** @a Put with a string appended to the end.
      * 
@@ -70,7 +80,7 @@ public:
      * is like @a Put(array), but will append a string on the end.
      * 
      */
-    bool PutWithString(const char data[], const int size, const char * string, char terminator = '\0');
+    static bool PutWithString(const char data[], const int size, const char * string, char terminator = '\0');
 
 
     /**Get a byte from the buffer. Will block forever
@@ -130,19 +140,20 @@ public:
 
 private:
 
-    unsigned int timeout_;
     static const int kSize = 901; //Can be any size, doesn't have to be a multiple of 2
-    volatile static char buffer_ [kSize];
+    static volatile char buffer_ [kSize];
     static bool initialized_;
-    volatile static int head_; //Points to the next free byte
+    static volatile int head_; //Points to the next free byte
+    static unsigned int timeout_;
+    
     int tail_; //Points to the next byte to read
 
-    void StoreByte(char data);
+    static void StoreByte(char data);
 
     /** @returns true if lock is acquired, false if timeout occurs.
      */
-    bool Lockset();
-    void Lockclear();
+    static bool Lockset();
+    static void Lockclear();
 
 public:
     /**

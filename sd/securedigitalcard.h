@@ -20,6 +20,9 @@
  *     sudo fdisk -l
  *     sudo mkdosfs /dev/sdX -s 64 -F 32 -I
  * 
+ * To check the filesystem under linux:
+ *      sudo dosfsck -v /dev/sdX
+ * 
  * Note: the mkdosfs command will format the entire disk, and erase all 
  * information on it.
  * 

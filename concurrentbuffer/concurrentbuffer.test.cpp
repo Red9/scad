@@ -8,8 +8,8 @@
 
 #include "pib.h"
 
-///The system uses a single lock.
-const int kFirstAvailableLock = 1;
+///The system uses a single lock, and the static ConcurrentBuffer takes a second.
+const int kFirstAvailableLock = 2;
 
 //TODO(SRLM): When I used this class, it was locking up when used in multiple
 // cogs. To solve this, I made head volatile, and that seemed to fix it. I also
@@ -20,6 +20,8 @@ const int kFirstAvailableLock = 1;
 
 void setUp(void) {
     ConcurrentBuffer::ResetHead();
+    ConcurrentBuffer::Stop();
+    ConcurrentBuffer::Start();
 }
 
 void tearDown(void) {
@@ -38,17 +40,17 @@ void test_CBUsesOnlyOneLock(void){
     TEST_ASSERT_EQUAL_INT(kFirstAvailableLock, lockA);
     
     {
-        ConcurrentBuffer b;
-        ConcurrentBuffer c;
+        ConcurrentBuffer::Start();
+        ConcurrentBuffer::Start();
     }
     
     const int lockC = locknew();
-    TEST_ASSERT_EQUAL_INT(kFirstAvailableLock + 2, lockC);
+    TEST_ASSERT_EQUAL_INT(kFirstAvailableLock + 1, lockC);
     
-    ConcurrentBuffer d;
+    ConcurrentBuffer::Start();
     
     const int lockD = locknew();
-    TEST_ASSERT_EQUAL_INT(kFirstAvailableLock + 3, lockD);
+    TEST_ASSERT_EQUAL_INT(kFirstAvailableLock + 2, lockD);
     
     lockret(lockA);
     lockret(lockC);
@@ -58,15 +60,15 @@ void test_CBUsesOnlyOneLock(void){
 void test_CBResetHead(void) {
     ConcurrentBuffer::ResetHead();
     ConcurrentBuffer b;
-    b.Put('0');
+    ConcurrentBuffer::Put('0');
     ConcurrentBuffer::ResetHead();
-    b.Put('1');
+    ConcurrentBuffer::Put('1');
     TEST_ASSERT_EQUAL_HEX8('1', b.Get());
 }
 
 void test_CBBasicSingleCharacterSingleThread(void) {
     ConcurrentBuffer b;
-    b.Put('a');
+    ConcurrentBuffer::Put('a');
 
     TEST_ASSERT_EQUAL_HEX8('a', b.Get());
 }
@@ -76,7 +78,7 @@ void test_CBBasicMultipleCharactersSingleThread(void) {
     char data[] = "abcdef";
     int size = 6;
     ConcurrentBuffer b;
-    b.Put(data, size);
+    ConcurrentBuffer::Put(data, size);
 
     char result[size];
     result[size] = 0; //Null terminate
@@ -90,16 +92,18 @@ void test_CBBasicMultipleCharactersSingleThread(void) {
 
 void test_CBBasicPutTimeout(void) {
     int timeout = 1000; //1000us = 1 ms
-    ConcurrentBuffer b(timeout);
+    ConcurrentBuffer::Start(timeout);
+    
+    ConcurrentBuffer b;
 
 
-    TEST_ASSERT_TRUE(b.Put('a'));
+    TEST_ASSERT_TRUE(ConcurrentBuffer::Put('a'));
     
     //Simulate a lockout condition:
     TEST_ASSERT_FALSE(lockset(ConcurrentBuffer::lock_));
     
     unsigned int startCNT = CNT;
-    TEST_ASSERT_FALSE(b.Put('b'));
+    TEST_ASSERT_FALSE(ConcurrentBuffer::Put('b'));
     unsigned int endCNT = CNT;
 
     //Check to make sure it took less than 2 timeout periods
@@ -114,7 +118,7 @@ void test_CBAddLargeAmountsOfData(void) {
     ConcurrentBuffer b;
 
     for (int i = 0; i < 100; ++i) {
-        b.Put(buffer, size);
+        ConcurrentBuffer::Put(buffer, size);
         for (int j = 0; j < size; ++j) {
             TEST_ASSERT_EQUAL_HEX8(buffer[j], b.Get());
         }
@@ -129,7 +133,7 @@ void test_CBGetFreeBasic(void) {
 
     TEST_ASSERT_EQUAL_INT(b.GetkSize(), b.GetFree());
 
-    b.Put(buffer, size);
+    ConcurrentBuffer::Put(buffer, size);
 
     TEST_ASSERT_EQUAL_INT(b.GetkSize() - size, b.GetFree());
 
@@ -140,7 +144,7 @@ void test_CBGetFreeWrapAround(void) {
 
     //Go to halfway through the buffer
     for (int i = 0; i < (b.GetkSize() / 2); ++i) {
-        b.Put('c');
+        ConcurrentBuffer::Put('c');
         b.Get();
     }
 
@@ -150,7 +154,7 @@ void test_CBGetFreeWrapAround(void) {
 
     //Go for 3/4 the buffer
     for (int i = 0; i < (3 * b.GetkSize() / 4); ++i) {
-        b.Put('c');
+        ConcurrentBuffer::Put('c');
     }
 
     TEST_ASSERT_EQUAL_INT(b.GetkSize() - (3 * b.GetkSize() / 4), b.GetFree());
@@ -170,7 +174,7 @@ void test_CBGetArrayHeadGreaterThanTail(void) {
     const char * input = "Big, long, String!";
 
     int input_size = strlen(input) + 1; //+1 for null terminator
-    b.Put(input, input_size);
+    ConcurrentBuffer::Put(input, input_size);
 
     TEST_ASSERT_EQUAL_INT(input_size, b.Get(data));
     TEST_ASSERT_EQUAL_STRING(input, (char *) data);
@@ -190,11 +194,11 @@ void test_CBGetArrayHeadLessThanTail(void) {
     // Push some characters through the buffer.
     // +1 because the actual end of the buffer is at kBufferSize + 1.
     for (int i = 0; i < ConcurrentBuffer::GetkSize() + 1 - first_chunk_size; i++) {
-        b.Put('A');
+        ConcurrentBuffer::Put('A');
         b.Get();
     }
 
-    b.Put(input_data, input_size);
+    ConcurrentBuffer::Put(input_data, input_size);
 
     // Test first half of the result.
     TEST_ASSERT_EQUAL_INT(first_chunk_size, b.Get(test_data_result));
@@ -215,7 +219,7 @@ void test_CBGetArrayReturnsAllAvailableElements(void) {
 
     volatile char * data = NULL;
 
-    b.Put(input, input_size);
+    ConcurrentBuffer::Put(input, input_size);
     b.Get(data);
 
     TEST_ASSERT_EQUAL_INT(0, b.Get(data));
@@ -228,7 +232,7 @@ void test_CBPutArrayString(void) {
     const int a_size = strlen(a) + 1;
     const int b_size = strlen(b) + 1;
 
-    buffer.PutWithString(a, a_size, b);
+    ConcurrentBuffer::PutWithString(a, a_size, b);
     volatile char * result;
     TEST_ASSERT_EQUAL_INT(a_size + b_size, buffer.Get(result));
     TEST_ASSERT_EQUAL_MEMORY(a, result, a_size);
@@ -245,7 +249,7 @@ void test_CBPutArrayStringNonStandardTerminator(void){
     const int a_size = strlen(a) + 1;
     const int b_size = (int) strchr(b, ' ') - (int)b + 1; //Includes terminator
     
-    buffer.PutWithString(a, a_size, b, ' ');
+    ConcurrentBuffer::PutWithString(a, a_size, b, ' ');
     volatile char * result;
     
     TEST_ASSERT_EQUAL_INT(a_size + b_size, buffer.Get(result));
@@ -268,7 +272,7 @@ void test_PIB_3x2Simple(void) {
     int b = 0x0000;
     int c = 0x0787;
 
-    PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+    PIB::_3x2(identifier, cnt, a, b, c);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -289,7 +293,7 @@ void test_PIB_3x2ThrowsAwayUpperBytes(void) {
     int b = 0x10000;
     int c = 0xFFFF0787;
 
-    PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+    PIB::_3x2(identifier, cnt, a, b, c);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -311,7 +315,7 @@ void test_PIB_3x2DoesNotPutInExtraBytes(void) {
     int c = 0x88970787;
 
 
-    PIB::_3x2(&buffer, identifier, cnt, a, b, c);
+    PIB::_3x2(identifier, cnt, a, b, c);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -335,7 +339,7 @@ void test_PIB_3x4Simple(void) {
     int b = 0x0000;
     int c = 0xF4787;
 
-    PIB::_3x4(&buffer, identifier, cnt, a, b, c);
+    PIB::_3x4(identifier, cnt, a, b, c);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -361,7 +365,7 @@ void test_PIB_3x4DoesNotPutInExtraBytes(void) {
     int b = 0x1970;
     int c = 0x0000;
 
-    PIB::_3x4(&buffer, identifier, cnt, a, b, c);
+    PIB::_3x4(identifier, cnt, a, b, c);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -389,7 +393,7 @@ void test_PIB_2x4Simple(void) {
     int a = 0xFFFFFFFF;
     int b = 0x0000;
 
-    PIB::_2x4(&buffer, identifier, cnt, a, b);
+    PIB::_2x4(identifier, cnt, a, b);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -411,7 +415,7 @@ void test_PIB_2x4DoesNotPutInExtraBytes(void) {
     int a = 0x1;
     int b = 0xFFFFFFFF;
 
-    PIB::_2x4(&buffer, identifier, cnt, a, b);
+    PIB::_2x4(identifier, cnt, a, b);
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
@@ -435,7 +439,7 @@ void test_PIB_stringSimple(void) {
     char identifier = 'D';
     char string [] = "Hello, World!\0\n";
 
-    PIB::_string(&buffer, identifier, cnt, string, '\n');
+    PIB::_string(identifier, cnt, string, '\n');
 
     TEST_ASSERT_EQUAL_HEX8(identifier, buffer.Get());
 
