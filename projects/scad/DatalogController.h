@@ -1,8 +1,6 @@
-/* 
- * File:   DatalogController.h
- * Author: clewis
- *
- * Created on April 25, 2013, 4:48 PM
+/**
+ * 
+ * @author srlm (srlm@srlmproductions.com)
  */
 
 #ifndef SRLM_PROPGCC_DATALOGCONTROLLER_H
@@ -10,16 +8,15 @@
 
 #include "securedigitalcard.h"
 #include "concurrentbuffer.h"
-#include "scheduler.h"
-#include "elum.h"
 #include "rovingbluetooth.h"
 
 
 class DatalogController {
 public:
-    DatalogController();
-    DatalogController(const DatalogController& orig);
-    virtual ~DatalogController();
+    ~DatalogController();
+    
+    void Start(void);
+    void Stop(void);
     
     bool InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
             int kPIN_SD_DI, int kPIN_SD_CS,
@@ -47,7 +44,7 @@ public:
                        int hour, int minute, int second);
 
 private:
-    SecureDigitalCard * sd;
+    SecureDigitalCard sd;
     char currentFilename[13];
     int bufferFree;
     

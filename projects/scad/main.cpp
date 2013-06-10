@@ -49,8 +49,6 @@
 
 //TODO(SRLM): check pointers for null, and so on (be safe!).
 
-//TODO(SRLM): ConcurrentBuffer puts don't need an object, right? So, I should make each use the static methods (and not pass a class instance around...)
-
 /**
 
 Cog Usage:
@@ -69,8 +67,6 @@ Cog Usage:
 Other constants
  */
 
-const int kGPS_BAUD = 9600;
-
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
 const unsigned short kEepromCanonNumberAddress = 0xFFF4;
@@ -86,8 +82,8 @@ const int kBoardGamma = 0x00000004;
 Max8819 pmic;;
 Elum elum;
 Eeprom eeprom;
-Sensors * sensors = NULL;
-DatalogController * dc = NULL;
+Sensors sensors;
+DatalogController dc;
 
 #ifdef DEBUG_PORT
 Serial * debug = NULL;
@@ -95,9 +91,7 @@ Serial * debug = NULL;
 
 #ifdef BLUETOOTH
 Bluetooth * bluetooth = NULL;
-
 const int kBLUETOOTH_BAUD = 460800;
-
 #endif
 
 
@@ -133,7 +127,7 @@ Scheduler * displayDeviceState = NULL;
 void DisplayDeviceStatus(DeviceState state) {
 
     // in a single place, Get fuel status
-    const int kFuelSoc = sensors->fuel_soc;
+    const int kFuelSoc = sensors.fuel_soc;
 
     //Make sure that we're keeping track of the last time display has been updated.
     if (displayDeviceState == NULL) {
@@ -203,7 +197,7 @@ void LogVElement() {
 }
 
 void LogRElement() {
-    PIB::_string('R', CNT, (char *) dc->GetCurrentFilename(), '\0');
+    PIB::_string('R', CNT, (char *) dc.GetCurrentFilename(), '\0');
 }
 
 void LogStatusElement(const LogLevel level, const char * message) {
@@ -316,13 +310,13 @@ int GetCanonNumber(void) {
  * @return false on error, true otherwise
  */
 bool SetupLogSD(int newCanonNumber) {
-    sensors->Update(Sensors::kTime, false);
-    dc->SetClock(sensors->year + 2000, sensors->month, sensors->day,
-            sensors->hour, sensors->minute, sensors->second);
-    if (dc->InitSD(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+    sensors.Update(Sensors::kTime, false);
+    dc.SetClock(sensors.year + 2000, sensors.month, sensors.day,
+            sensors.hour, sensors.minute, sensors.second);
+    if (dc.InitSD(board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS,
             newCanonNumber, unitNumber)) {
-        dc->SetLogSD(true); //Start recording to SD card.
+        dc.SetLogSD(true); //Start recording to SD card.
         return true;
     } else {
         return false;
@@ -330,7 +324,7 @@ bool SetupLogSD(int newCanonNumber) {
 }
 
 bool SetupLogSerial(int newCanonNumber) {
-    dc->SetLogSerial(true);
+    dc.SetLogSerial(true);
     return true;
 }
 
@@ -352,21 +346,21 @@ void SetupLog(bool newLogSD, bool newLogSerial) {
             eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
         }
     } else {
-        dc->SetLogSD(false);
+        dc.SetLogSD(false);
     }
 
     if (newLogSerial == true) {
         SetupLogSerial(canonNumber);
         eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
     } else {
-        dc->SetLogSerial(false);
+        dc.SetLogSerial(false);
     }
 
     GlobalLogData();
 
     //TODO(SRLM): Add in something here to log the scale factors as well.
 
-    sensors->SetAutomaticRead(true);
+    sensors.SetAutomaticRead(true);
 
     datalogging = true;
 
@@ -375,21 +369,35 @@ void SetupLog(bool newLogSD, bool newLogSerial) {
 }
 
 void CloseLog() {
-    sensors->SetAutomaticRead(false);
+    sensors.SetAutomaticRead(false);
 
     //Cleanup
     waitcnt(CLKFREQ / 5 + CNT); //Wait 200ms for everything to settle down.	
 
-    dc->SetLogSD(false);
-    dc->SetLogSerial(false);
+    dc.SetLogSD(false);
+    dc.SetLogSerial(false);
 
 }
 
+Scheduler * bufferNoticeScheduler = NULL;
 void DataloggingInnerLoop(void) {
-    if (dc->GetBufferFree() < ConcurrentBuffer::GetkSize() / 2) {
-        //led->low(); //On
-        LogStatusElement(kInfo, "SDBuffer free less than 50%!");
+    if(bufferNoticeScheduler == NULL){
+        bufferNoticeScheduler = new Scheduler(500);
     }
+    Pin led(22);
+    if (dc.GetBufferFree() < ConcurrentBuffer::GetkSize() / 4) {
+        led.high();
+        LogStatusElement(kInfo, "SDBuffer free less than 25%!");
+    }else{
+        //led.low();
+    }
+    
+    if(bufferNoticeScheduler->Run()){
+        char buffer[50] = "SDBuffer Free: ";
+        
+        LogStatusElement(kInfo, strcat(buffer, Numbers::Dec(dc.GetBufferFree())));
+    }
+    
     //----------------------------------------------------------------------
 
 
@@ -416,19 +424,18 @@ void init(void) {
 
 
     //Datalog Controller
-    dc = new DatalogController();
-    dc->SetLogSerial(false);
-    dc->SetLogSD(false);
+    dc.Start();
+    dc.SetLogSerial(false);
+    dc.SetLogSD(false);
     datalogStack = (int *) malloc(stacksize);
     //int datalogCog = 
-    cogstart(DatalogCogRunner, dc, datalogStack, stacksize);
+    cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
 
     //Sensors
-    sensors = new Sensors();
-    sensors->init();
+    sensors.init();
     //Read Sensors (inc. I2C) in new cog
     sensorsStack = (int *) malloc(stacksize);
-    cogstart(SensorsServerRunner, sensors, sensorsStack, stacksize);
+    cogstart(SensorsServerRunner, &sensors, sensorsStack, stacksize);
 
 
     //LEDs and Button
@@ -626,7 +633,7 @@ void ParseSerialCommand(void) {
                     //debug->Put("\r\nDatalogController Buffer free: ");
                     //debug->Put(Numbers::Dec(dc->GetBufferFree()));
 #endif
-                    sensors->Update(type, true);
+                    sensors.Update(type, true);
                 }
                 serial_state = ST_WAITING;
                 break;
@@ -639,7 +646,7 @@ void ParseSerialCommand(void) {
                     //debug->Put("\r\nPower turned on.");
 #endif
                     //Do something to renew the power...
-                    dc->SetLogSerial(true); //We're turned on, so "respond" to serial with this.
+                    dc.SetLogSerial(true); //We're turned on, so "respond" to serial with this.
                     pmic.On();
                 } else if (input == 'F') {
 #ifdef DEBUG_PORT
@@ -725,7 +732,7 @@ int main(void) {
 #ifdef DEBUG_PORT
             //debug->Put("\r\nUpdating kFuel in main!");
 #endif
-            sensors->Update(Sensors::kFuel, false);
+            sensors.Update(Sensors::kFuel, false);
             if (pluggedIn == true) {
                 DisplayDeviceStatus(kCharging);
             } else {
@@ -734,8 +741,8 @@ int main(void) {
         }
 
         // Test: Battery is too low?
-        if (sensors->fuel_voltage < 3500
-                and sensors->fuel_voltage != sensors->kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+        if (sensors.fuel_voltage < 3500
+                and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
 #ifdef DEBUG_PORT
             debug->Put("\r\nWarning: Low fuel!!!");
 #endif

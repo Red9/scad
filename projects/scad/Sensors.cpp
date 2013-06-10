@@ -1,10 +1,3 @@
-/* 
- * File:   Sensors.cpp
- * Author: clewis
- * 
- * Created on April 25, 2013, 5:45 PM
- */
-
 #include "Sensors.h"
 
 enum LogLevel {
@@ -12,7 +5,8 @@ enum LogLevel {
 };
 extern void LogStatusElement(const LogLevel, const char *);
 
-Sensors::Sensors(void) {
+void Sensors::init(void) {
+    
     fuel_soc = 0;
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
@@ -21,33 +15,21 @@ Sensors::Sensors(void) {
     
     controlledIntoBuffer = false;
 
-    lockID = locknew();
-    if (lockID < 0) {
-        //Something is wrong!
-        //TODO(SRLM): fix that something.
-    }
-
     killed = false;
 
     for (int i = 0; i < SensorTypeLength; i++) {
         readControl[i] = false;
     }
-
-}
-
-Sensors::~Sensors(void) {
-    if (lockID >= 0 and lockID <= 7) {
-        lockret(lockID);
-    }
-}
-
-void Sensors::init(void) {
+    
+    
+    
+    
     //I2C
-    bus = new i2c();
+    //bus = new i2c();
     //bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
-    bus->Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
+    bus.Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
 
-    fuel = new MAX17048(bus);
+    fuel = new MAX17048(&bus);
     if (fuel->GetStatus() == false) {
         LogStatusElement( kError, "Failed to initialize the MAX17048");
     } else {
@@ -55,21 +37,21 @@ void Sensors::init(void) {
     }
 
     lsm = new LSM303DLHC;
-    if (!lsm->Init(bus)) {
+    if (!lsm->Init(&bus)) {
         LogStatusElement(kError, "Failed to initialize the LSM303DLHC.");
     }
 
     l3g = new L3GD20;
-    if (!l3g->Init(bus)) {
+    if (!l3g->Init(&bus)) {
         LogStatusElement( kError, "Failed to initialize the L3GD20.");
     }
 
-    rtc = new PCF8523(bus, board::kPIN_PCF8523_SQW);
+    rtc = new PCF8523(&bus, board::kPIN_PCF8523_SQW);
     if (rtc->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the PCF8523.");
     }
 
-    baro = new MS5611(bus);
+    baro = new MS5611(&bus);
     if (baro->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the MS5611.");
     }
@@ -404,41 +386,3 @@ void Sensors::ReadMagn2(void) {
 void Sensors::SetAutomaticRead(bool new_value) {
     automaticRead = new_value;
 }
-
-
-
-
-/*
-bool Sensors::GetLock(int timeout) {
-    //Check once at the beginning to improve performance.
-    if (lockset(lockID) == false) {
-        return true;
-    }
-
-    if (timeout < 0) {
-        //Loop while the lock is out (previous state == true)
-        while (lockset(lockID) != false) {
-        }
-        return true;
-    } else {
-        int tout = (CLKFREQ / 1000) * timeout;
-        int totaltime = 0;
-        int previous_cnt = CNT;
-        int current_cnt;
-        do {
-            if (lockset(lockID) == false) {
-                return true;
-            }
-            current_cnt = CNT;
-            totaltime += current_cnt - previous_cnt;
-            previous_cnt = current_cnt;
-
-        } while (totaltime < tout);
-        return false;
-    }
-}
-
-void Sensors::ReturnLock(void) {
-    lockclr(lockID);
-}
- */

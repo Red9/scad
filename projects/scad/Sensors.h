@@ -1,22 +1,11 @@
-/* 
- * File:   Sensors.h
- * Author: clewis
- *
- * Created on April 25, 2013, 5:45 PM
- */
-
 #ifndef PROPGCC_SRLM_SENSORS_H
 #define	PROPGCC_SRLM_SENSORS_H
 
 #include <propeller.h>
 
-#include <stdlib.h>
-
-
 #include "concurrentbuffer.h"
 #include "pib.h"
 #include "scheduler.h"
-
 #include "i2c.h"
 #include "lsm303dlhc.h"
 #include "l3gd20.h"
@@ -29,10 +18,7 @@
 
 class Sensors {
 public:
-
-
     static const int kDefaultFuelVoltage = 0;
-
 
     volatile int fuel_soc;
     volatile int fuel_rate;
@@ -40,22 +26,19 @@ public:
 
     int year, month, day, hour, minute, second;
 
-
     int pressure, temperature;
 
     int gyro_x, gyro_y, gyro_z;
     int accl_x, accl_y, accl_z;
     int magn_x, magn_y, magn_z;
 
+    
     static const int SensorTypeLength = 10;
-
     enum SensorType {
         kAccl, kGyro, kMagn, kFuel, kTime, kBaro, kGPS,
         kAccl2, kGyro2, kMagn2, kNone
     };
 
-    Sensors(void);
-    virtual ~Sensors(void);
 
     /** Setup to start the sensors Server. Must be called once (and only
      *  once).
@@ -102,7 +85,7 @@ public:
 
 private:
 
-    i2c * bus;
+    i2c bus;
     LSM303DLHC * lsm;
     L3GD20 * l3g;
 
@@ -120,8 +103,6 @@ private:
     int accl2_x, accl2_y, accl2_z;
     int magn2_x, magn2_y, magn2_z;
 #endif
-
-    int lockID;
 
     volatile bool killed;
 
