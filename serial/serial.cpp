@@ -101,7 +101,7 @@ bool Serial::SetBaudClock(const unsigned int rate, const unsigned int sysclock) 
     int got_rate = ((sysclock >> 1) + (rate >> 1)) / rate;
 
     // clamp the period to the allowable range
-    half_bit_period_ = got_rate < kMinimumHalfPeriod ? got_rate : kMinimumHalfPeriod;
+    half_bit_period_ = got_rate > kMinimumHalfPeriod ? got_rate : kMinimumHalfPeriod;
 
     // return true if the requested period was >= the allowable limit
     return got_rate >= kMinimumHalfPeriod;
