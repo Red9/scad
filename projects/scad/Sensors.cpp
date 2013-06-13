@@ -6,13 +6,13 @@ enum LogLevel {
 extern void LogStatusElement(const LogLevel, const char *);
 
 void Sensors::init(void) {
-    
+
     fuel_soc = 0;
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
 
     automaticRead = false;
-    
+
     controlledIntoBuffer = false;
 
     killed = false;
@@ -20,10 +20,7 @@ void Sensors::init(void) {
     for (int i = 0; i < SensorTypeLength; i++) {
         readControl[i] = false;
     }
-    
-    
-    
-    
+
     //I2C
     //bus = new i2c();
     //bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
@@ -31,7 +28,7 @@ void Sensors::init(void) {
 
     fuel = new MAX17048(&bus);
     if (fuel->GetStatus() == false) {
-        LogStatusElement( kError, "Failed to initialize the MAX17048");
+        LogStatusElement(kError, "Failed to initialize the MAX17048");
     } else {
         ReadFuel();
     }
@@ -43,7 +40,7 @@ void Sensors::init(void) {
 
     l3g = new L3GD20;
     if (!l3g->Init(&bus)) {
-        LogStatusElement( kError, "Failed to initialize the L3GD20.");
+        LogStatusElement(kError, "Failed to initialize the L3GD20.");
     }
 
     rtc = new PCF8523(&bus, board::kPIN_PCF8523_SQW);
@@ -85,7 +82,7 @@ void Sensors::Server(void) {
         if (automaticRead == true) {
             AutoRead();
         } else {
-            
+
             ControlledRead();
             //waitcnt(CLKFREQ / 100 + CNT); //Sleep for the power savings
         }
@@ -285,23 +282,12 @@ void Sensors::KillServer(void) {
     killed = true;
 }
 
-
-
-
 void Sensors::Update(SensorType type, bool new_putIntoBuffer) {
     if (type != kNone) {
         controlledIntoBuffer = new_putIntoBuffer;
-        
+
         readControl[type] = true;
         while (readControl[type]) {
-
-            //Temp to help debug
-            extern Serial * debug;
-            if(new_putIntoBuffer == true){
-                //debug->Put('.');
-            }else{
-                //debug->Put('*');
-            }//*/
         }
     }
 }
@@ -375,7 +361,7 @@ void Sensors::ReadGyro2(void) {
 }
 
 void Sensors::ReadAccl2(void) {
-    lsm2->ReadAccl(accl2_x, acc2_y, accl2_z);
+    lsm2->ReadAccl(accl2_x, accl2_y, accl2_z);
 }
 
 void Sensors::ReadMagn2(void) {

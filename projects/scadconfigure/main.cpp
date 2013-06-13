@@ -215,6 +215,7 @@ int main(void){
 	debug->PutFormatted("SCAD Configuration Utility!\r\n");
 	
 	Eeprom eeprom;
+	eeprom.Start();
 	
 	char temp[4];
 	
@@ -223,6 +224,7 @@ int main(void){
 	int canonNumber = 0;
 	
 	i2c * rtcBus = new i2c;
+	rtcBus->Start();
 	rtcBus->Initialize(kPIN_I2C_SCL, kPIN_I2C_SDA);
 	PCF8523 * rtc = new PCF8523(rtcBus, kPIN_PCF8523_SQW);
 	

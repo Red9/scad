@@ -79,7 +79,7 @@ const int kBoardGamma = 0x00000004;
 
 //TODO: Do any of these need to be volatile?
 
-Max8819 pmic;;
+Max8819 pmic;
 Elum elum;
 Eeprom eeprom;
 Sensors sensors;
@@ -206,6 +206,12 @@ void LogStatusElement(const LogLevel level, const char * message) {
     strcat(completeMessage, LogLevelIdentifier[level]);
     strcat(completeMessage, message);
     PIB::_string('S', CNT, completeMessage, '\0');
+
+
+#ifdef DEBUG_PORT
+    debug->Put("\r\nS: ");
+    debug->Put(completeMessage);
+#endif
 }
 
 void LogStatusElement(const LogLevel level, const char * message, const int numberA) {
@@ -264,7 +270,7 @@ int GetSDCannonNumber(SecureDigitalCard * sd, int lastFileNumber, int identifier
         strcat(buffer, Numbers::Dec(currentNumber));
         strcat(buffer, ".RNB");
         sd->Open(buffer, 'r');
-        if (sd->HasError()){
+        if (sd->HasError()) {
             sd->ClearError();
             break;
         }
@@ -380,24 +386,25 @@ void CloseLog() {
 }
 
 Scheduler * bufferNoticeScheduler = NULL;
+
 void DataloggingInnerLoop(void) {
-    if(bufferNoticeScheduler == NULL){
+    if (bufferNoticeScheduler == NULL) {
         bufferNoticeScheduler = new Scheduler(500);
     }
     Pin led(22);
     if (dc.GetBufferFree() < ConcurrentBuffer::GetkSize() / 4) {
         led.high();
         LogStatusElement(kInfo, "SDBuffer free less than 25%!");
-    }else{
+    } else {
         //led.low();
     }
-    
-    if(bufferNoticeScheduler->Run()){
+
+    if (bufferNoticeScheduler->Run()) {
         char buffer[50] = "SDBuffer Free: ";
-        
+
         LogStatusElement(kInfo, strcat(buffer, Numbers::Dec(dc.GetBufferFree())));
     }
-    
+
     //----------------------------------------------------------------------
 
 
@@ -415,11 +422,16 @@ void init(void) {
     eeprom.Start();
     unitNumber = eeprom.Get(kEepromUnitAddress, 4);
     boardVersion = eeprom.Get(kEepromBoardAddress, 4);
-
+#ifdef DEBUG_PORT
+    debug->Put("\r\nEEPROM initialized.");
+#endif
 #ifdef BLUETOOTH
     bluetooth = new Bluetooth(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
             board::kPIN_BLUETOOTH_CTS, board::kPIN_BLUETOOTH_CONNECT);
 
+#ifdef DEBUG_PORT
+    debug->Put("\r\nBluetooth initialized.");
+#endif    
 #endif
 
 
@@ -431,12 +443,18 @@ void init(void) {
     //int datalogCog = 
     cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
 
+#ifdef DEBUG_PORT
+    debug->Put("\r\nDatalog Cog initialized.");
+#endif
     //Sensors
     sensors.init();
     //Read Sensors (inc. I2C) in new cog
     sensorsStack = (int *) malloc(stacksize);
     cogstart(SensorsServerRunner, &sensors, sensorsStack, stacksize);
 
+#ifdef DEBUG_PORT
+    debug->Put("\r\nSensor Cog initialized.");
+#endif
 
     //LEDs and Button
     elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
@@ -465,9 +483,9 @@ bool logSerial = false;
 
 void ParseSerialCommand(void) {
 #ifdef DEBUG_PORT
-    debug->Put("\r\nmain::ParseSerialCommand. Buffer backlog: ");
+    //debug->Put("\r\nmain::ParseSerialCommand. Buffer backlog: ");
     //debug->Put("\r\nm:psc: ");
-    debug->Put(Numbers::Dec(bluetooth->GetCount()));
+    //debug->Put(Numbers::Dec(bluetooth->GetCount()));
 #endif
 
     int input = bluetooth->Get(0);
@@ -675,14 +693,16 @@ void ParseSerialCommand(void) {
 
 int main(void) {
 
+#ifdef DEBUG_PORT    
+    debug = new Serial();
+    debug->Start(31, 30, 460800);
+    debug->Put("\r\nSCAD Debug Port: ");
+#endif
+
     init();
     DisplayDeviceStatus(kPowerOn);
 
-#ifdef DEBUG_PORT    
-    debug = new Serial();
-    debug->Start(31, 30, 115200);
-    debug->Put("\r\nSCAD Debug Port: ");
-#endif
+
     bool pluggedIn = true; //Assume plugged in
     while (elum.GetButton()) { //Check the plugged in assumption
         pluggedIn = false; //If it's not plugged in, then the button will be pressed.
@@ -691,7 +711,7 @@ int main(void) {
     waitcnt(CLKFREQ / 10 + CNT);
 
     if (pluggedIn) {
-        pmic.Off(); //Turn off in case it's unpluged while charging
+        pmic.Off(); //Turn off in case it's unplugged while charging
     }
 
     Stopwatch buttonTimer;
@@ -742,7 +762,8 @@ int main(void) {
 
         // Test: Battery is too low?
         if (sensors.fuel_voltage < 3500
-                and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+                and sensors.fuel_voltage != sensors.kDefaultFuelVoltage
+                ) { //Dropout of 150mV@300mA, with some buffer
 #ifdef DEBUG_PORT
             debug->Put("\r\nWarning: Low fuel!!!");
 #endif
@@ -757,12 +778,10 @@ int main(void) {
 
     }
 
-
+#ifdef DEBUG_PORT
+    debug->Put("\r\nFinishing up.");
+#endif
     DisplayDeviceStatus(kPowerOff);
-
-
-
-
 
     //Spin while the button is pressed.
     while (elum.GetButton()) {
