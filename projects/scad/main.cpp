@@ -458,7 +458,8 @@ void init(void) {
 
     //LEDs and Button
     elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
-
+    
+    
 
     datalogging = false;
 
@@ -709,7 +710,7 @@ int main(void) {
         pmic.On(); //It's not plugged in, so we should keep the power on...
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
-
+    
     if (pluggedIn) {
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
@@ -717,10 +718,16 @@ int main(void) {
     Stopwatch buttonTimer;
     int lastButtonPressDuration = 0;
 
+#ifdef DEBUG_PORT
+    debug->Put("\r\nStarting main loop...");
+#endif
     while (true) {
 
         //Time the button:
         if (elum.GetButton() == true) {
+#ifdef DEBUG_PORT
+            debug->Put("\r\nButton pressed!!!");
+#endif
             if (buttonTimer.GetStarted() == false) {
                 buttonTimer.Start();
             }

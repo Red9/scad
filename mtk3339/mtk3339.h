@@ -47,8 +47,6 @@ bool GetStatus(void);
 //TODO(SRLM): Add enter standby mode
 // PMTK_CMD_STANDBY_MODE
 
-~MTK3339();
-
 private:
 
 /** Tests the input stream for the correct baud.

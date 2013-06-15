@@ -114,10 +114,10 @@ int GetUnitNumber(int oldNumber){
 	char buffer[13];
 	for(int i = 0;;++i){
 		buffer[i] = debug->Get();
-		debug->PutFormatted(buffer[i]); //echo
+		debug->Put(buffer[i]); //echo
 		if(buffer[i] == '\r'){
 			buffer[i] = 0;
-			debug->PutFormatted('\n');
+			debug->Put('\n');
 			break;
 		}
 	}

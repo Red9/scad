@@ -1,7 +1,5 @@
 #include "mtk3339.h"
 
-//#include <stdio.h>
-
 MTK3339::MTK3339(int rxPin, int txPin, int ppsPin)
 	: GPSParser(rxPin, txPin, 9600)
 {
@@ -18,14 +16,14 @@ MTK3339::MTK3339(int rxPin, int txPin, int ppsPin)
 			return;
 		}
 	}
+    
 	gps.PutFormatted(kPMTK_API_SET_NMEA_OUTPUT);
 	gps.PutFormatted(kPMTK_SET_NMEA_UPDATE_10HZ);
 	
 }
 
-MTK3339::~MTK3339(){
-}
 
+//TODO(SRLM): Add timeout for CheckBaud
 bool MTK3339::CheckBaud(void){
 	gps.GetFlush();
 	waitcnt(CLKFREQ/10 + CNT);
@@ -37,9 +35,7 @@ bool MTK3339::CheckBaud(void){
 		}
 	}
 	return true;
-
 }
-
 
 
 bool MTK3339::GetStatus(void){
