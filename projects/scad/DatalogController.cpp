@@ -2,47 +2,55 @@
 
 extern Bluetooth * bluetooth;
 
+
+ extern Serial * debug;
+
 DatalogController::~DatalogController() {
     Stop();
 }
 
 void DatalogController::Stop(void) {
     sd.Unmount();
+    sdMounted = false;
 }
 
-void DatalogController::Start(void) {
+bool DatalogController::Start(int kPIN_SD_DO, int kPIN_SD_CLK,
+        int kPIN_SD_DI, int kPIN_SD_CS) {
+    sdMounted = false;
+    rootDirectoryIsOpen = false;
     currentFilename[0] = '\0';
     bufferFree = 999999; //Large number to start 
+    
+    transmitFile = false;
 
     killed = false;
 
     currentSerialLogState = false;
     currentSDLogState = false;
 
+    sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
+
+    
+    if (sd.HasError()) {
+        debug->PutFormatted("\r\nMount: sd.HasError() == true, SD Error: %i", sd.GetError());
+    }
+    
+    if (sd.HasError() == true) {
+        //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
+        sdMounted = false;
+    } else {
+        sdMounted = true;
+    }
+    return sdMounted;
 }
 
 /**
- * 
- * @param kPIN_SD_DO
- * @param kPIN_SD_CLK
- * @param kPIN_SD_DI
- * @param kPIN_SD_CS
  * @param lastFileNumber
  * @param unitNumber
  * @return true on success, false otherwise
  */
-bool DatalogController::InitSD(int kPIN_SD_DO, int kPIN_SD_CLK,
-        int kPIN_SD_DI, int kPIN_SD_CS,
-        int lastFileNumber, int unitNumber
-        ) {
-
-    sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
-    if (sd.HasError() == true) {
-        //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
-        return false;
-    } else {
-        return DatalogController::OpenFile(lastFileNumber, unitNumber) >= 0;
-    }
+bool DatalogController::InitSD(int lastFileNumber, int unitNumber) {
+    return DatalogController::OpenFile(lastFileNumber, unitNumber) >= 0;
 }
 
 /**
@@ -74,6 +82,11 @@ bool DatalogController::OpenFile(int fileNumber, int identifier) {
     strcat(buffer, Numbers::Dec(fileNumber));
     strcat(buffer, ".RNB");
     sd.Open(buffer, 'w');
+    
+    if (sd.HasError()) {
+        debug->PutFormatted("\r\nOpen File: sd.HasError() == true, SD Error: %i", sd.GetError());
+    }
+    
     if (sd.HasError() == true) {
         return false;
     }
@@ -83,7 +96,7 @@ bool DatalogController::OpenFile(int fileNumber, int identifier) {
 }
 
 void DatalogController::SetClock(int year, int month, int day,
-                                  int hour, int minute, int second) {
+        int hour, int minute, int second) {
     sd.SetDate(year, month, day, hour, minute, second);
 }
 
@@ -105,12 +118,11 @@ int DatalogController::LogSequence(ConcurrentBuffer * sdBuffer) {
             sd.Put((char *) data, data_size);
         }
     }
-
+    
     return data_size;
 }
 
 void DatalogController::Server() {
-    //WARNING: Must be called in it's own cog! (it has a cogstop at the end).
 
     killed = false; //Not killed on start.
 
@@ -162,4 +174,39 @@ void DatalogController::SetLogSerial(bool tlogSerial) {
 
 void DatalogController::SetLogSD(bool tlogSD) {
     nextSDLogState = tlogSD;
+}
+
+void DatalogController::TransmitFile(char* filename){
+    strcpy(filename, filenameToTransmit);
+    transmitFile = true;
+}
+
+bool DatalogController::GetNextFilenameOnDisk(char * filenameOutput) {
+   
+
+    if (sd.HasError()) {
+        debug->PutFormatted("\r\nGetNextFilenameOnDisk: sd.HasError() == true, SD Error: %i", sd.GetError());
+    }
+
+    if (sdMounted == true) {
+        //debug->Put("\r\nsdMounted == true");
+        if (rootDirectoryIsOpen == false) {
+            //debug->Put("\r\nrootDirectoryIsOpen == false");
+            sd.OpenRootDirectory();
+            rootDirectoryIsOpen = true;
+        }
+
+        if (sd.NextFile(filenameOutput) == false) {
+            //debug->Put("\r\nsd.NextFile(filenameOutput) == false");
+            rootDirectoryIsOpen = false;
+            return false;
+        } else {
+            //debug->Put("\r\nsd.NextFile(filenameOutput) == true");
+            return true;
+        }
+
+
+    } else {
+        return false;
+    }
 }

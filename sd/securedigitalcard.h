@@ -32,6 +32,9 @@
  * although you're generally OK with just checking after @a Mount() and 
  * @a Open()
  * 
+ * 
+ * @todo(SRLM) :add the get Filesize method.
+ * 
  * @warning Untested with multiple instances!!!
  * 
  * @warning The various @a Get() and @a Put() methods don't check to make sure

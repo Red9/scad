@@ -719,8 +719,7 @@ bool SecureDigitalCard::NextFile(char * filename) {
         unsigned char * at = (unsigned char *) ((int) &Buf + current_buffer_location_);
 
         if ((at)[0] == 0) {
-            THROW_NULL(kErrorFileNotFound);
-            
+            return false;
         }
         current_buffer_location_ = (current_buffer_location_ + Dirsize);
         if (((at)[0] != 0xe5)

@@ -81,6 +81,7 @@ void tearDown(void) {
 // Mount Operations
 // -----------------------------------------------------------------------------
 
+/*
 void test_Mount(void) {
     //Assume: mount in setUp();
     TEST_ASSERT_FALSE(sut.HasError());
@@ -127,14 +128,14 @@ void test_DestructorFreesCog(void) {
 // File operations (open, close, etc.)
 // -----------------------------------------------------------------------------
 
-void test_OpenExistingFileForWrite(void){
+void test_OpenExistingFileForWrite(void) {
     sut.Open("RANDOM.RND", 'w');
     sut.Put('a');
     sut.Open("RANDOM.RND", 'w');
     sut.Put('b');
     sut.Open("RANDOM.RND", 'r');
     TEST_ASSERT_EQUAL_INT('b', sut.Get());
-    
+
 }
 
 void test_OpenNonexistentFileForRead(void) {
@@ -163,7 +164,7 @@ void test_OpenTooLongFilename(void) {
 }
 
 void test_CloseFileTwice(void) {
-    sut.Close();    
+    sut.Close();
     TEST_ASSERT_FALSE(sut.HasError());
     sut.Close();
     TEST_ASSERT_FALSE(sut.HasError());
@@ -242,7 +243,7 @@ void test_PutChar(void) {
 }
 
 void test_GetCharFromExistingFile(void) {
-    sut.Open("RANDOM.RND", 'd');    
+    sut.Open("RANDOM.RND", 'd');
     sut.Open("RANDOM.RND", 'w');
     sut.Put('x');
     sut.Open("RANDOM.RND", 'r');
@@ -413,13 +414,13 @@ void test_SeekOnLargeFile(void) {
     TEST_ASSERT_EQUAL_INT(0, sut.Seek(40 * 1024 + 8));
     TEST_ASSERT_EQUAL_INT('i', sut.Get());
 }
-
+ */
 void test_GetClusterSize(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(32768, sut.GetClusterSize(), "SD card should be formatted in 32K clusters.");
 }
 
 void test_getNextFileFindsAllFiles(void) {
-
+    //TODO(SRLM): Does this assume a that there are files on the disk at this point?
     const int MAXIMUM_FILE_COUNT = 100;
     int count;
     for (count = 0; count < MAXIMUM_FILE_COUNT; count++) {
@@ -448,9 +449,9 @@ void test_getNextFileFindsCorrectFiles(void) {
     filenames[2] = "NEXTC.TXT";
 
     bool filenameFound[FILECOUNT];
-    filenameFound[0] = false;
-    filenameFound[1] = false;
-    filenameFound[2] = false;
+    for (int filenameFoundI = 0; filenameFoundI < FILECOUNT; filenameFoundI++) {
+        filenameFound[filenameFoundI] = false;
+    }
 
 
     sut.Open(filenames[0], 'w');
@@ -482,7 +483,54 @@ void test_getNextFileFindsCorrectFiles(void) {
     }
 }
 
+void test_OpenRootDirMultipleTimesInARowReturnsAllFilesEveryTime(void) {
+    const int FILECOUNT = 3;
 
+    //Note: filenames must be uppercase!
+    const char * filenames[FILECOUNT];
+    filenames[0] = "NEXTA.TXT";
+    filenames[1] = "NEXTB.TXT";
+    filenames[2] = "NEXTC.TXT";
+
+    bool filenameFound[FILECOUNT];
+
+    sut.Open(filenames[0], 'w');
+    sut.Put('A');
+
+    sut.Open(filenames[1], 'w');
+    sut.Put('B');
+
+    sut.Open(filenames[2], 'w');
+    sut.Put('C');
+
+
+    for (int iterationsThroughRoot = 0; iterationsThroughRoot < 5; iterationsThroughRoot++) {
+        printf("\r\nIteration: %i", iterationsThroughRoot);
+
+        for (int filenameFoundI = 0; filenameFoundI < FILECOUNT; filenameFoundI++) {
+            filenameFound[filenameFoundI] = false;
+        }
+
+        sut.OpenRootDirectory();
+
+        char nextFilename[13];
+        while (sut.NextFile(nextFilename) == true) {
+            int i;
+            for (i = 0; i < FILECOUNT; i++) {
+                if (strcmp(filenames[i], nextFilename) == 0) {
+                    TEST_ASSERT_FALSE_MESSAGE(filenameFound[i], "Should not already be found.");
+                    filenameFound[i] = true;
+                    break;
+                }
+            }
+            TEST_ASSERT_TRUE_MESSAGE(i != FILECOUNT, "Unmatched filename!");
+        }
+
+        for (int i = 0; i < FILECOUNT; i++) {
+            TEST_ASSERT_TRUE(filenameFound[i]);
+        }
+    }
+}
 
 
 
