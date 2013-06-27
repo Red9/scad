@@ -5,7 +5,7 @@
 
 #define BLUETOOTH
 
-#define DEBUG_PORT
+//#define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -327,8 +327,6 @@ bool SetupLogSD(int newCanonNumber) {
         dc.SetLogSD(true); //Start recording to SD card.
         return true;
     } else {
-
-        debug->Put("\r\n\r\ndc.InitSD == false!!!\r\n");
         return false;
     }
 }

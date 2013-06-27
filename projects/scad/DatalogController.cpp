@@ -2,9 +2,6 @@
 
 extern Bluetooth * bluetooth;
 
-
- extern Serial * debug;
-
 DatalogController::~DatalogController() {
     Stop();
 }
@@ -29,11 +26,6 @@ bool DatalogController::Start(int kPIN_SD_DO, int kPIN_SD_CLK,
     currentSDLogState = false;
 
     sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
-
-    
-    if (sd.HasError()) {
-        debug->PutFormatted("\r\nMount: sd.HasError() == true, SD Error: %i", sd.GetError());
-    }
     
     if (sd.HasError() == true) {
         //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
@@ -82,10 +74,6 @@ bool DatalogController::OpenFile(int fileNumber, int identifier) {
     strcat(buffer, Numbers::Dec(fileNumber));
     strcat(buffer, ".RNB");
     sd.Open(buffer, 'w');
-    
-    if (sd.HasError()) {
-        debug->PutFormatted("\r\nOpen File: sd.HasError() == true, SD Error: %i", sd.GetError());
-    }
     
     if (sd.HasError() == true) {
         return false;
@@ -182,26 +170,17 @@ void DatalogController::TransmitFile(char* filename){
 }
 
 bool DatalogController::GetNextFilenameOnDisk(char * filenameOutput) {
-   
-
-    if (sd.HasError()) {
-        debug->PutFormatted("\r\nGetNextFilenameOnDisk: sd.HasError() == true, SD Error: %i", sd.GetError());
-    }
 
     if (sdMounted == true) {
-        //debug->Put("\r\nsdMounted == true");
         if (rootDirectoryIsOpen == false) {
-            //debug->Put("\r\nrootDirectoryIsOpen == false");
             sd.OpenRootDirectory();
             rootDirectoryIsOpen = true;
         }
 
         if (sd.NextFile(filenameOutput) == false) {
-            //debug->Put("\r\nsd.NextFile(filenameOutput) == false");
             rootDirectoryIsOpen = false;
             return false;
         } else {
-            //debug->Put("\r\nsd.NextFile(filenameOutput) == true");
             return true;
         }
 
