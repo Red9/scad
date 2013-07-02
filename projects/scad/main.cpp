@@ -39,6 +39,7 @@
 /* Pin definitions */
 #include "scadbeta2.h"
 
+//TODO(SRLM): Make sure there isn't a problem with the delay between a command to DatalogController (such as start SD), and the time that getsdActive returns the new state.
 
 // ------------------------------------------------------------------------------
 
@@ -47,6 +48,8 @@
 //TODO(SRLM): Change ELUM to something more generic...
 
 //TODO(SRLM): check pointers for null, and so on (be safe!).
+
+//TODO(SRLM): Numbers::Dec is not thread safe... Check!
 
 /**
 
@@ -240,253 +243,112 @@ void DatalogCogRunner(void * parameter) {
 
 void OutputGlobalLogHeaders(void) {
     LogVElement();
-
+    sensors.AddScales();
     //TODO(SRLM): Add in something here to log the scale factors as well.
-
 }
 
-void SetupLog() {
-    pmic.On(); //Make sure we don't lose power while datalogging!
-    sensors.SetAutomaticRead(false);
-    dc.StartSD();
-    OutputGlobalLogHeaders();
-    sensors.SetAutomaticRead(true);
-    eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
-
-}
-
-void StopLog() {
-    dc.StopSD();
-}
-
-class StateMachine {
-    typedef void (StateMachine::*stateFunctionPointer)(void);
-    stateFunctionPointer nextState;
-public:
-
-    StateMachine() {
-        nextState = &StateMachine::Wait;
-    }
-
-    void Run(void) {
-        (this->*nextState)();
-    }
-
-    void Wait(void);
-    void ReadPacketHeader(void);
-    void ProcessElementPacket(void);
-    void ProcessListFilesPacket(void);
-    void ProcessOutputDeviceSettingsPacket(void);
-    void ProcessPowerPacket(void);
-    void PowerOff(void);
-    void ProcessDataloggingPacket(void);
-    void ButtonDatalogStart(void);
-    void DataloggingWait(void);
-    void DataloggingReadPacketHeader(void);
-    void DataloggingProcessPowerPacket(void);
-    void DataloggingSoftOff(void);
-    void DataloggingProcessDataloggingPacket(void);
-};
-
-void StateMachine::Wait(void) {
+void TurnSDOn(void) {
 #ifdef DEBUG_PORT
-    //debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-    debug->PutFormatted("\r\nlastButtonPressDuration: %i", lastButtonPressDuration);
+    debug->Put("\r\nTurnSDOn()");
 #endif
-    //sensors.Update(Sensors::kFuel, false);
-    if (pluggedIn == true) {
-        DisplayDeviceStatus(kCharging);
+    if (dc.getsdMounted() == true) {
+        if (dc.getsdActive() == false) {
+            pmic.On(); //Make sure we don't lose power while datalogging!
+            sensors.SetAutomaticRead(false);
+            dc.SetClock(sensors.year + 2000, sensors.month, sensors.day,
+            sensors.hour, sensors.minute, sensors.second);
+            dc.StartSD();
+            dc.BlockUntilWaiting();
+            eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
+            OutputGlobalLogHeaders();
+            sensors.SetAutomaticRead(true);
+            DisplayDeviceStatus(kDatalogging);
+        }
     } else {
-        DisplayDeviceStatus(kWaiting);
-    }
-
-    // Test: Battery is too low?
-    if (sensors.fuel_voltage < 3500
-            and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
-#ifdef DEBUG_PORT
-        debug->Put("\r\nWarning: Low fuel!!! Turning off.");
-#endif
-        LogStatusElement(kFatal, "Low Voltage");
-        nextState = &StateMachine::PowerOff;
-    } else if (lastButtonPressDuration > 50 && lastButtonPressDuration < 1000) {
-        nextState = &StateMachine::ButtonDatalogStart;
-    } else if (currentButtonPressDuration > 3000) {
-        nextState = &StateMachine::PowerOff;
-    } else if (bluetooth->Get(0) == 'C') {
-        nextState = &StateMachine::ReadPacketHeader;
-    } else {
-        nextState = &StateMachine::Wait;
+        debug->Put("\r\nSD Error!");
+        DisplayDeviceStatus(kNoSD);
+        debug->Put("\r\n before");
+        LogStatusElement(kError, "SD Error!");
+        debug->Put("\r\n after...");
     }
 }
 
-void StateMachine::ReadPacketHeader(void) {
+void TurnSDOff(void) {
 #ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    int commandCharacter;
-    for (int i = 0; i < 5; i++) { // 4 time bytes + 1 command byte
-        commandCharacter = bluetooth->Get(kBluetoothTimeout);
-        if (commandCharacter == -1) {
-            nextState = &StateMachine::Wait;
+    debug->Put("\r\nTurnSDOff()");
+#endif    
+    if (dc.getsdActive() == true) {
+        dc.StopSD();
+    }
+    
+    DisplayDeviceStatus(kWaiting);
+}
+
+void TransferFile(const char * filename) {
+#ifdef DEBUG_PORT
+    debug->Put("\r\nTransferFile()");
+#endif    
+    if (dc.getsdActive() == false) {
+        //TODO output file Header here
+        dc.InjectFile(filename);
+        //TODO output file Closer here
+    }
+    //TODO(SRLM): Add error output if SD is open (and can't list files)
+}
+
+void ListFile(void) {
+#ifdef DEBUG_PORT
+    debug->Put("\r\nListFile()");
+#endif    
+    if (dc.getsdActive() == false) {
+        dc.ListFilenamesOnDisk();
+    }
+    //TODO(SRLM): Add error output if SD is open (and can't list files)
+}
+
+void ReadStringFromBluetooth(char * filename, const int length) {
+    int i;
+    for (i = 0; i < length; i++) {
+        filename[i] = bluetooth->Get();
+        if (filename[i] == '\0') {
+            break;
         }
     }
 
-    if (commandCharacter == 'E') {
-        nextState = &StateMachine::ProcessElementPacket;
-    } else if (commandCharacter == 'F') {
-        nextState = &StateMachine::ProcessListFilesPacket;
-    } else if (commandCharacter == 'M') {
-        nextState = &StateMachine::ProcessOutputDeviceSettingsPacket;
-    } else if (commandCharacter == 'P') {
-        nextState = &StateMachine::ProcessPowerPacket;
-    } else if (commandCharacter == 'D') {
-        nextState = &StateMachine::ProcessDataloggingPacket;
-    } else {
-        nextState = &StateMachine::Wait;
+    //Make sure we don't overflow past the end of the filename.
+    if (filename[i] != '\0') {
+        filename[i] = '\0';
     }
 }
 
-void StateMachine::ProcessElementPacket(void) {
+void ReviveSelf(void) {
 #ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    Sensors::SensorType type;
-    switch (bluetooth->Get(kBluetoothTimeout)) {
-        case 'A':
-            type = Sensors::kAccl;
-            break;
-        case 'B':
-            type = Sensors::kAccl2;
-            break;
-        case 'D':
-            type = Sensors::kTime;
-            break;
-        case 'E':
-            type = Sensors::kBaro;
-            break;
-        case 'F':
-            type = Sensors::kFuel;
-            break;
-        case 'G':
-            type = Sensors::kGyro;
-            break;
-        case 'H':
-            type = Sensors::kGyro2;
-            break;
-        case 'M':
-            type = Sensors::kMagn;
-            break;
-        case 'N':
-            type = Sensors::kMagn2;
-            break;
-        case 'P':
-            type = Sensors::kGPS;
-            break;
-        default:
-            type = Sensors::kNone;
-            break;
-    }
-
-
-#ifdef DEBUG_PORT
-    //debug->Put("\r\nUpdating sensor.");
-    //debug->Put("\r\nDatalogController Buffer free: ");
-    //debug->Put(Numbers::Dec(dc->GetBufferFree()));
-#endif
-    sensors.Update(type, true);
-
-    nextState = &StateMachine::Wait;
+    debug->Put("\r\nReviveSelf()");
+#endif    
+    pmic.On();
+    //Do something where it changes the LED to waiting (if charging)
 }
 
-void StateMachine::ProcessListFilesPacket(void) {
-    //TODO(SRLM): Do something here...
+void KillSelf(void) {
 #ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    dc.ListFilenamesOnDisk();
-    nextState = &StateMachine::Wait;
-}
-
-void StateMachine::ProcessOutputDeviceSettingsPacket(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    OutputGlobalLogHeaders();
-
-    nextState = &StateMachine::Wait;
-}
-
-void StateMachine::ProcessPowerPacket(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    int input = bluetooth->Get(kBluetoothTimeout);
-
-    if (input == 'T') {
-        //Do something to renew the power...
-        pmic.On();
-        nextState = &StateMachine::Wait;
-    } else if (input == 'F') {
-        nextState = &StateMachine::PowerOff;
-    } else {
-        nextState = &StateMachine::Wait;
-    }
-
-
-}
-
-void StateMachine::PowerOff(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    dc.StopSD();
+    debug->Put("\r\nKillSelf()");
+#endif    
+    TurnSDOff();
     DisplayDeviceStatus(kPowerOff);
 
-    //Spin while the button is pressed.
-    while (elum.GetButton()) {
-    }
     pmic.Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
-    nextState = &StateMachine::PowerOff; //Shouldn't matter, but just in case...
-}
 
-void StateMachine::ProcessDataloggingPacket(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    bool logSD = bluetooth->Get(kBluetoothTimeout) == 'T';
-    bool logSerial = bluetooth->Get(kBluetoothTimeout) == 'T';
-
-    if (logSD == false) {
-        nextState = &StateMachine::DataloggingSoftOff;
-    } else {
-        SetupLog();
-        nextState = &StateMachine::DataloggingWait;
+    while (true) {
     }
+
+    //TODO(SRLM): Add check here: if still on, we're plugged in.
 }
 
-void StateMachine::ButtonDatalogStart(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    SetupLog();
-    nextState = &StateMachine::DataloggingWait;
-}
+void InnerLoop(void) {
 
-void StateMachine::DataloggingSoftOff(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    StopLog();
-    nextState = &StateMachine::Wait;
-}
 
-void StateMachine::DataloggingWait(void) {
-#ifdef DEBUG_PORT
-    //debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    DisplayDeviceStatus(kDatalogging);
 
-    //sensors.Update(Sensors::kFuel, false);
+
 
     // Test: Battery is too low?
     if (sensors.fuel_voltage < 3500
@@ -495,71 +357,60 @@ void StateMachine::DataloggingWait(void) {
         debug->Put("\r\nWarning: Low fuel!!! Turning off.");
 #endif
         LogStatusElement(kFatal, "Low Voltage");
-        nextState = &StateMachine::PowerOff;
-    } else if (currentButtonPressDuration > 3000) {
-        nextState = &StateMachine::PowerOff;
-    } else if (bluetooth->Get(0) == 'C') {
-        nextState = &StateMachine::DataloggingReadPacketHeader;
-    } else {
-        nextState = &StateMachine::DataloggingWait;
+        KillSelf();
     }
-}
 
-void StateMachine::DataloggingReadPacketHeader(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    int commandCharacter;
-    for (int i = 0; i < 5; i++) { // 4 time bytes + 1 command byte
-        commandCharacter = bluetooth->Get(kBluetoothTimeout);
-        if (commandCharacter == -1) {
-            nextState = &StateMachine::Wait;
+
+    if (bluetooth->Get(0) == 'C') {
+        for (int i = 0; i < 4; i++) {
+            bluetooth->Get(); //Throw away CNT
+            //TODO(SRLM): add test to make sure that these are all 0's.
         }
+
+        int command = bluetooth->Get();
+        if (command == 'D') {
+            int dataloggingStateChar = bluetooth->Get();
+            if (dataloggingStateChar == 'T') {
+                TurnSDOn();
+            } else if (dataloggingStateChar == 'F') {
+                TurnSDOff();
+            }
+        } else if (command == 'P') {
+            int temp = bluetooth->Get();
+            if (temp == 'T') {
+                ReviveSelf();
+            } else if (temp == 'F') {
+                KillSelf();
+            }
+
+        } else if (command == 'M') {
+            OutputGlobalLogHeaders();
+        } else if (command == 'T') {
+            //TODO(SRLM) read file from bluetooth.
+            char filename[13];
+            ReadStringFromBluetooth(filename, 13);
+            TransferFile(filename);
+        } else if (command == 'L') {
+            ListFile();
+        }
+
     }
 
-    if (commandCharacter == 'P') {
-        nextState = &StateMachine::DataloggingProcessPowerPacket;
-    } else if (commandCharacter == 'D') {
-        nextState = &StateMachine::DataloggingProcessDataloggingPacket;
-    } else {
-        nextState = &StateMachine::DataloggingWait;
+    if (lastButtonPressDuration > 50 && lastButtonPressDuration < 1000) {
+        TurnSDOn();
     }
-}
+    if (currentButtonPressDuration > 3000) {
+        KillSelf();
+    }
 
-void StateMachine::DataloggingProcessDataloggingPacket(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    bool logSD = bluetooth->Get(kBluetoothTimeout) == 'T';
-    bool logSerial = bluetooth->Get(kBluetoothTimeout) == 'T';
-    if (logSD == false && logSerial == false) {
-        nextState = &StateMachine::DataloggingSoftOff;
-    } else {
-        nextState = &StateMachine::DataloggingWait;
-    }
-}
 
-void StateMachine::DataloggingProcessPowerPacket(void) {
-#ifdef DEBUG_PORT
-    debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
-#endif
-    bool powerOn = bluetooth->Get(kBluetoothTimeout) == 'T';
-    if (powerOn == true) {
-        nextState = &StateMachine::DataloggingWait;
-    } else {
-        nextState = &StateMachine::PowerOff;
-    }
+
 }
 
 void MainLoop(void) {
-
-
     Stopwatch buttonTimer;
-    StateMachine machine;
 
     while (true) {
-
-
         //Time the button:
         if (elum.GetButton() == true) {
             if (buttonTimer.GetStarted() == false) {
@@ -572,8 +423,7 @@ void MainLoop(void) {
             buttonTimer.Reset();
         }
 
-        machine.Run();
-
+        InnerLoop();
     }
 }
 
@@ -642,15 +492,15 @@ int main(void) {
     init();
     DisplayDeviceStatus(kPowerOn);
 
-
-
     while (elum.GetButton()) { //Check the plugged in assumption
         pluggedIn = false; //If it's not plugged in, then the button will be pressed.
         pmic.On(); //It's not plugged in, so we should keep the power on...
+        DisplayDeviceStatus(kWaiting);
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
 
     if (pluggedIn == true) {
+        DisplayDeviceStatus(kCharging);
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
 

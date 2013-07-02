@@ -82,7 +82,10 @@ public:
 
     void SetAutomaticRead(bool new_value);
 
-
+    /**
+     * Make sure this thread safe!
+     */
+    void AddScales(void);
 private:
 
     i2c bus;
@@ -114,7 +117,7 @@ private:
     void AutoRead(void);
     void ControlledRead(void);
 
-    void AddScales(void);
+    
 
     void ReadDateTime(void);
 

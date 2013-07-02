@@ -16,6 +16,11 @@ bool DatalogController::Init(int storedLastCanonNumber, int unitNumber, int kPIN
 
     sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
 
+
+
+
+    //TODO(SRLM): try out writing a file and see if we get any errors (and store for future refence)
+
     if (sd.HasError() == true) {
         //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
         sdMounted = false;
@@ -41,6 +46,7 @@ bool DatalogController::OpenNewFile(void) {
     sd.Open(buffer, 'w');
 
     if (sd.HasError() == true) {
+        sd.ClearError();
         sd.Close();
         return false;
     }
@@ -53,6 +59,7 @@ bool DatalogController::IsFileOnSD(const int fileNumber) {
 
     sd.Open(buffer, 'r');
     bool result = !sd.HasError();
+    sd.ClearError();
     sd.Close();
     return result;
 }
@@ -86,17 +93,20 @@ void DatalogController::LogSequence() {
 }
 
 void DatalogController::ServerStartSD(void) {
-    if (sdActive == false) {
-        sdActive = true;
+
+    if (sdMounted == true && sdActive == false) {
+
         int currentNumber = (lastCanonNumber + 1) % 1000;
         while (currentNumber != lastCanonNumber) {
             if (IsFileOnSD(currentNumber) == false) {
                 lastCanonNumber = currentNumber;
                 OpenNewFile();
+                break;
             }
             currentNumber = (currentNumber + 1) % 1000;
         }
 
+        sdActive = true;
         sdBuffer.ResetTail(); //Make sure that there are no unaccounted for bytes.
 
     }
@@ -120,10 +130,11 @@ void DatalogController::ServerStopSD(void) {
 }
 
 void DatalogController::ServerTransferFile(void) {
-
+    //TODO(SRLM): read from SD here and output to bluetooth
 }
 
 void DatalogController::Server(void) {
+    command = WAIT;
 
     while (true) {
         if (command == WAIT) {
@@ -138,7 +149,7 @@ void DatalogController::Server(void) {
             ServerStopSD();
             break;
         } else if (command == LIST_FILENAMES) {
-            ServerOutputFilenames();
+            ServerListFilenames();
             command = WAIT;
         } else if (command == TRANSFER_FILE) {
             ServerStopSD();
@@ -153,7 +164,6 @@ void DatalogController::Server(void) {
     //sd.Unmount(); //TODO(SRLM): Should I have this here?
     command = WAIT;
     //TODO(SRLM): Finish up last bytes here
-
 }
 
 void DatalogController::GetCurrentFilename(char * filename) {
@@ -172,18 +182,22 @@ void DatalogController::StopSD(void) {
     this->command = STOP_SD;
 }
 
-void DatalogController::ListFilenamesOnDisk(void){
+void DatalogController::ListFilenamesOnDisk(void) {
     this->command = LIST_FILENAMES;
+}
+
+bool DatalogController::getsdActive(void) {
+    return sdActive;
 }
 
 void DatalogController::BlockUntilWaiting(void) {
     while (this->command != WAIT) {
-        waitcnt(CLKFREQ / 1000000 + CNT);
+        //waitcnt(CLKFREQ / 1000000 + CNT);
     }
 }
 
-void DatalogController::TransferFile(const char * tfilename) {
-    strcpy((char *) this->transferFilename, tfilename );
+void DatalogController::InjectFile(const char * tfilename) {
+    strcpy((char *) this->transferFilename, tfilename);
     this->command = TRANSFER_FILE;
 }
 
@@ -191,20 +205,32 @@ int DatalogController::GetLastFileNumber(void) {
     return lastCanonNumber;
 }
 
-void DatalogController::ServerOutputFilenames(void) {
+void DatalogController::ServerListFilenames(void) {
     char filename[13];
     filename[0] = '\0';
 
     if (sdMounted == true && sdActive == false) {
 
+        //Clear out the serial buffer, if possible.
         if (ConcurrentBuffer::Lockset() == true) {
             LogSequenceSerial();
             LogSequenceSerial();
             ConcurrentBuffer::Lockclear();
         }
 
+        const int data_size = 6;
+        char data[data_size];
+        data[0] = 'L';
+        int cnt = CNT;
+        //Little endian
+        data[4] = (cnt & 0xFF000000) >> 24;
+        data[3] = (cnt & 0xFF0000) >> 16;
+        data[2] = (cnt & 0xFF00) >> 8;
+        data[1] = (cnt & 0xFF) >> 0;
+        data[5] = '\0';
+
         //TODO(SRLM): output the element identifier and CNT here.
-        bluetooth->Put("S\0\0\0\0");
+        bluetooth->Put(data);
 
         sd.OpenRootDirectory();
 
@@ -221,3 +247,15 @@ void DatalogController::ServerOutputFilenames(void) {
 
     }
 }
+
+bool DatalogController::getsdMounted(void) {
+    return sdMounted;
+}
+/*
+int DatalogController::GetSDError(void) {
+    if (sd.HasError() == true) {
+        return sd.GetError();
+    } else {
+        return 0;
+    }
+}*/

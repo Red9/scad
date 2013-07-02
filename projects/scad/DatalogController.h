@@ -28,16 +28,17 @@ public:
 
     void StartSD(void);
     void StopSD(void);
-    void TransferFile(const char * tfilename);
+    void InjectFile(const char * tfilename);
     void ListFilenamesOnDisk(void);
 
 
 
     void BlockUntilWaiting(void);
 
+    bool getsdActive(void);
 
-
-
+    bool getsdMounted(void);
+    
 private:
     bool OpenNewFile(void);
 
@@ -51,7 +52,7 @@ private:
     void ServerStopSD(void);
     void ServerTransferFile(void);
     void ServerStartSD(void);
-    void ServerOutputFilenames(void);
+    void ServerListFilenames(void);
 
     bool IsFileOnSD(const int fileNumber);
     void ComposeFileName(char * buffer, const int unit, const int canon);
@@ -60,7 +61,7 @@ private:
     ConcurrentBuffer sdBuffer;
     ConcurrentBuffer serialBuffer;
 
-    bool sdActive;
+    volatile bool sdActive;
 
 
     int lastCanonNumber;
