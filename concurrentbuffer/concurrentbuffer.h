@@ -112,10 +112,15 @@ public:
 
     /** Resets head pointer. This function affects all buffer instances!
      * 
-     * @warning should not call when there are buffers in use: the tail will not be
+     * @warning should not call when there are buffers instances: the tail will not be
      * reset.
      */
-    static void ResetHead();
+    static void ResetHead(void);
+    
+    /** "Clear" the buffer for this specific instance.
+     * 
+     */
+    void ResetTail(void);
 
 
     /** Get the number of unused bytes in the buffer.
@@ -137,6 +142,17 @@ public:
     };
 
 
+    /** Get exclusive write access to the buffer.
+     * 
+     * Generally, these methods should not be used except in rare cases. One 
+     * such case is to prevent (temporarily) any data being added to the buffer. 
+     * In that case, @a Lockset() the static buffer instance, then do the 
+     * protected things, then @a Lockclear().
+     * 
+     * @returns true if lock is acquired, false if timeout occurs.
+     */
+    static bool Lockset();
+    static void Lockclear();
 
 private:
 
@@ -150,10 +166,7 @@ private:
 
     static void StoreByte(char data);
 
-    /** @returns true if lock is acquired, false if timeout occurs.
-     */
-    static bool Lockset();
-    static void Lockclear();
+    
 
 public:
     /**

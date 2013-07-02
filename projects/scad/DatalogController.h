@@ -14,65 +14,67 @@ class DatalogController {
 public:
     ~DatalogController();
 
-    bool Start(int kPIN_SD_DO, int kPIN_SD_CLK, int kPIN_SD_DI, int kPIN_SD_CS);
-    void Stop(void);
-
-    bool InitSD(int lastFileNumber, int unitNumber);
-    void Server(void);
-    void KillServer(void);
-    bool OpenFile(int fileNumber, int identifier);
-
-    char * GetCurrentFilename(void);
-    int GetBufferFree(void);
-
-
-    /**
-     @Warning: Logging stops as soon as this is set, so make sure that
-    there isn't anything left in the buffer!
-     */
-    void SetLogSerial(bool logSerial);
-    /**
-     @Warning: Logging stops as soon as this is set, so make sure that
-    there isn't anything left in the buffer!
-     */
-    void SetLogSD(bool logSD);
+    bool Init(int storedLastCanonNumber, int unitNumber, int kPIN_SD_DO, int kPIN_SD_CLK, int kPIN_SD_DI, int kPIN_SD_CS);
 
     void SetClock(int year, int month, int day,
             int hour, int minute, int second);
 
+    void Server(void);
+    void KillServer(void);
 
-    bool GetNextFilenameOnDisk(char * filenameOutput);
+    void GetCurrentFilename(char * filename);
+    int GetLastFileNumber(void);
 
 
-    void TransmitFile(char * filename);
-    
+    void StartSD(void);
+    void StopSD(void);
+    void TransferFile(const char * tfilename);
+    void ListFilenamesOnDisk(void);
+
+
+
+    void BlockUntilWaiting(void);
+
+
+
+
 private:
+    bool OpenNewFile(void);
+
+    enum COMMAND_LIST {
+        WAIT, LOG_SD, STOP_SD, TRANSFER_FILE, LIST_FILENAMES, KILL_SELF
+    };
+    volatile COMMAND_LIST command;
+    volatile char transferFilename[13];
+
+
+    void ServerStopSD(void);
+    void ServerTransferFile(void);
+    void ServerStartSD(void);
+    void ServerOutputFilenames(void);
+
+    bool IsFileOnSD(const int fileNumber);
+    void ComposeFileName(char * buffer, const int unit, const int canon);
 
     SecureDigitalCard sd;
+    ConcurrentBuffer sdBuffer;
+    ConcurrentBuffer serialBuffer;
 
-    char filenameToTransmit[13];
-    bool transmitFile;
+    bool sdActive;
 
-    char currentFilename[13];
-    int bufferFree;
 
-    volatile bool killed;
+    int lastCanonNumber;
+    int unitNumber;
+
+
+
     volatile bool sdMounted;
     volatile bool rootDirectoryIsOpen;
 
-
-    bool currentSerialLogState;
-    bool currentSDLogState;
-    volatile bool nextSerialLogState;
-    volatile bool nextSDLogState;
-
-
-    /**
-     * 
-     * @param sdBuffer
-     * @returns the number of bytes pulled from the buffer.
-     */
-    int LogSequence(ConcurrentBuffer * sdBuffer);
+    void LogSequence(void);
+    void LogSequenceSD(void);
+    void LogSequenceSerial(void);
+    
 
 };
 

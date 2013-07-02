@@ -6,14 +6,14 @@ volatile int ConcurrentBuffer::head_ = 0;
 int ConcurrentBuffer::lock_ = -1;
 unsigned int ConcurrentBuffer::timeout_;
 
-ConcurrentBuffer::ConcurrentBuffer(){
+ConcurrentBuffer::ConcurrentBuffer() {
     tail_ = 0;
 }
 
 bool ConcurrentBuffer::Start(int timeout_in_us) {
-    
+
     Stop();
-    
+
     timeout_ = (CLKFREQ / 1000000) * timeout_in_us;
 
     if (lock_ == -1) {
@@ -25,8 +25,8 @@ bool ConcurrentBuffer::Start(int timeout_in_us) {
     return false;
 }
 
-void ConcurrentBuffer::Stop(){
-    if(lock_ >= 0){
+void ConcurrentBuffer::Stop() {
+    if (lock_ >= 0) {
         lockret(lock_);
         lock_ = -1;
     }
@@ -131,11 +131,19 @@ int ConcurrentBuffer::Get(volatile char *& bytes) {
     //Case: head < tail (head has wrapped around, but tail hasn't yet.)
 }
 
-void ConcurrentBuffer::ResetHead() {
+void ConcurrentBuffer::ResetTail(void) {
+    if (Lockset() == true) {
+        tail_ = head_;
+        Lockclear();
+    }
+
+}
+
+void ConcurrentBuffer::ResetHead(void) {
     head_ = 0;
 }
 
-int ConcurrentBuffer::GetFree() {
+int ConcurrentBuffer::GetFree(void) {
     const int kHead = head_;
     if (kHead >= tail_) { // no wrap-around
         return kSize - (kHead - tail_) - 1;

@@ -1,32 +1,21 @@
 #include "DatalogController.h"
 
-extern Bluetooth * bluetooth;
+extern Bluetooth * bluetooth; //TODO(SRLM): This should be a parameter, not an extren.
 
 DatalogController::~DatalogController() {
-    Stop();
+    KillServer();
 }
 
-void DatalogController::Stop(void) {
-    sd.Unmount();
-    sdMounted = false;
-}
-
-bool DatalogController::Start(int kPIN_SD_DO, int kPIN_SD_CLK,
+bool DatalogController::Init(int storedLastCanonNumber, int unitNumber, int kPIN_SD_DO, int kPIN_SD_CLK,
         int kPIN_SD_DI, int kPIN_SD_CS) {
     sdMounted = false;
     rootDirectoryIsOpen = false;
-    currentFilename[0] = '\0';
-    bufferFree = 999999; //Large number to start 
-    
-    transmitFile = false;
 
-    killed = false;
-
-    currentSerialLogState = false;
-    currentSDLogState = false;
+    this->lastCanonNumber = storedLastCanonNumber;
+    this->unitNumber = unitNumber;
 
     sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
-    
+
     if (sd.HasError() == true) {
         //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
         sdMounted = false;
@@ -36,51 +25,36 @@ bool DatalogController::Start(int kPIN_SD_DO, int kPIN_SD_CLK,
     return sdMounted;
 }
 
-/**
- * @param lastFileNumber
- * @param unitNumber
- * @return true on success, false otherwise
- */
-bool DatalogController::InitSD(int lastFileNumber, int unitNumber) {
-    return DatalogController::OpenFile(lastFileNumber, unitNumber) >= 0;
-}
-
-/**
-Scans the SD card and searches for filenames of the type "red9log#.csv",
-where # is any size number. Actually, it uses the FILENAME and FILEEXT const
-section variables for the filename. It starts scanning at filenumber 0, and
-continues until it doesn't find a file of that number on the SD card. It
-then opens the file for writing, and then this function returns.
-
-@param sd
-@param identifier The unit number to store in the first part of the filename.
-@returns the current file number if successful, or a negative number if
- * unsuccessful. -1 is returned if all filenames are taken.
- */
-bool DatalogController::OpenFile(int fileNumber, int identifier) {
-    char buffer[12];
-    //    char buff2[4];
-    //int currentNumber = (lastFileNumber + 1) % 1000;
-    //canonNumber refers to the last created file, so we need
-    // to move to the next free one. This line is necessary
-    // in case the file using the current canonNumber has been
-    // deleted: we don't want to still create a file with
-    // that number.
+void DatalogController::ComposeFileName(char * buffer, const int unit, const int canon) {
     buffer[0] = 0;
     //This version is B###F###.EXT
     strcat(buffer, "B");
-    strcat(buffer, Numbers::Dec(identifier));
+    strcat(buffer, Numbers::Dec(unit));
     strcat(buffer, "F");
-    strcat(buffer, Numbers::Dec(fileNumber));
+    strcat(buffer, Numbers::Dec(canon));
     strcat(buffer, ".RNB");
+}
+
+bool DatalogController::OpenNewFile(void) {
+    char buffer[13];
+    ComposeFileName(buffer, unitNumber, lastCanonNumber);
     sd.Open(buffer, 'w');
-    
+
     if (sd.HasError() == true) {
+        sd.Close();
         return false;
     }
-    //Save the current filename
-    strcpy(currentFilename, buffer);
     return true;
+}
+
+bool DatalogController::IsFileOnSD(const int fileNumber) {
+    char buffer[13];
+    ComposeFileName(buffer, unitNumber, fileNumber);
+
+    sd.Open(buffer, 'r');
+    bool result = !sd.HasError();
+    sd.Close();
+    return result;
 }
 
 void DatalogController::SetClock(int year, int month, int day,
@@ -88,104 +62,162 @@ void DatalogController::SetClock(int year, int month, int day,
     sd.SetDate(year, month, day, hour, minute, second);
 }
 
-int DatalogController::LogSequence(ConcurrentBuffer * sdBuffer) {
-    volatile char * data;
-
-    int data_size = 0;
-
-    bufferFree = sdBuffer->GetFree();
-    if (bufferFree != ConcurrentBuffer::GetkSize()) {
-        //If true, then some data to read.
-
-        data_size = sdBuffer->Get(data);
-
-        if (currentSerialLogState) {
-            bluetooth->Put((char *) data, data_size);
-        }
-        if (currentSDLogState) {
-            sd.Put((char *) data, data_size);
-        }
+void DatalogController::LogSequenceSerial(void) {
+    if (serialBuffer.GetFree() != ConcurrentBuffer::GetkSize()) {
+        volatile char * data;
+        int data_size = serialBuffer.Get(data);
+        bluetooth->Put((char *) data, data_size);
     }
-    
-    return data_size;
 }
 
-void DatalogController::Server() {
+void DatalogController::LogSequenceSD(void) {
 
-    killed = false; //Not killed on start.
 
-    ConcurrentBuffer serverBuffer;
+    if (sdActive == true && sdBuffer.GetFree() != ConcurrentBuffer::GetkSize()) {
+        volatile char * data;
+        int data_size = sdBuffer.Get(data);
+        sd.Put((char *) data, data_size);
+    }
+}
 
-    int bytes_pulled = 0;
+void DatalogController::LogSequence() {
+    LogSequenceSerial();
+    LogSequenceSD();
+}
 
-    while (!killed) {
-        if (nextSDLogState == true) {
-            currentSDLogState = true;
-        } else if (nextSDLogState == false
-                && currentSDLogState == true
-                && bytes_pulled == 0) {
-            //If we were logging but want to stop, and there is nothing left.
-
-            currentSDLogState = false;
-            sd.Close();
+void DatalogController::ServerStartSD(void) {
+    if (sdActive == false) {
+        sdActive = true;
+        int currentNumber = (lastCanonNumber + 1) % 1000;
+        while (currentNumber != lastCanonNumber) {
+            if (IsFileOnSD(currentNumber) == false) {
+                lastCanonNumber = currentNumber;
+                OpenNewFile();
+            }
+            currentNumber = (currentNumber + 1) % 1000;
         }
-        currentSerialLogState = nextSerialLogState;
-        bytes_pulled = LogSequence(&serverBuffer);
+
+        sdBuffer.ResetTail(); //Make sure that there are no unaccounted for bytes.
+
     }
-
-    waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz
-
-    //Finish up remaining bytes in buffer here.
-    while (serverBuffer.GetFree() != serverBuffer.GetkSize()) {
-        LogSequence(&serverBuffer);
-    }
-
-    waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz	
-    sd.Close();
 }
 
-char * DatalogController::GetCurrentFilename(void) {
-    return currentFilename;
+void DatalogController::ServerStopSD(void) {
+    if (sdActive == true) {
+        //Finish up remaining bytes in buffer here.
+        //TODO(SRLM): Make the log buffer cleanup have a timeout feature...
+
+        if (ConcurrentBuffer::Lockset() == true) {
+            LogSequenceSD();
+            LogSequenceSD(); // Twice to make sure we've got everything.
+            ConcurrentBuffer::Lockclear();
+            waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz
+
+        }
+        sd.Close();
+        sdActive = false;
+    }
 }
 
-int DatalogController::GetBufferFree(void) {
-    return bufferFree;
+void DatalogController::ServerTransferFile(void) {
+
+}
+
+void DatalogController::Server(void) {
+
+    while (true) {
+        if (command == WAIT) {
+            //Do Nothing (first in list for performance gain)
+        } else if (command == LOG_SD) {
+            ServerStartSD();
+            command = WAIT;
+        } else if (command == STOP_SD) {
+            ServerStopSD();
+            command = WAIT;
+        } else if (command == KILL_SELF) {
+            ServerStopSD();
+            break;
+        } else if (command == LIST_FILENAMES) {
+            ServerOutputFilenames();
+            command = WAIT;
+        } else if (command == TRANSFER_FILE) {
+            ServerStopSD();
+            ServerTransferFile();
+            command = WAIT;
+        }
+
+        LogSequence();
+    }
+
+
+    //sd.Unmount(); //TODO(SRLM): Should I have this here?
+    command = WAIT;
+    //TODO(SRLM): Finish up last bytes here
+
+}
+
+void DatalogController::GetCurrentFilename(char * filename) {
+    return ComposeFileName(filename, unitNumber, lastCanonNumber);
 }
 
 void DatalogController::KillServer(void) {
-    killed = true;
+    this->command = KILL_SELF;
 }
 
-void DatalogController::SetLogSerial(bool tlogSerial) {
-    nextSerialLogState = tlogSerial;
+void DatalogController::StartSD(void) {
+    this->command = LOG_SD;
 }
 
-void DatalogController::SetLogSD(bool tlogSD) {
-    nextSDLogState = tlogSD;
+void DatalogController::StopSD(void) {
+    this->command = STOP_SD;
 }
 
-void DatalogController::TransmitFile(char* filename){
-    strcpy(filename, filenameToTransmit);
-    transmitFile = true;
+void DatalogController::ListFilenamesOnDisk(void){
+    this->command = LIST_FILENAMES;
 }
 
-bool DatalogController::GetNextFilenameOnDisk(char * filenameOutput) {
+void DatalogController::BlockUntilWaiting(void) {
+    while (this->command != WAIT) {
+        waitcnt(CLKFREQ / 1000000 + CNT);
+    }
+}
 
-    if (sdMounted == true) {
-        if (rootDirectoryIsOpen == false) {
-            sd.OpenRootDirectory();
-            rootDirectoryIsOpen = true;
+void DatalogController::TransferFile(const char * tfilename) {
+    strcpy((char *) this->transferFilename, tfilename );
+    this->command = TRANSFER_FILE;
+}
+
+int DatalogController::GetLastFileNumber(void) {
+    return lastCanonNumber;
+}
+
+void DatalogController::ServerOutputFilenames(void) {
+    char filename[13];
+    filename[0] = '\0';
+
+    if (sdMounted == true && sdActive == false) {
+
+        if (ConcurrentBuffer::Lockset() == true) {
+            LogSequenceSerial();
+            LogSequenceSerial();
+            ConcurrentBuffer::Lockclear();
         }
 
-        if (sd.NextFile(filenameOutput) == false) {
-            rootDirectoryIsOpen = false;
-            return false;
-        } else {
-            return true;
+        //TODO(SRLM): output the element identifier and CNT here.
+        bluetooth->Put("S\0\0\0\0");
+
+        sd.OpenRootDirectory();
+
+        bool firstTime = true;
+
+        while (sd.NextFile(filename) == true) {
+            if (firstTime == false) {
+                bluetooth->Put(", ");
+            }
+            bluetooth->Put(filename);
+            firstTime = false;
         }
+        bluetooth->Put('\0');
 
-
-    } else {
-        return false;
     }
 }

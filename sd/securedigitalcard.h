@@ -143,7 +143,11 @@ public:
      */
     void Open(const char * Filename, const char Mode);
 
-    /** Flush and close the currently open file if any.  Also reset the pointers 
+    /** Flush and close the currently open file if any.  
+     * 
+     * Clears any errors.
+     * 
+     * Also reset the pointers 
      * to valid values. Also, releases the SD pins to tristate.
      */
     void Close(void);

@@ -5,7 +5,7 @@
 
 #define BLUETOOTH
 
-//#define DEBUG_PORT
+#define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -20,7 +20,6 @@
 
 #include "serial.h"
 #include "i2c.h"
-#include "securedigitalcard.h"
 #include "max8819.h"
 #include "elum.h"
 #include "numbers.h"
@@ -102,8 +101,6 @@ Status Variables
 
 int lastButtonPressDuration = 0;
 int currentButtonPressDuration = 0;
-
-//bool datalogging = false; //TODO(SRLM): do we need this?
 
 volatile int unitNumber;
 volatile int boardVersion;
@@ -241,177 +238,25 @@ void DatalogCogRunner(void * parameter) {
     cogstop(cogid());
 }
 
-/**
-Scans the SD card and searches for filenames of the type "red9log#.csv",
-where # is any size number. Actually, it uses the FILENAME and FILEEXT const
-section variables for the filename. It starts scanning at filenumber 0, and
-continues until it doesn't find a file of that number on the SD card. 
-
-@param sd
-@param identifier The unit number to store in the first part of the filename.
-@returns the current file number if successful, or a negative number if
- * unsuccessful. -1 is returned if all filenames are taken.
- */
-int GetSDCannonNumber(SecureDigitalCard * sd, int lastFileNumber, int identifier) {
-    char buffer[12];
-    //    char buff2[4];
-    int currentNumber = (lastFileNumber + 1) % 1000;
-    //canonNumber refers to the last created file, so we need
-    // to move to the next free one. This line is necessary
-    // in case the file using the current canonNumber has been
-    // deleted: we don't want to still create a file with
-    // that number.
-
-
-    while (currentNumber != lastFileNumber) { //Loop until we have looped around.
-
-        buffer[0] = 0;
-
-        //This version is B###F###.EXT
-        strcat(buffer, "B");
-        strcat(buffer, Numbers::Dec(identifier));
-        strcat(buffer, "F");
-        strcat(buffer, Numbers::Dec(currentNumber));
-        strcat(buffer, ".RNB");
-        sd->Open(buffer, 'r');
-        if (sd->HasError()) {
-            sd->ClearError();
-            break;
-        }
-
-        currentNumber = (currentNumber + 1) % 1000;
-    }
-
-    sd->Close();
-    if (currentNumber == lastFileNumber) {
-        return -1;
-    }
-
-    return currentNumber;
-}
-
-/** Figures out the best Canon number.
- * 
- * @return the best guess canon number.
- */
-int GetCanonNumber(void) {
-    int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
-
-    SecureDigitalCard sd = SecureDigitalCard();
-    sd.Mount(board::kPIN_SD_DO, board::kPIN_SD_CLK,
-            board::kPIN_SD_DI, board::kPIN_SD_CS);
-    if (sd.HasError()) {
-        //error!
-    } else {
-        int newCanonNumber = GetSDCannonNumber(&sd, canonNumber, unitNumber);
-        sd.Unmount();
-        if (newCanonNumber >= 0) {
-            return newCanonNumber;
-        }
-    }
-
-    //Return a default canonNumber...
-    return (canonNumber + 1) % 1000;
-
-}
-
-/** Opens a new file on the SD card.
- * 
- * @return false on error, true otherwise
- */
-bool SetupLogSD(int newCanonNumber) {
-    sensors.Update(Sensors::kTime, false);
-    dc.SetClock(sensors.year + 2000, sensors.month, sensors.day,
-            sensors.hour, sensors.minute, sensors.second);
-    if (dc.InitSD(newCanonNumber, unitNumber)) {
-        dc.SetLogSD(true); //Start recording to SD card.
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool SetupLogSerial(int newCanonNumber) {
-    dc.SetLogSerial(true);
-    return true;
-}
-
-void GlobalLogData(void) {
+void OutputGlobalLogHeaders(void) {
     LogVElement();
-    if (strlen((char *) dc.GetCurrentFilename()) != 0) {
-        LogRElement((char *) dc.GetCurrentFilename()); //TODO(SRLM): make sure that the filename is correctly stored
-    }
-
-}
-
-void SetupLog(bool newLogSD, bool newLogSerial) {
-    int canonNumber = GetCanonNumber();
-    if (newLogSD == true) {
-        if (SetupLogSD(canonNumber) == false) {
-            DisplayDeviceStatus(kNoSD);
-            waitcnt(CLKFREQ * 5 + CNT);
-            //return -1;
-            return;
-        } else {
-            eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
-        }
-    } else {
-        dc.SetLogSD(false);
-    }
-
-    if (newLogSerial == true) {
-        SetupLogSerial(canonNumber);
-        eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4); //Store canonFilenumber for persistence
-    } else {
-        dc.SetLogSerial(false);
-    }
-
-    GlobalLogData();
 
     //TODO(SRLM): Add in something here to log the scale factors as well.
 
-    sensors.SetAutomaticRead(true);
+}
 
-    //datalogging = true;
-
+void SetupLog() {
     pmic.On(); //Make sure we don't lose power while datalogging!
-
-}
-
-void CloseLog() {
     sensors.SetAutomaticRead(false);
-
-    //Cleanup
-    waitcnt(CLKFREQ / 5 + CNT); //Wait 200ms for everything to settle down.	
-
-    dc.SetLogSD(false);
-    dc.SetLogSerial(false);
+    dc.StartSD();
+    OutputGlobalLogHeaders();
+    sensors.SetAutomaticRead(true);
+    eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
 
 }
 
-Scheduler * bufferNoticeScheduler = NULL; //TODO(SRLM): make static...
-
-void DataloggingInnerLoop(void) {
-    if (bufferNoticeScheduler == NULL) {
-        bufferNoticeScheduler = new Scheduler(500);
-    }
-    Pin led(22);
-    if (dc.GetBufferFree() < ConcurrentBuffer::GetkSize() / 4) {
-        led.high();
-        LogStatusElement(kInfo, "SDBuffer free less than 25%!");
-    } else {
-        //led.low();
-    }
-
-    if (bufferNoticeScheduler->Run()) {
-        char buffer[50] = "SDBuffer Free: ";
-
-        LogStatusElement(kInfo, strcat(buffer, Numbers::Dec(dc.GetBufferFree())));
-    }
-
-    //----------------------------------------------------------------------
-
-
+void StopLog() {
+    dc.StopSD();
 }
 
 class StateMachine {
@@ -446,8 +291,9 @@ public:
 void StateMachine::Wait(void) {
 #ifdef DEBUG_PORT
     //debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
+    debug->PutFormatted("\r\nlastButtonPressDuration: %i", lastButtonPressDuration);
 #endif
-    sensors.Update(Sensors::kFuel, false);
+    //sensors.Update(Sensors::kFuel, false);
     if (pluggedIn == true) {
         DisplayDeviceStatus(kCharging);
     } else {
@@ -557,16 +403,7 @@ void StateMachine::ProcessListFilesPacket(void) {
 #ifdef DEBUG_PORT
     debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
-
-    char filenameBuffer[15];
-
-    while (dc.GetNextFilenameOnDisk(filenameBuffer) == true) {
-#ifdef DEBUG_PORT
-        debug->PutFormatted("\r\n   Found filename: %s", filenameBuffer);
-#endif
-        LogRElement(filenameBuffer);
-    }
-
+    dc.ListFilenamesOnDisk();
     nextState = &StateMachine::Wait;
 }
 
@@ -574,7 +411,7 @@ void StateMachine::ProcessOutputDeviceSettingsPacket(void) {
 #ifdef DEBUG_PORT
     debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
-    GlobalLogData();
+    OutputGlobalLogHeaders();
 
     nextState = &StateMachine::Wait;
 }
@@ -587,7 +424,6 @@ void StateMachine::ProcessPowerPacket(void) {
 
     if (input == 'T') {
         //Do something to renew the power...
-        dc.SetLogSerial(true); //We're turned on, so "respond" to serial with this.
         pmic.On();
         nextState = &StateMachine::Wait;
     } else if (input == 'F') {
@@ -603,7 +439,7 @@ void StateMachine::PowerOff(void) {
 #ifdef DEBUG_PORT
     debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
-    CloseLog();
+    dc.StopSD();
     DisplayDeviceStatus(kPowerOff);
 
     //Spin while the button is pressed.
@@ -620,10 +456,10 @@ void StateMachine::ProcessDataloggingPacket(void) {
     bool logSD = bluetooth->Get(kBluetoothTimeout) == 'T';
     bool logSerial = bluetooth->Get(kBluetoothTimeout) == 'T';
 
-    if (logSD == false && logSerial == false) {
+    if (logSD == false) {
         nextState = &StateMachine::DataloggingSoftOff;
     } else {
-        SetupLog(logSD, logSerial);
+        SetupLog();
         nextState = &StateMachine::DataloggingWait;
     }
 }
@@ -632,7 +468,7 @@ void StateMachine::ButtonDatalogStart(void) {
 #ifdef DEBUG_PORT
     debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
-    SetupLog(true, false);
+    SetupLog();
     nextState = &StateMachine::DataloggingWait;
 }
 
@@ -640,7 +476,7 @@ void StateMachine::DataloggingSoftOff(void) {
 #ifdef DEBUG_PORT
     debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
-    CloseLog();
+    StopLog();
     nextState = &StateMachine::Wait;
 }
 
@@ -649,7 +485,6 @@ void StateMachine::DataloggingWait(void) {
     //debug->PutFormatted("\r\nCurrent State Function: %s", __func__);
 #endif
     DisplayDeviceStatus(kDatalogging);
-    DataloggingInnerLoop();
 
     //sensors.Update(Sensors::kFuel, false);
 
@@ -767,11 +602,10 @@ void init(void) {
 #endif
 
 
+    int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
     //Datalog Controller
-    dc.Start(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+    dc.Init(canonNumber, unitNumber, board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS);
-    dc.SetLogSerial(false);
-    dc.SetLogSD(false);
     datalogStack = (int *) malloc(stacksize);
     //int datalogCog = 
     cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
@@ -793,7 +627,7 @@ void init(void) {
     elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
 
 
-
+    sensors.SetAutomaticRead(true);
 
 }
 
@@ -816,7 +650,7 @@ int main(void) {
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
 
-    if (pluggedIn) {
+    if (pluggedIn == true) {
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
 
@@ -827,122 +661,5 @@ int main(void) {
 
     MainLoop();
 }
-
-
-
-
-
-//ReadConfiguration(sd);
-
-
-///**
-//@returns the count to the character following a \n or a 0.
-
-//In relation to SD card configuration
-
-//*/
-//int ParseKeyValue(const char * line, char * key, char * value){
-
-//	int i = 0;
-//	for(; line[i] != '='; i++){
-//		key[i] = line[i];
-//	}
-//	key[i] = 0;
-//	i++;
-
-//	int valuei;
-//	for(valuei = 0; line[i] != '\n' && line[i] != '\r' && line[i] != 0;i++){
-//		value[valuei++] = line[i];
-//	}
-//	value[valuei] = 0;
-//	
-//	i++;
-//	return i;
-//	
-//}
-
-//bool ProcessKeyValue(const char * key, const char * value){
-
-////	debug->Put("Key: '%s'\r\n", key);
-////	debug->Put("Value: '%s'\r\n", value);
-
-//	if(strcmp(key, "unit") == 0){
-//		int unitNumber = Numbers::Dec(value);
-//		eeprom->Put(kEepromUnitAddress, unitNumber, 4);
-//		return true;
-//	}
-//	if(strcmp(key, "hardware version") == 0){
-//		int boardVersion = -1;
-//		if(     strcmp(value, "alpha") == 0){ boardVersion = kBoardAlpha;}
-//		else if(strcmp(value, "beta")  == 0){ boardVersion = kBoardBeta;}
-//		else if(strcmp(value, "beta2") == 0){ boardVersion = kBoardBeta2;}
-//		else if(strcmp(value, "gamma") == 0){ boardVersion = kBoardGamma;}
-//		else{ return false; }
-//		eeprom->Put(kEepromBoardAddress, boardVersion, 4);
-//		return true;
-//	}
-//	return false;
-
-//}
-
-//bool ReadConfiguration(SecureDigitalCard * sd){
-//	int size = sd->Open("REDSCAD.CFG", 'r');
-//	
-//	if(size < 0){
-//		return false;
-//	}
-//	char * buffer = new char[size];
-//	if(buffer == NULL){
-//		return false;
-//	}
-//	
-//	sd->Get(buffer, size);
-//	buffer[size] = 0; //null terminate
-
-//	int i = 0;
-//	bool success = true;
-//	while(i < size){
-//			
-//		char key[20];
-//		char value[20];
-//			
-//		i += ParseKeyValue(buffer + i, key, value);
-//		if(ProcessKeyValue(key, value) == false){
-//			success = false;
-//		}
-//		while( buffer[i] == '\r' || buffer[i] == '\n'){i++;}
-//	}
-//	
-//	if(success){
-////		debug->Put("Successfully read the configuration file.\r\n");
-//		sd->Open("REDSCAD.OLD", 'w');
-//		sd->Put(buffer, size);
-//		sd->Close();
-//		sd->Open("REDSCAD.CFG", 'd');
-//	}else{
-////		debug->Put("Failed to correctly read the configuration file.\r\n");
-//	}
-
-//	delete [] buffer;
-//	return true;
-//}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

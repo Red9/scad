@@ -371,6 +371,7 @@ int SecureDigitalCard::Pfillbuf(void) {
 }
 
 void SecureDigitalCard::Close(void) {
+    ClearError();
     if (directory_entry_position_) {
         Pflush();
         RET_IF_ERROR;
