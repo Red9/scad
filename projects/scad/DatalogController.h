@@ -67,6 +67,8 @@ private:
     int lastCanonNumber;
     int unitNumber;
 
+    void ComposeElementHeader(char * data, const char elementIdentifier);
+    void LogRElementBluetooth(const bool live, const char * filename);
 
 
     volatile bool sdMounted;

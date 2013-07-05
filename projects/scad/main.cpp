@@ -51,6 +51,8 @@
 
 //TODO(SRLM): Numbers::Dec is not thread safe... Check!
 
+//TODO(SRLM): Somewhere I have two calls to dc.AddScales();
+
 /**
 
 Cog Usage:
@@ -200,7 +202,9 @@ void LogVElement() {
 
 }
 
-void LogRElement(char * filename) {
+void LogRElement(const char * filename) {
+    char buffer[15] = "T";
+    strcat(buffer, filename);
     PIB::_string('R', CNT, filename, '\0');
 }
 

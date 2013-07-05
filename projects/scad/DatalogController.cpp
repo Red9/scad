@@ -61,6 +61,7 @@ bool DatalogController::IsFileOnSD(const int fileNumber) {
     bool result = !sd.HasError();
     sd.ClearError();
     sd.Close();
+    sd.ClearError();
     return result;
 }
 
@@ -130,7 +131,33 @@ void DatalogController::ServerStopSD(void) {
 }
 
 void DatalogController::ServerTransferFile(void) {
-    //TODO(SRLM): read from SD here and output to bluetooth
+
+    char filename[13];
+    strcpy(filename, (char *)transferFilename);
+    
+    if(ConcurrentBuffer::Lockset() == true){
+        LogSequenceSerial();
+        LogSequenceSerial();
+        ConcurrentBuffer::Lockclear();
+    }
+    
+    LogRElementBluetooth(false, filename);
+    
+    if (sdMounted == true && sdActive == false) {
+        sd.ClearError();
+        sd.Open(filename, 'r');
+        if (sd.HasError()) {
+            sd.ClearError();
+        } else {
+            int byte;
+            while ((byte = sd.Get()) != -1) {
+                bluetooth->Put(byte);
+            }
+        }
+    }
+
+    LogRElementBluetooth(false, filename);
+
 }
 
 void DatalogController::Server(void) {
@@ -205,6 +232,30 @@ int DatalogController::GetLastFileNumber(void) {
     return lastCanonNumber;
 }
 
+void DatalogController::LogRElementBluetooth(const bool live, const char * filename) {
+    char header[7];
+    ComposeElementHeader(header, 'R');
+    bluetooth->Put(header);
+    if (live == true) {
+        bluetooth->Put('T');
+    } else {
+        bluetooth->Put('F');
+    }
+    bluetooth->Put(filename);
+    bluetooth->Put('\0');
+}
+
+void DatalogController::ComposeElementHeader(char * data, const char elementIdentifier) {
+    data[0] = elementIdentifier;
+    int cnt = CNT;
+    //Little endian
+    data[4] = (cnt & 0xFF000000) >> 24;
+    data[3] = (cnt & 0xFF0000) >> 16;
+    data[2] = (cnt & 0xFF00) >> 8;
+    data[1] = (cnt & 0xFF) >> 0;
+    data[5] = '\0';
+}
+
 void DatalogController::ServerListFilenames(void) {
     char filename[13];
     filename[0] = '\0';
@@ -218,16 +269,8 @@ void DatalogController::ServerListFilenames(void) {
             ConcurrentBuffer::Lockclear();
         }
 
-        const int data_size = 6;
-        char data[data_size];
-        data[0] = 'L';
-        int cnt = CNT;
-        //Little endian
-        data[4] = (cnt & 0xFF000000) >> 24;
-        data[3] = (cnt & 0xFF0000) >> 16;
-        data[2] = (cnt & 0xFF00) >> 8;
-        data[1] = (cnt & 0xFF) >> 0;
-        data[5] = '\0';
+        char data[6];
+        ComposeElementHeader(data, 'L');
 
         //TODO(SRLM): output the element identifier and CNT here.
         bluetooth->Put(data);
