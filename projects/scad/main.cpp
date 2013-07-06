@@ -291,12 +291,14 @@ void TurnSDOff(void) {
 void TransferFile(const char * filename) {
 #ifdef DEBUG_PORT
     debug->Put("\r\nTransferFile()");
-#endif    
+#endif
+    sensors.SetAutomaticRead(false);
     if (dc.getsdActive() == false) {
         //TODO output file Header here
         dc.InjectFile(filename);
         //TODO output file Closer here
     }
+    sensors.SetAutomaticRead(true);
     //TODO(SRLM): Add error output if SD is open (and can't list files)
 }
 

@@ -11,7 +11,7 @@ Bluetooth::Bluetooth(int rxpin, int txpin, int ctspin, int connectpin)
 	
 	//bool result = serial.Start(rxpin, txpin, baud, ctspin);
         
-        
+        //TODO(SRLM): Get rid of this duo! Only have one serial object here.
         serial.Start(rxpin, -1, baud);
         serialTx.Start(-1, txpin, baud, ctspin);
         

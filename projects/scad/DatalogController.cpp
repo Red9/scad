@@ -164,6 +164,7 @@ void DatalogController::Server(void) {
     command = WAIT;
 
     while (true) {
+        LogSequence();
         if (command == WAIT) {
             //Do Nothing (first in list for performance gain)
         } else if (command == LOG_SD) {
@@ -183,8 +184,6 @@ void DatalogController::Server(void) {
             ServerTransferFile();
             command = WAIT;
         }
-
-        LogSequence();
     }
 
 
