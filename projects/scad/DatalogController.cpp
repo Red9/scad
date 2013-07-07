@@ -283,7 +283,6 @@ void DatalogController::ServerListFilenames(void) {
         char data[6];
         ComposeElementHeader(data, 'L');
 
-        //TODO(SRLM): output the element identifier and CNT here.
         bluetooth->Put(data);
 
         sd.OpenRootDirectory();
@@ -292,7 +291,7 @@ void DatalogController::ServerListFilenames(void) {
 
         while (sd.NextFile(filename) == true) {
             if (firstTime == false) {
-                bluetooth->Put(", ");
+                bluetooth->Put(',');
             }
             bluetooth->Put(filename);
             firstTime = false;

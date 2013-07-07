@@ -291,6 +291,9 @@ void TurnSDOff(void) {
 void TransferFile(const char * filename) {
 #ifdef DEBUG_PORT
     debug->Put("\r\nTransferFile()");
+    debug->Put(" Filename: '");
+    debug->Put(filename);
+    debug->Put("'");
 #endif
     sensors.SetAutomaticRead(false);
     if (dc.getsdActive() == false) {
