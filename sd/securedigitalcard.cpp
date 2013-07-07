@@ -775,3 +775,7 @@ int SecureDigitalCard::GetError(void) {
         return Sdspi.GetError();
     }
 }
+
+int SecureDigitalCard::GetFilesize(void){
+    return total_filesize_;
+}

@@ -141,11 +141,12 @@ void DatalogController::ServerTransferFile(void) {
         ConcurrentBuffer::Lockclear();
     }
     
-    LogRElementBluetooth(false, filename);
+    
     
     if (sdMounted == true && sdActive == false) {
         sd.ClearError();
         sd.Open(filename, 'r');
+        LogRElementBluetooth(false, filename, sd.GetFilesize());
         if (sd.HasError()) {
             sd.ClearError();
         } else {
@@ -154,9 +155,12 @@ void DatalogController::ServerTransferFile(void) {
                 bluetooth->Put(byte);
             }
         }
+    }else{
+        LogRElementBluetooth(false, filename, -1);
     }
+    
 
-    LogRElementBluetooth(false, filename);
+    LogRElementBluetooth(false, filename, -1);
 
 }
 
@@ -231,7 +235,7 @@ int DatalogController::GetLastFileNumber(void) {
     return lastCanonNumber;
 }
 
-void DatalogController::LogRElementBluetooth(const bool live, const char * filename) {
+void DatalogController::LogRElementBluetooth(const bool live, const char * filename, const int filesize) {
     char header[7];
     ComposeElementHeader(header, 'R');
     bluetooth->Put(header);
@@ -241,6 +245,14 @@ void DatalogController::LogRElementBluetooth(const bool live, const char * filen
         bluetooth->Put('F');
     }
     bluetooth->Put(filename);
+    
+    if(filesize > -1){
+        bluetooth->Put(',');
+        bluetooth->Put(Numbers::Dec(filesize));
+    }
+    
+    
+    
     bluetooth->Put('\0');
 }
 

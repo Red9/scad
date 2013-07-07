@@ -81,7 +81,7 @@ void tearDown(void) {
 // Mount Operations
 // -----------------------------------------------------------------------------
 
-/*
+
 void test_Mount(void) {
     //Assume: mount in setUp();
     TEST_ASSERT_FALSE(sut.HasError());
@@ -414,7 +414,7 @@ void test_SeekOnLargeFile(void) {
     TEST_ASSERT_EQUAL_INT(0, sut.Seek(40 * 1024 + 8));
     TEST_ASSERT_EQUAL_INT('i', sut.Get());
 }
- */
+
 void test_GetClusterSize(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(32768, sut.GetClusterSize(), "SD card should be formatted in 32K clusters.");
 }
@@ -505,7 +505,7 @@ void test_OpenRootDirMultipleTimesInARowReturnsAllFilesEveryTime(void) {
 
 
     for (int iterationsThroughRoot = 0; iterationsThroughRoot < 5; iterationsThroughRoot++) {
-        printf("\r\nIteration: %i", iterationsThroughRoot);
+        //printf("\r\nIteration: %i", iterationsThroughRoot);
 
         for (int filenameFoundI = 0; filenameFoundI < FILECOUNT; filenameFoundI++) {
             filenameFound[filenameFoundI] = false;
@@ -532,33 +532,68 @@ void test_OpenRootDirMultipleTimesInARowReturnsAllFilesEveryTime(void) {
     }
 }
 
+void test_GetFilesizeSmall(void) {
+    const char filename[] = "FILESIZE.TXT";
+    const char content[] = "Hello";
+    sut.Open(filename, 'w');
+    sut.Put(content);
+    sut.Close();
+    sut.Open(filename, 'r');
+    TEST_ASSERT_EQUAL_INT(strlen(content), sut.GetFilesize());
+    sut.Close();
+}
 
+void test_GetFilesizeNothing(void) {
+    const char filename[] = "EMPTY.TXT";
+    sut.Open(filename, 'w');
+    sut.Close();
+    sut.Open(filename, 'r');
+    TEST_ASSERT_EQUAL_INT(0, sut.GetFilesize());
+    sut.Close();
+}
 
+void test_GetFilesizeLotsOfContent(void) {
+    const char filename[] = "LARGE.TXT";
+    sut.Open(filename, 'w');
 
+    const int kByteCount = 1024 * 128;
 
+    for (int i = 0; i < kByteCount; i++) {
+        sut.Put('A');
+    }
 
+    sut.Close();
 
+    sut.Open(filename, 'r');
 
+    TEST_ASSERT_EQUAL_INT(kByteCount, sut.GetFilesize());
 
+    sut.Close();
+}
 
+void test_GetFilesizeAfterReadingSome(void) {
+    const char filename[] = "AFTER.TXT";
+    const char content[] = "Some text to take up space";
+    sut.Open(filename, 'w');
+    sut.Put(content);
+    sut.Close();
+    sut.Open(filename, 'r');
+    for (int i = 0; i < 5; i++) {
+        sut.Get();
+    }
+    TEST_ASSERT_EQUAL_INT(strlen(content), sut.GetFilesize());
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void test_GetFilesizeAfterReadingPastEndOfFile(void){
+    const char filename[] = "AFTER.TXT";
+    const char content[] = "Some text to take up space";
+    sut.Open(filename, 'w');
+    sut.Put(content);
+    sut.Close();
+    sut.Open(filename, 'r');
+    while(sut.Get() != -1){
+    }
+    
+    TEST_ASSERT_EQUAL_INT(strlen(content), sut.GetFilesize());
+}
 

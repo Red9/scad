@@ -68,7 +68,14 @@ private:
     int unitNumber;
 
     void ComposeElementHeader(char * data, const char elementIdentifier);
-    void LogRElementBluetooth(const bool live, const char * filename);
+    
+    /**
+     * 
+     * @param live
+     * @param filename
+     * @param filesize If filesize is unknown or isn't transmitted put -1 here.
+     */
+    void LogRElementBluetooth(const bool live, const char * filename, const int filesize);
 
 
     volatile bool sdMounted;

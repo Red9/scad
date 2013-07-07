@@ -271,6 +271,12 @@ public:
      * @return the cluster count.
      */
     int GetClusterCount(void);
+    
+    /**
+     * 
+     * @return 
+     */
+    int GetFilesize(void);
 
 private:
 
