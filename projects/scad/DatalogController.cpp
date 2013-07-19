@@ -156,11 +156,11 @@ void DatalogController::ServerTransferFile(void) {
             }
         }
     }else{
-        LogRElementBluetooth(false, filename, -1);
+        LogRElementBluetooth(false, filename, 0);
     }
     
 
-    LogRElementBluetooth(false, filename, -1);
+    LogRElementBluetooth(false, filename, 0);
 
 }
 
@@ -304,11 +304,3 @@ void DatalogController::ServerListFilenames(void) {
 bool DatalogController::getsdMounted(void) {
     return sdMounted;
 }
-/*
-int DatalogController::GetSDError(void) {
-    if (sd.HasError() == true) {
-        return sd.GetError();
-    } else {
-        return 0;
-    }
-}*/

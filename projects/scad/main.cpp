@@ -196,7 +196,7 @@ void LogVElement() {
     strcat(string, " ");
 
     strcat(string, Numbers::Hex(boardVersion, 8));
-    strcat(string, " ");
+    //strcat(string, " ");
 
     PIB::_string('V', CNT, string, '\0');
 
