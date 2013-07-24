@@ -20,57 +20,30 @@ class Sensors {
 public:
     static const int kDefaultFuelVoltage = 0;
 
-    volatile int fuel_soc;
-    volatile int fuel_rate;
-    volatile int fuel_voltage;
+    static volatile int fuel_soc;
+    static volatile int fuel_rate;
+    static volatile int fuel_voltage;
 
-    int year, month, day, hour, minute, second;
+    //Warning: these are not volatile!
+    static int year, month, day, hour, minute, second;
 
-    int pressure, temperature;
+    static int pressure, temperature;
 
-    int gyro_x, gyro_y, gyro_z;
-    int accl_x, accl_y, accl_z;
-    int magn_x, magn_y, magn_z;
-
-    
-    static const int SensorTypeLength = 10;
-    enum SensorType {
-        kAccl, kGyro, kMagn, kFuel, kTime, kBaro, kGPS,
-        kAccl2, kGyro2, kMagn2, kNone
-    };
+    static int gyro_x, gyro_y, gyro_z;
+    static int accl_x, accl_y, accl_z;
+    static int magn_x, magn_y, magn_z;
 
 
-    /** Setup to start the sensors Server. Must be called once (and only
-     *  once).
-     *
-     */
-    void init(void);
-    
-    /** This function serves requests for sensor data. When not datalogging,
-     * it spins and waits for requests for specific data. When datalogging,
-     * it automatically reads it's sensors.
-     * 
-     * In both cases, whenever sensor data is read it is PutIntoBuffer'ed.
-     * 
-     * Note that this function is blocking (won't return) until the sever is
-     * killed with @a KillServer(). So, @a Server should be called in it's 
-     * own cog.
-     */
-    void Server(void);
-    
+
+
+
+
+    static void Start(void);
+
     /** Kill the server if running.
      * 
      */
-    void KillServer(void);
-
-
-    /** Request updated information about a specific sensor type.
-     * 
-     * @param type The sensor to read.
-     * 
-     */
-    void Update(SensorType type, bool new_putIntoBuffer);
-
+    static void Stop(void);
 
     /**
      * 
@@ -80,62 +53,80 @@ public:
     //void ReturnLock(void);
 
 
-    void SetAutomaticRead(bool new_value);
+    //void SetAutomaticRead(bool new_value);
+    static void PauseReading(void);
+    static void ResumeReading(void);
 
     /**
-     * Make sure this thread safe!
+     * @TODO: Make sure this thread safe!
      */
-    void AddScales(void);
+    static void AddScales(void);
 private:
 
-    i2c bus;
-    LSM303DLHC * lsm;
-    L3GD20 * l3g;
+    static i2c bus;
+    static LSM303DLHC * lsm;
+    static L3GD20 * l3g;
 
-    PCF8523 * rtc;
-    MAX17048 * fuel;
-    MTK3339 * gps;
-    MS5611 * baro;
+    static PCF8523 * rtc;
+    static MAX17048 * fuel;
+    static MTK3339 * gps;
+    static MS5611 * baro;
 
 #ifdef EXTERNAL_IMU
-    i2c * bus2;
-    LSM303DLHC * lsm2;
-    L3GD20 * l3g2;
+    static i2c * bus2;
+    static LSM303DLHC * lsm2;
+    static L3GD20 * l3g2;
 
-    int gyro2_x, gyro2_y, gyro2_z;
-    int accl2_x, accl2_y, accl2_z;
-    int magn2_x, magn2_y, magn2_z;
+    static int gyro2_x, gyro2_y, gyro2_z;
+    static int accl2_x, accl2_y, accl2_z;
+    static int magn2_x, magn2_y, magn2_z;
 #endif
 
-    volatile bool killed;
+    static volatile bool paused;
 
-    volatile bool readControl[SensorTypeLength];
-    volatile bool automaticRead;
-
-    volatile bool controlledIntoBuffer;
-
-    void AutoRead(void);
-    void ControlledRead(void);
-
-    
-
-    void ReadDateTime(void);
-
-    void ReadGyro(void);
-    void ReadAccl(void);
-    void ReadMagn(void);
-
-    void ReadFuel(void);
-    void ReadBaro(void);
-
-    void ReadGyro2(void);
-    void ReadAccl2(void);
-    void ReadMagn2(void);
+    static volatile bool killed;
 
 
 
 
 
+    static const int stackSize = 176 + 100;
+    static int stack[stackSize];
+
+    /** Setup to start the sensors Server. Must be called once (and only
+     *  once).
+     *
+     */
+    static void init(void);
+
+
+
+    static void AutoRead(void);
+
+    static void ReadDateTime(void);
+
+    static void ReadGyro(void);
+    static void ReadAccl(void);
+    static void ReadMagn(void);
+
+    static void ReadFuel(void);
+    static void ReadBaro(void);
+
+    static void ReadGyro2(void);
+    static void ReadAccl2(void);
+    static void ReadMagn2(void);
+
+
+    /** This function serves requests for sensor data. When datalogging,
+     * it automatically reads it's sensors.
+     * 
+     * Whenever sensor data is read it is PutIntoBuffer'ed.
+     * 
+     * Note that this function is blocking (won't return) until the sever is
+     * killed with @a Stop(). So, @a Server should be called in it's 
+     * own cog.
+     */
+    static void Server(void * temp);
 };
 
 #endif	/* PROPGCC_SRLM_SENSORS_H */

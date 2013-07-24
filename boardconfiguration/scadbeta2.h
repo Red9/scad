@@ -57,14 +57,10 @@ namespace board{
 	const int kPIN_I2C_SDA_2 = kPIN_USER_6;
 #endif
 
-#ifdef BLUETOOTH
 	const int kPIN_BLUETOOTH_TX = kPIN_USER_2;
 	const int kPIN_BLUETOOTH_RX = kPIN_USER_1;
 	const int kPIN_BLUETOOTH_CTS = kPIN_USER_3;
 	const int kPIN_BLUETOOTH_CONNECT = kPIN_USER_4;
-#endif
-
-
 }
 
 

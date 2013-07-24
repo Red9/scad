@@ -8,6 +8,11 @@ unexpected action.
 don't use it simultaneously (it uses cog counters for flashing, so it won't work
 on a different cog).
 
+@warning This object may use the cog counters.
+ * @TODO(SRLM): In which situations?
+
+ * @TODO(SRLM): What are the hardware requirements?
+ * 
 Some parts based on Pins.h by David Michael Betz.
 Some parts based on an example by Tracey Allen.
 

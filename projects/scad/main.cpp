@@ -3,8 +3,6 @@
 // ------------------------------------------------------------------------------
 //#define EXTERNAL_IMU
 
-#define BLUETOOTH
-
 #define DEBUG_PORT
 
 
@@ -53,6 +51,9 @@
 
 //TODO(SRLM): Somewhere I have two calls to dc.AddScales();
 
+//TODO(SRLM): Add some sort of detection for removal of charging during the loop...
+
+
 /**
 
 Cog Usage:
@@ -93,12 +94,8 @@ DatalogController dc;
 Serial * debug = NULL;
 #endif
 
-#ifdef BLUETOOTH
 Bluetooth * bluetooth = NULL;
 const int kBLUETOOTH_BAUD = 460800;
-#endif
-
-bool pluggedIn = true; //Assume plugged in
 
 /*
 Status Variables
@@ -231,13 +228,6 @@ void LogStatusElement(const LogLevel level, const char * message, const int numb
     PIB::_string('S', CNT, completeMessage, '\0');
 }
 
-void SensorsServerRunner(void * parameter) {
-    Sensors * temp = (Sensors *) parameter;
-    temp->Server();
-    waitcnt(CLKFREQ / 10 + CNT); //Let everything settle down
-    cogstop(cogid());
-}
-
 void DatalogCogRunner(void * parameter) {
     DatalogController * temp = (DatalogController *) parameter;
     temp->Server();
@@ -258,14 +248,12 @@ void TurnSDOn(void) {
     if (dc.getsdMounted() == true) {
         if (dc.getsdActive() == false) {
             pmic.On(); //Make sure we don't lose power while datalogging!
-            sensors.SetAutomaticRead(false);
             dc.SetClock(sensors.year + 2000, sensors.month, sensors.day,
             sensors.hour, sensors.minute, sensors.second);
             dc.StartSD();
             dc.BlockUntilWaiting();
             eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
             OutputGlobalLogHeaders();
-            sensors.SetAutomaticRead(true);
             DisplayDeviceStatus(kDatalogging);
         }
     } else {
@@ -295,13 +283,14 @@ void TransferFile(const char * filename) {
     debug->Put(filename);
     debug->Put("'");
 #endif
-    sensors.SetAutomaticRead(false);
+
+    sensors.PauseReading();
     if (dc.getsdActive() == false) {
         //TODO output file Header here
         dc.InjectFile(filename);
         //TODO output file Closer here
     }
-    sensors.SetAutomaticRead(true);
+    sensors.ResumeReading();
     //TODO(SRLM): Add error output if SD is open (and can't list files)
 }
 
@@ -418,7 +407,7 @@ void InnerLoop(void) {
 
 void MainLoop(void) {
     Stopwatch buttonTimer;
-
+    
     while (true) {
         //Time the button:
         if (elum.GetButton() == true) {
@@ -451,14 +440,14 @@ void init(void) {
 #ifdef DEBUG_PORT
     debug->Put("\r\nEEPROM initialized.");
 #endif
-#ifdef BLUETOOTH
+
     bluetooth = new Bluetooth(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
             board::kPIN_BLUETOOTH_CTS, board::kPIN_BLUETOOTH_CONNECT);
 
 #ifdef DEBUG_PORT
     debug->Put("\r\nBluetooth initialized.");
 #endif    
-#endif
+
 
 
     int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
@@ -472,11 +461,7 @@ void init(void) {
 #ifdef DEBUG_PORT
     debug->Put("\r\nDatalog Cog initialized.");
 #endif
-    //Sensors
-    sensors.init();
-    //Read Sensors (inc. I2C) in new cog
-    sensorsStack = (int *) malloc(stacksize);
-    cogstart(SensorsServerRunner, &sensors, sensorsStack, stacksize);
+    sensors.Start();
 
 #ifdef DEBUG_PORT
     debug->Put("\r\nSensor Cog initialized.");
@@ -485,38 +470,38 @@ void init(void) {
     //LEDs and Button
     elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
 
-
-    sensors.SetAutomaticRead(true);
-
 }
 
 int main(void) {
-
+    
 #ifdef DEBUG_PORT    
     debug = new Serial();
     debug->Start(31, 30, 460800);
     debug->Put("\r\nSCAD Debug Port: ");
+    
+#ifdef GAMMA
+    debug->Put(" Gamma!");
+#elif BETA2
+    debug->Put(" Beta2!");
 #endif
+
+#endif
+    
+    
 
     init();
     DisplayDeviceStatus(kPowerOn);
 
     while (elum.GetButton()) { //Check the plugged in assumption
-        pluggedIn = false; //If it's not plugged in, then the button will be pressed.
         pmic.On(); //It's not plugged in, so we should keep the power on...
         DisplayDeviceStatus(kWaiting);
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
 
-    if (pluggedIn == true) {
+    if (pmic.GetPluggedIn() == true) {
         DisplayDeviceStatus(kCharging);
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
-
-#ifdef DEBUG_PORT
-    debug->Put("\r\nStarting main loop...");
-#endif
-
 
     MainLoop();
 }

@@ -9,7 +9,7 @@ Bluetooth::Bluetooth(int rxpin, int txpin, int ctspin, int connectpin)
     //baud = 230400;
     //baud = 115200;
 
-    bool result = serial.Start(rxpin, txpin, baud, ctspin);
+    serial.Start(rxpin, txpin, baud, ctspin);
 
     //TODO(SRLM): Get rid of this duo! Only have one serial object here.
     //serial.Start(rxpin, -1, baud);
@@ -24,7 +24,7 @@ Bluetooth::Bluetooth(int rxpin, int txpin, int ctspin, int connectpin)
 }
 
 int Bluetooth::Put(const char character) {
-    if (connection.get()) {
+    if (connection.input() == 1) {
         serial.Put(character);
         return 1;
     }
@@ -33,14 +33,14 @@ int Bluetooth::Put(const char character) {
 }
 
 int Bluetooth::Put(const char * buffer_pointer, const int count) {
-    if (connection.get()) {
+    if (connection.input() == 1) {
         return serial.Put(buffer_pointer, count);
     }
     return 0;
 }
 
 int Bluetooth::Put(const char * buffer_pointer) {
-    if (connection.get()) {
+    if (connection.input() == 1) {
         return serial.PutFormatted(buffer_pointer);
     }
     return 0;

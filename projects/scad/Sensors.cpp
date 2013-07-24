@@ -11,63 +11,56 @@ void Sensors::init(void) {
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
 
-    automaticRead = false;
-
-    controlledIntoBuffer = false;
-
+    paused = false;
     killed = false;
 
-    for (int i = 0; i < SensorTypeLength; i++) {
-        readControl[i] = false;
-    }
-    
     //I2C
     //bus = new i2c();
     //bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
     bus.Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
 
     LogStatusElement(kInfo, "I2C Bus Initialized.");
-    
-    
+
+
     fuel = new MAX17048(&bus);
     if (fuel->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the MAX17048");
     } else {
         ReadFuel();
     }
-    
+
     LogStatusElement(kInfo, "Fuel gauge initialized");
 
     lsm = new LSM303DLHC;
     if (!lsm->Init(&bus)) {
         LogStatusElement(kError, "Failed to initialize the LSM303DLHC.");
     }
-    
+
     LogStatusElement(kInfo, "Accelerometer and Magnetometer initizialized");
 
     l3g = new L3GD20;
     if (!l3g->Init(&bus)) {
         LogStatusElement(kError, "Failed to initialize the L3GD20.");
     }
-    
+
     LogStatusElement(kInfo, "Gyro initialized");
 
     rtc = new PCF8523(&bus, board::kPIN_PCF8523_SQW);
     if (rtc->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the PCF8523.");
     }
-    
+
     LogStatusElement(kInfo, "RTC initialized");
 
     baro = new MS5611(&bus);
     if (baro->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the MS5611.");
     }
-    
+
     LogStatusElement(kInfo, "Barometer initialized");
 
 #ifdef EXTERNAL_IMU
-    
+
     LogStatusElement(kWarn, "Preparing external IMU sensors.");
     //Second Bus for additional sensors.
     bus2 = new i2c();
@@ -85,113 +78,29 @@ void Sensors::init(void) {
 #endif
 
     LogStatusElement(kInfo, "Preparing GPS");
-    
+
     //GPS
     gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX,
             board::kPIN_GPS_FIX);
     if (gps->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the GPS.");
     }
-    
+
     LogStatusElement(kInfo, "GPS Initialized.");
 }
 
-void Sensors::Server(void) {
-    while (!killed) {
-        if (automaticRead == true) {
-            AutoRead();
-        } else {
 
-            ControlledRead();
-            //waitcnt(CLKFREQ / 100 + CNT); //Sleep for the power savings
-        }
-    }
+void Sensors::Start(void){
+    init();
+    cogstart(Server, NULL, stack, stackSize);
 }
 
-void Sensors::ControlledRead() {
-    char * gpsString = NULL;
-    if (readControl[kAccl]) {
-        ReadAccl();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
-        }
-        readControl[kAccl] = false;
+void Sensors::Server(void * temp) {
+    while (!killed) {
+        AutoRead();
     }
-
-    if (readControl[kGyro]) {
-        ReadGyro();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
-        }
-        readControl[kGyro] = false;
-    }
-
-    if (readControl[kMagn]) {
-        ReadMagn();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
-        }
-        readControl[kMagn] = false;
-    }
-    if (readControl[kFuel]) {
-        ReadFuel();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
-        }
-        readControl[kFuel] = false;
-    }
-    if (readControl[kTime]) {
-        ReadDateTime();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('T', CNT, hour, minute, second);
-            PIB::_3x2('D', CNT, year, month, day);
-        }
-        readControl[kTime] = false;
-    }
-
-    if (readControl[kBaro] && baro->Touch() == true) {
-        ReadBaro();
-        if (controlledIntoBuffer) {
-            PIB::_2x4('E', CNT, pressure, temperature);
-        }
-        readControl[kBaro] = false;
-    }
-
-
-    if (readControl[kGPS] && (gpsString = gps->Get()) != NULL) {
-        if (controlledIntoBuffer) {
-            PIB::_string('P', CNT, gpsString, '\0');
-        }
-        readControl[kGPS] = false;
-    }
-
-
-#ifdef EXTERNAL_IMU
-    if (readControl[kAccl2]) {
-        ReadAccl2();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('B', CNT, accl2_x, accl2_y, accl2_z);
-        }
-        readControl[kAccl2] = false;
-    }
-
-    if (readControl[kGyro2]) {
-        ReadGyro2();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('H', CNT, gyro2_x, gyro2_y, gyro2_z);
-        }
-        readControl[kGyro2] = false;
-    }
-
-    if (readControl[kMagn2]) {
-        ReadMagn2();
-        if (controlledIntoBuffer) {
-            PIB::_3x2('N', CNT, magn2_x, magn2_y, magn2_z);
-        }
-        readControl[kMagn2] = false;
-    }
-#endif
-
+    killed = false;
+    cogstop(cogid());
 }
 
 void Sensors::AutoRead(void) {
@@ -224,7 +133,7 @@ void Sensors::AutoRead(void) {
     ReadFuel();
     PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
 
-    while (automaticRead == true) {
+    while (paused == false) {
 
         //Note: each Put into the buffer must have a matching Get! Otherwise, on
         //occasion the get test will misinterpret a data byte as the start of a
@@ -233,42 +142,35 @@ void Sensors::AutoRead(void) {
         if (acclScheduler.Run()) {
             ReadAccl();
             PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
-            readControl[kAccl] = false;
         }
 
         if (gyroScheduler.Run()) {
             ReadGyro();
             PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
-            readControl[kGyro] = false;
         }
 
         if (magnScheduler.Run()) {
             ReadMagn();
             PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
-            readControl[kMagn] = false;
         }
         if (fuelScheduler.Run()) {
             ReadFuel();
             PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
-            readControl[kFuel] = false;
         }
         if (timeScheduler.Run()) {
             ReadDateTime();
             PIB::_3x2('T', CNT, hour, minute, second);
             PIB::_3x2('D', CNT, year, month, day);
-            readControl[kTime] = false;
         }
 
         if (baro->Touch() == true) {
             ReadBaro();
             PIB::_2x4('E', CNT, pressure, temperature);
-            readControl[kBaro] = false;
         }
 
 
         if ((gpsString = gps->Get()) != NULL) {
             PIB::_string('P', CNT, gpsString, '\0');
-            readControl[kGPS] = false;
         }
 
 
@@ -276,19 +178,16 @@ void Sensors::AutoRead(void) {
         if (accl2Scheduler.Run()) {
             ReadAccl2();
             PIB::_3x2('B', CNT, accl2_x, accl2_y, accl2_z);
-            readControl[kAccl2] = false;
         }
 
         if (gyro2Scheduler.Run()) {
             ReadGyro2();
             PIB::_3x2('H', CNT, gyro2_x, gyro2_y, gyro2_z);
-            readControl[kGyro2] = false;
         }
 
         if (magn2Scheduler.Run()) {
             ReadMagn2();
             PIB::_3x2('N', CNT, magn2_x, magn2_y, magn2_z);
-            readControl[kMagn2] = false;
         }
 #endif
 
@@ -297,18 +196,9 @@ void Sensors::AutoRead(void) {
 
 }
 
-void Sensors::KillServer(void) {
+void Sensors::Stop(void) {
     killed = true;
-}
-
-void Sensors::Update(SensorType type, bool new_putIntoBuffer) {
-    if (type != kNone) {
-        controlledIntoBuffer = new_putIntoBuffer;
-
-        readControl[type] = true;
-        while (readControl[type]) {
-        }
-    }
+    while(killed == true){} //Spin until the cog indicates that it's done.
 }
 
 void Sensors::AddScales() {
@@ -388,6 +278,10 @@ void Sensors::ReadMagn2(void) {
 }
 #endif
 
-void Sensors::SetAutomaticRead(bool new_value) {
-    automaticRead = new_value;
+void Sensors::PauseReading(void) {
+    paused = true;
+}
+
+void Sensors::ResumeReading(void) {
+    paused = false;
 }
