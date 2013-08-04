@@ -1,6 +1,6 @@
 #include "DatalogController.h"
 
-extern Bluetooth * bluetooth; //TODO(SRLM): This should be a parameter, not an extren.
+extern Bluetooth * bluetooth; //TODO(SRLM): This should be a parameter, not an extern.
 
 DatalogController::~DatalogController() {
     KillServer();
@@ -54,6 +54,7 @@ bool DatalogController::OpenNewFile(void) {
 }
 
 bool DatalogController::IsFileOnSD(const int fileNumber) {
+    
     char buffer[13];
     ComposeFileName(buffer, unitNumber, fileNumber);
 
@@ -100,6 +101,7 @@ void DatalogController::ServerStartSD(void) {
         int currentNumber = (lastCanonNumber + 1) % 1000;
         while (currentNumber != lastCanonNumber) {
             if (IsFileOnSD(currentNumber) == false) {
+                
                 lastCanonNumber = currentNumber;
                 OpenNewFile();
                 break;
@@ -111,6 +113,7 @@ void DatalogController::ServerStartSD(void) {
         sdBuffer.ResetTail(); //Make sure that there are no unaccounted for bytes.
 
     }
+ 
 }
 
 void DatalogController::ServerStopSD(void) {
@@ -164,11 +167,15 @@ void DatalogController::ServerTransferFile(void) {
 
 }
 
+
 void DatalogController::Server(void) {
     command = WAIT;
 
     while (true) {
+        
         LogSequence();
+        
+        
         if (command == WAIT) {
             //Do Nothing (first in list for performance gain)
         } else if (command == LOG_SD) {
@@ -188,6 +195,7 @@ void DatalogController::Server(void) {
             ServerTransferFile();
             command = WAIT;
         }
+         
     }
 
 

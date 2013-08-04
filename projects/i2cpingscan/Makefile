@@ -88,5 +88,6 @@ $(OBJDIR)/%.o : %.cpp
 	@rm -f $(DEPDIR)/$*.d.tmp
 
 clean:
+	rm -f *.elf
 	rm -fr debug/*
 	rm -fr release/*

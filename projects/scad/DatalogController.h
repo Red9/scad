@@ -6,8 +6,8 @@
 #ifndef SRLM_PROPGCC_DATALOGCONTROLLER_H
 #define	SRLM_PROPGCC_DATALOGCONTROLLER_H
 
-#include "securedigitalcard.h"
-#include "concurrentbuffer.h"
+#include "librednine/sd/securedigitalcard.h"
+#include "librednine/concurrentbuffer/concurrentbuffer.h"
 #include "rovingbluetooth.h"
 
 class DatalogController {

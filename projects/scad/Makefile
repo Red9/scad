@@ -12,7 +12,12 @@ endif
 
 #If no root given, make best guess
 ifndef ROOT
-ROOT=$(shell root=$$(pwd); while [ "$$(basename $$root)" != "propgcc" ]; do root=$$(dirname $$root); done; echo $$root"/")
+ROOT=../../
+#ROOT=$(shell root=$$(pwd); while [ "$$(basename $$root)" != "propgcc" ]; do root=$$(dirname $$root); done; echo $$root"/")
+endif
+
+ifndef LIBPROPELLER
+LIBPROPELLER=/home/clewis/consulting/parallax/code/
 endif
 
 ifndef DEFINEFLAGS
@@ -35,8 +40,9 @@ OBJS=$(subst .cpp,.o,$(SRCS))
 UNITYPATH = ${ROOT}unity/
 GCCUTILITIESPATH = ${ROOT}gccutilities/
 BOARDCONFIGURATIONPATH = ${ROOT}boardconfiguration/
+LIBREDNINE = ../../
 
-INCLUDE = -I${GCCUTILITIESPATH} -I${BOARDCONFIGURATIONPATH}
+INCLUDE = -I${GCCUTILITIESPATH} -I${BOARDCONFIGURATIONPATH} -I${LIBREDNINE} -I${LIBPROPELLER}
 
 #-Wa,-alh,-L  == output to STDOUT the generated assembly, with C interspersed
 
@@ -48,8 +54,10 @@ CXX = /opt/parallax/bin/propeller-elf-g++
 CLD = propeller-elf-ld
 #-Wall
 
-OPTIMIZEFLAGS = -Os -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -m32bit-doubles -mfcache -fpermissive
-CXXFLAGS = -m${MODEL} ${INCLUDE} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x -fno-strict-aliasing 
+INLINEFLAGS = #-fno-default-inline
+
+OPTIMIZEFLAGS = -Os -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -m32bit-doubles -mno-fcache -fpermissive
+CXXFLAGS = -m${MODEL} ${INCLUDE} ${INLINEFLAGS} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x -fno-strict-aliasing 
 CLDFLAGS = -Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
 
 
@@ -64,10 +72,10 @@ gamma: buildgamma
 	ln -s main.gamma.elf main.elf
 	
 buildbeta2:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS}
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/*
 	
 buildgamma:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS}
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/*
 	
 
 

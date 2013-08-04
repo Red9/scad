@@ -3,8 +3,15 @@
 #include "i2c.h"
 
 
-unsigned int SCLPin = 0;
-unsigned int SDAPin = 1;
+//unsigned int SCLPin = 28;
+//unsigned int SDAPin = 29;
+
+//unsigned int SCLPin = 27;
+//unsigned int SDAPin = 26;
+
+unsigned int SCLPin = 4;
+unsigned int SDAPin = 5;
+
 
 bool IsSpecialAddress(unsigned char address){
 //	Ignore special addresses: http://www.i2c-bus.org/addressing/
@@ -49,7 +56,7 @@ bool IsKnownAddress(unsigned char address, char * buffer){
 		strcpy(buffer, "PCF8523 Real Time Clock");
 		return true;
 	}
-	if(address == 0b101000){
+	if(address == 0b1010000){
 		strcpy(buffer, "24LC512 EEPROM");
 		return true;
 	}
@@ -91,5 +98,8 @@ int main(void){
 			
 
 	}
+	putchar(0xff);
+	putchar(0x00);
+	putchar(0);
 
 }

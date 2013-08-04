@@ -1,5 +1,36 @@
 #include "Sensors.h"
 
+
+
+
+volatile int Sensors::fuel_soc;
+volatile int Sensors::fuel_rate;
+volatile int Sensors::fuel_voltage;
+
+//Warning: these are not volatile!
+int Sensors::year, Sensors::month, Sensors::day, Sensors::hour, Sensors::minute, Sensors::second;
+
+int Sensors::pressure, Sensors::temperature;
+
+int Sensors::gyro_x, Sensors::gyro_y, Sensors::gyro_z;
+int Sensors::accl_x, Sensors::accl_y, Sensors::accl_z;
+int Sensors::magn_x, Sensors::magn_y, Sensors::magn_z;
+
+i2c Sensors::bus;
+LSM303DLHC * Sensors::lsm;
+L3GD20 * Sensors::l3g;
+
+PCF8523 * Sensors::rtc;
+MAX17048 * Sensors::fuel;
+MTK3339 * Sensors::gps;
+MS5611 * Sensors::baro;
+
+volatile bool Sensors::paused;
+
+volatile bool Sensors::killed;
+
+int Sensors::stack[stackSize];
+
 enum LogLevel {
     kAll, kFatal, kError, kWarn, kInfo, kDebug
 };
@@ -89,8 +120,7 @@ void Sensors::init(void) {
     LogStatusElement(kInfo, "GPS Initialized.");
 }
 
-
-void Sensors::Start(void){
+void Sensors::Start(void) {
     init();
     cogstart(Server, NULL, stack, stackSize);
 }
@@ -198,7 +228,8 @@ void Sensors::AutoRead(void) {
 
 void Sensors::Stop(void) {
     killed = true;
-    while(killed == true){} //Spin until the cog indicates that it's done.
+    while (killed == true) {
+    } //Spin until the cog indicates that it's done.
 }
 
 void Sensors::AddScales() {

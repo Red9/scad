@@ -3,16 +3,16 @@
 
 #include <propeller.h>
 
-#include "concurrentbuffer.h"
-#include "pib.h"
-#include "scheduler.h"
-#include "i2c.h"
-#include "lsm303dlhc.h"
-#include "l3gd20.h"
-#include "pcf8523.h"
-#include "max17048.h"
-#include "ms5611.h"
-#include "mtk3339.h"
+#include "librednine/concurrentbuffer/concurrentbuffer.h"
+#include "librednine/concurrentbuffer/pib.h"
+#include "librednine/scheduler/scheduler.h"
+#include "librednine/i2c/i2c.h"
+#include "librednine/lsm303dlhc/lsm303dlhc.h"
+#include "librednine/l3gd20/l3gd20.h"
+#include "librednine/pcf8523/pcf8523.h"
+#include "librednine/max17048/max17048.h"
+#include "librednine/ms5611/ms5611.h"
+#include "librednine/mtk3339/mtk3339.h"
 
 #include "scadbeta2.h"
 
@@ -71,16 +71,6 @@ private:
     static MAX17048 * fuel;
     static MTK3339 * gps;
     static MS5611 * baro;
-
-#ifdef EXTERNAL_IMU
-    static i2c * bus2;
-    static LSM303DLHC * lsm2;
-    static L3GD20 * l3g2;
-
-    static int gyro2_x, gyro2_y, gyro2_z;
-    static int accl2_x, accl2_y, accl2_z;
-    static int magn2_x, magn2_y, magn2_z;
-#endif
 
     static volatile bool paused;
 

@@ -14,25 +14,27 @@
 
 #include <stdlib.h>
 
-#include "c++-alloc.h"
+#include "libpropeller/c++allocate/c++allocate.h"
+#include "libpropeller/pin/pin.h"
 
-#include "serial.h"
-#include "i2c.h"
-#include "max8819.h"
-#include "elum.h"
-#include "numbers.h"
-#include "scheduler.h"
-#include "concurrentbuffer.h"
-#include "pib.h"
-#include "eeprom.h"
+#include "librednine/serial/serial.h"
+#include "librednine/i2c/i2c.h"
+#include "librednine/max8819/max8819.h"
+#include "librednine/elum/elum.h"
+#include "librednine/numbers/numbers.h"
+#include "librednine/scheduler/scheduler.h"
+#include "librednine/concurrentbuffer/concurrentbuffer.h"
+#include "librednine/concurrentbuffer/pib.h"
+#include "librednine/eeprom/eeprom.h"
+#include "librednine/stopwatch/stopwatch.h"
 
 #include "rovingbluetooth.h"
 #include "DatalogController.h"
 #include "Sensors.h"
 
-#include "stopwatch.h"
 
-#include "pin.h"
+
+
 
 /* Pin definitions */
 #include "scadbeta2.h"
@@ -426,13 +428,12 @@ void MainLoop(void) {
 }
 
 void init(void) {
-
     //Power
     pmic.Start(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
     pmic.SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
-
+    
     //EEPROM
     eeprom.Start();
     unitNumber = eeprom.Get(kEepromUnitAddress, 4);
@@ -449,13 +450,13 @@ void init(void) {
 #endif    
 
 
+    
 
     int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
     //Datalog Controller
     dc.Init(canonNumber, unitNumber, board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS);
     datalogStack = (int *) malloc(stacksize);
-    //int datalogCog = 
     cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
 
 #ifdef DEBUG_PORT
@@ -486,12 +487,13 @@ int main(void) {
 #endif
 
 #endif
-    
-    
 
     init();
     DisplayDeviceStatus(kPowerOn);
+    
+    
 
+    
     while (elum.GetButton()) { //Check the plugged in assumption
         pmic.On(); //It's not plugged in, so we should keep the power on...
         DisplayDeviceStatus(kWaiting);
@@ -504,6 +506,7 @@ int main(void) {
     }
 
     MainLoop();
+     
 }
 
 
