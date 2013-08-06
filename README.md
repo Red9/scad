@@ -1,0 +1,1 @@
+This requires access to the unity_tools folder from the libpropeller project. To get this folder, you should create a symlink to it in the root directory of this repository (at the same level as librednine and projects). Alternatively you could cut and paste it, but that prevents you from getting updates automatically.

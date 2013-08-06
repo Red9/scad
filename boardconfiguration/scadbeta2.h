@@ -3,8 +3,8 @@
 
 */
 
-#ifndef SRLM_PROPGCC_BOARD_SCADBETA2__
-#define SRLM_PROPGCC_BOARD_SCADBETA2__
+#ifndef SRLM_PROPGCC_BOARD_H__
+#define SRLM_PROPGCC_BOARD_H__
 
 namespace board{
 	const int kPIN_I2C_SCL = 0;

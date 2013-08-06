@@ -14,7 +14,12 @@
 #include "librednine/ms5611/ms5611.h"
 #include "librednine/mtk3339/mtk3339.h"
 
+/* Pin definitions */
+#ifdef GAMMA
+#include "scadgamma.h"
+#elif BETA2
 #include "scadbeta2.h"
+#endif
 
 class Sensors {
 public:
@@ -63,7 +68,16 @@ public:
     static void AddScales(void);
 private:
 
+/* Pin definitions */
+#ifdef GAMMA
+    static i2c bus1;
+    static i2c bus2;
+#elif BETA2
     static i2c bus;
+#endif
+
+    
+    
     static LSM303DLHC * lsm;
     static L3GD20 * l3g;
 

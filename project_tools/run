@@ -1,0 +1,38 @@
+#!/usr/bin/python
+
+import argparse
+from subprocess import call
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-b", "--board", type=str, help="Select the hardware to load to (beta2, gamma)")
+parser.add_argument("-e", "--eeprom", action="store_true", help="Load to EEPROM")
+parser.add_argument("-t", "--terminal", type=str, help="Open a terminal after loading. Must specify a baud.")
+args = parser.parse_args()
+
+clkfreq = ""
+elf = ""
+eeprom = ""
+terminal = ""
+
+if args.board == "gamma":
+	clkfreq = "-D clkfreq=96000000"
+	elf = "main.gamma.elf"
+elif args.board == "beta2":
+	elf = "main.beta2.elf"
+else:
+	elf = "main.elf"
+	
+if args.eeprom:
+	eeprom = "-e"
+	
+if args.terminal:
+	terminal = "-t" + args.terminal
+
+
+print "propeller-load -r " + terminal + " " + eeprom + " " + clkfreq + " " + elf
+
+
+import os
+os.system("/opt/parallax/bin/propeller-load -r -q " + terminal + " " + eeprom + " " + clkfreq + " " + elf)
+

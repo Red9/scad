@@ -16,7 +16,15 @@ int Sensors::gyro_x, Sensors::gyro_y, Sensors::gyro_z;
 int Sensors::accl_x, Sensors::accl_y, Sensors::accl_z;
 int Sensors::magn_x, Sensors::magn_y, Sensors::magn_z;
 
+
+#ifdef GAMMA
+i2c Sensors::bus1;
+i2c Sensors::bus2;
+#elif BETA2
 i2c Sensors::bus;
+#endif
+
+
 LSM303DLHC * Sensors::lsm;
 L3GD20 * Sensors::l3g;
 
@@ -47,13 +55,21 @@ void Sensors::init(void) {
 
     //I2C
     //bus = new i2c();
-    //bus->Initialize(kPIN_EEPROM_SCL, kPIN_EEPROM_SDA); //For Beta Boards
+#ifdef GAMMA
+    bus1.Initialize(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1);
+    bus2.Initialize(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
+    i2c * bus1addr = &bus1;
+    i2c * bus2addr = &bus2;
+#elif BETA2
     bus.Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
-
+    i2c * bus1addr = &bus;
+    i2c * bus2addr = &bus;
+#endif
+    
     LogStatusElement(kInfo, "I2C Bus Initialized.");
 
 
-    fuel = new MAX17048(&bus);
+    fuel = new MAX17048(bus2addr);
     if (fuel->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the MAX17048");
     } else {
@@ -63,27 +79,27 @@ void Sensors::init(void) {
     LogStatusElement(kInfo, "Fuel gauge initialized");
 
     lsm = new LSM303DLHC;
-    if (!lsm->Init(&bus)) {
+    if (!lsm->Init(bus1addr)) {
         LogStatusElement(kError, "Failed to initialize the LSM303DLHC.");
     }
 
     LogStatusElement(kInfo, "Accelerometer and Magnetometer initizialized");
 
     l3g = new L3GD20;
-    if (!l3g->Init(&bus)) {
+    if (!l3g->Init(bus1addr)) {
         LogStatusElement(kError, "Failed to initialize the L3GD20.");
     }
 
     LogStatusElement(kInfo, "Gyro initialized");
 
-    rtc = new PCF8523(&bus, board::kPIN_PCF8523_SQW);
+    rtc = new PCF8523(bus2addr);
     if (rtc->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the PCF8523.");
     }
 
     LogStatusElement(kInfo, "RTC initialized");
 
-    baro = new MS5611(&bus);
+    baro = new MS5611(bus2addr);
     if (baro->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the MS5611.");
     }
@@ -111,8 +127,7 @@ void Sensors::init(void) {
     LogStatusElement(kInfo, "Preparing GPS");
 
     //GPS
-    gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX,
-            board::kPIN_GPS_FIX);
+    gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
     if (gps->GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the GPS.");
     }

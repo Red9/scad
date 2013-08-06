@@ -37,7 +37,12 @@
 
 
 /* Pin definitions */
+#ifdef GAMMA
+#include "scadgamma.h"
+#elif BETA2
 #include "scadbeta2.h"
+#endif
+
 
 //TODO(SRLM): Make sure there isn't a problem with the delay between a command to DatalogController (such as start SD), and the time that getsdActive returns the new state.
 

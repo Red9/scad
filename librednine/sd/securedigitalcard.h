@@ -460,6 +460,8 @@ public:
 
     /** Read bytes into a buffer from currently open file.
      * 
+     * Note that this function does not null terminate a string.
+     * 
      * @param read_buffer The buffer to store the data. The buffer may be as large as you want.
      * @param bytes_to_read_count The number of bytes to read.
      * @return  Returns the number of bytes successfully read, or a negative 
