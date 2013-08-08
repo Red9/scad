@@ -1,8 +1,6 @@
 // -----------------------------------------------------------------------------
 // Board configuration
 // ------------------------------------------------------------------------------
-//#define EXTERNAL_IMU
-
 #define DEBUG_PORT
 
 
@@ -12,6 +10,8 @@
 #include <string.h>
 #include <propeller.h>
 
+//#include <thread.h>
+
 #include <stdlib.h>
 
 #include "libpropeller/c++allocate/c++allocate.h"
@@ -20,7 +20,6 @@
 #include "librednine/serial/serial.h"
 #include "librednine/i2c/i2c.h"
 #include "librednine/max8819/max8819.h"
-#include "librednine/elum/elum.h"
 #include "librednine/numbers/numbers.h"
 #include "librednine/scheduler/scheduler.h"
 #include "librednine/concurrentbuffer/concurrentbuffer.h"
@@ -31,6 +30,7 @@
 #include "rovingbluetooth.h"
 #include "DatalogController.h"
 #include "Sensors.h"
+#include "UserInterface.h"
 
 
 
@@ -60,6 +60,7 @@
 
 //TODO(SRLM): Add some sort of detection for removal of charging during the loop...
 
+//TODO(SRLM): I think there is a bug that the display (LEDs) won't get changed while datalogging. So, if the battery runs down there is no indication of this.
 
 /**
 
@@ -92,10 +93,10 @@ const int kBluetoothTimeout = 10000;
 //TODO: Do any of these need to be volatile?
 
 Max8819 pmic;
-Elum elum;
 Eeprom eeprom;
 Sensors sensors;
 DatalogController dc;
+UserInterface ui;
 
 #ifdef DEBUG_PORT
 Serial * debug = NULL;
@@ -117,74 +118,15 @@ volatile int boardVersion;
 int * datalogStack = NULL; //TODO(SRLM): can these be static?
 int * sensorsStack = NULL;
 
-const int stacksize = sizeof (_thread_state_t) + sizeof (int)*3 + sizeof (int)*100;
+
+//TODO(SRLM): for some reason it suddenly can't find _thread_state_t!
+//const int stacksize = sizeof (_thread_state_t) + sizeof (int)*3 + sizeof (int)*100;
+const int stacksize = 80 + sizeof (int)*3 + sizeof (int)*100;
 
 enum LogLevel {
     kAll, kFatal, kError, kWarn, kInfo, kDebug
 };
 const char * LogLevelIdentifier[] = {"All:   ", "Fatal: ", "Error: ", "Warn:  ", "Info:  ", "Debug: "};
-
-enum DeviceState {
-    kPowerOn, kUnknownError, kNoSD, kCharging, kDatalogging, kDone, kUnknown,
-    kPowerOff, kWaiting
-};
-
-volatile DeviceState currentState = kUnknown;
-
-
-Scheduler * displayDeviceState = NULL;
-
-void DisplayDeviceStatus(DeviceState state) {
-
-    // in a single place, Get fuel status
-    const int kFuelSoc = sensors.fuel_soc;
-
-    //Make sure that we're keeping track of the last time display has been updated.
-    if (displayDeviceState == NULL) {
-        displayDeviceState = new Scheduler(1); //0.1 Hz
-    }
-
-    //Exit if the state is the same, and we've updated the display recently.
-    if (currentState == state && !displayDeviceState->Run()) {
-        return;
-    }
-
-    currentState = state;
-
-    if (currentState == kUnknownError) {
-        //Alternate red and green triple
-        elum.Pattern(Elum::kTriple);
-    } else if (currentState == kNoSD) {
-        //Alternate red and green
-        elum.Pattern(Elum::kSingle);
-    } else if (currentState == kCharging) {
-        if (kFuelSoc < 90) {//pmic->GetCharge() == true){
-            //Fade LED in and out
-            elum.Fade(5);
-        } else {
-            //Done charging status
-            elum.Fade(1000);
-        }
-    } else if (currentState == kDatalogging) {
-        if (kFuelSoc > 25) {
-            //Flash green LED
-            elum.Flash(Elum::GREEN, 1000, kFuelSoc * 10);
-
-        } else {
-            //Flash red LED
-            //Plus one for the 0 case.
-            elum.Flash(Elum::RED, 1000, (kFuelSoc + 1) * 9);
-        }
-    } else if (currentState == kPowerOn
-            || currentState == kWaiting) {
-        elum.On(Elum::GREEN);
-    } else {
-        //If nothing else, then turn off LED.
-        elum.Off();
-    }
-
-
-}
 
 void LogVElement() {
     char string [200];
@@ -256,19 +198,17 @@ void TurnSDOn(void) {
         if (dc.getsdActive() == false) {
             pmic.On(); //Make sure we don't lose power while datalogging!
             dc.SetClock(sensors.year + 2000, sensors.month, sensors.day,
-            sensors.hour, sensors.minute, sensors.second);
+                    sensors.hour, sensors.minute, sensors.second);
             dc.StartSD();
             dc.BlockUntilWaiting();
             eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
             OutputGlobalLogHeaders();
-            DisplayDeviceStatus(kDatalogging);
+            ui.DisplayDeviceStatus(UserInterface::kDatalogging, sensors.fuel_soc);
         }
     } else {
         debug->Put("\r\nSD Error!");
-        DisplayDeviceStatus(kNoSD);
-        debug->Put("\r\n before");
+        ui.DisplayDeviceStatus(UserInterface::kNoSD, sensors.fuel_soc);
         LogStatusElement(kError, "SD Error!");
-        debug->Put("\r\n after...");
     }
 }
 
@@ -279,8 +219,8 @@ void TurnSDOff(void) {
     if (dc.getsdActive() == true) {
         dc.StopSD();
     }
-    
-    DisplayDeviceStatus(kWaiting);
+
+    ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
 }
 
 void TransferFile(const char * filename) {
@@ -339,7 +279,7 @@ void KillSelf(void) {
     debug->Put("\r\nKillSelf()");
 #endif    
     TurnSDOff();
-    DisplayDeviceStatus(kPowerOff);
+    ui.DisplayDeviceStatus(UserInterface::kPowerOff, sensors.fuel_soc);
 
     pmic.Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
 
@@ -402,9 +342,11 @@ void InnerLoop(void) {
     }
 
     if (lastButtonPressDuration > 50 && lastButtonPressDuration < 1000) {
+        debug->Put("\r\nShort Button press. Turning self on.");
         TurnSDOn();
     }
     if (currentButtonPressDuration > 3000) {
+        debug->Put("\r\nLong Button press. Turning self off.");
         KillSelf();
     }
 
@@ -414,10 +356,10 @@ void InnerLoop(void) {
 
 void MainLoop(void) {
     Stopwatch buttonTimer;
-    
+
     while (true) {
         //Time the button:
-        if (elum.GetButton() == true) {
+        if (ui.GetButton() == true) {
             if (buttonTimer.GetStarted() == false) {
                 buttonTimer.Start();
             }
@@ -438,13 +380,15 @@ void init(void) {
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
     pmic.SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
-    
+
     //EEPROM
     eeprom.Start();
     unitNumber = eeprom.Get(kEepromUnitAddress, 4);
     boardVersion = eeprom.Get(kEepromBoardAddress, 4);
 #ifdef DEBUG_PORT
     debug->Put("\r\nEEPROM initialized.");
+    debug->PutFormatted("\r\nUnit number: %i", unitNumber);
+    debug->PutFormatted("\r\nBoard Version: %i", boardVersion);
 #endif
 
     bluetooth = new Bluetooth(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
@@ -455,7 +399,7 @@ void init(void) {
 #endif    
 
 
-    
+
 
     int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
     //Datalog Controller
@@ -471,20 +415,30 @@ void init(void) {
 
 #ifdef DEBUG_PORT
     debug->Put("\r\nSensor Cog initialized.");
+    debug->PutFormatted("\r\n\tFuel SOC: %i", sensors.fuel_soc);
+
 #endif
 
     //LEDs and Button
-    elum.Start(board::kPIN_LEDR, board::kPIN_LEDG, board::kPIN_BUTTON);
+
+#ifdef BETA2
+    ui.Init(board::kPIN_LEDG, board::kPIN_LEDR, board::kPIN_BUTTON);
+#elif GAMMA
+    ui.Init(board::kPIN_LEDW, board::kPIN_LEDR, board::kPIN_BUTTON);
+#endif
+
+
+
 
 }
 
 int main(void) {
-    
+
 #ifdef DEBUG_PORT    
     debug = new Serial();
     debug->Start(31, 30, 460800);
     debug->Put("\r\nSCAD Debug Port: ");
-    
+
 #ifdef GAMMA
     debug->Put(" Gamma!");
 #elif BETA2
@@ -492,26 +446,23 @@ int main(void) {
 #endif
 
 #endif
-
     init();
-    DisplayDeviceStatus(kPowerOn);
-    
-    
 
-    
-    while (elum.GetButton()) { //Check the plugged in assumption
+    ui.DisplayDeviceStatus(UserInterface::kPowerOn, sensors.fuel_soc);
+
+    while (ui.GetButton()) { //Check the plugged in assumption
         pmic.On(); //It's not plugged in, so we should keep the power on...
-        DisplayDeviceStatus(kWaiting);
+        ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
     } //Wait for the user to release the button, if turned on that way.
     waitcnt(CLKFREQ / 10 + CNT);
 
     if (pmic.GetPluggedIn() == true) {
-        DisplayDeviceStatus(kCharging);
+        ui.DisplayDeviceStatus(UserInterface::kCharging, sensors.fuel_soc);
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
 
     MainLoop();
-     
+
 }
 
 

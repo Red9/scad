@@ -300,6 +300,29 @@ bool TestSD(const int Do, const int Clk, const int Di, const int Cs) {
     return true;
 }
 
+
+bool TestSQWDLIMcut(){
+#ifdef GAMMA
+    int mask = 1 << board::kPIN_MAX8819_DLIM2;
+    DIRA &= !mask;
+    
+    for(int i = 0; i < 1000; i++){
+        if((INA & mask) != 0){
+            printf("ERROR: SQW and DLIM not cut!\n");
+            return false;
+        }
+        waitcnt(CLKFREQ/1000 + CNT);
+    }
+    
+    printf("SQW successfully cut.\n");
+    return true;
+    
+    
+#elif BETA2
+    return true;
+#endif
+}
+
 void configureBoard() {
     printf("Let's configure!\n");
 
@@ -371,7 +394,7 @@ int main(void) {
     pass = pass && ScanBusRunner(board::kPIN_EEPROM_SCL, board::kPIN_EEPROM_SDA, 1, "EEPROM");
     pass = pass && ScanBusRunner(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA, 6, "main");
 #endif
-
+    pass = pass && TestSQWDLIMcut();
 
     pass = pass && TestSD(board::kPIN_SD_DO, board::kPIN_SD_CLK, board::kPIN_SD_DI, board::kPIN_SD_CS);
 

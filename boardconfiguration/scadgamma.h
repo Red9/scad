@@ -39,8 +39,8 @@ namespace board{
 	const int kPIN_SD_DO  = 20;
 	const int kPIN_SD_CD  = 21;
 	
-	const int kPIN_LEDR           = 22;
-	const int kPIN_LEDG           = 23;
+	const int kPIN_LEDW           = 22;
+	const int kPIN_LEDR           = 23;
 	
 	const int kPIN_LSM303DLHC_INT1 = 24;
 	const int kPIN_LSM303DLHC_INT2 = 25;

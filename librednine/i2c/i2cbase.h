@@ -51,7 +51,7 @@ public:
         OUTA &= ~SCLMask;
         OUTA &= ~SDAMask;
 
-        clockDelay = 90;
+        clockDelay = 100; //90;
     }
 
     /** Output a start condition on the I2C bus.
