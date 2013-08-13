@@ -2,6 +2,8 @@
 
 The low level interface code is based on Pins.h from David Michael Betz.
 
+ * Requires a 10k resistor from MAX8819A::CEN to 5V USB.
+ * 
 @todo Add support (is it neccessary?) For the "timer fault" condition (figure 3,
 page 18 of datasheet) when CHG outputs a 2Hz square wave.
 
@@ -73,6 +75,11 @@ public:
     Note: The rate is set even if there is currently no external power, and stays in
     effect until next called (possibly during the connection of external power).
 
+     * 
+     * @warning If set to OFF it cuts off all power from the USB port. This means that if there is no battery the system will turn off!
+     * 
+     * @warning If it's set to something other than OFF then the maximum current from the USB port is limited. If there is no battery then you must make sure that the total current consumed is less than the maximum, otherwise the MAX8819 might reset.
+     * 
     With a 3kOhm CISET resistor, we have the following charge rates:
     -LOW    == 95   mA
     -MEDIUM == 475  mA
@@ -97,20 +104,24 @@ public:
 };
 
 void inline Max8819::Start(int CENpin, int CHGpin, int ENpin, int DLIM1pin, int DLIM2pin) {
+
+
     cen_mask = 1 << CENpin;
     chg_mask = 1 << CHGpin;
     en_mask = 1 << ENpin;
     dlim1_mask = 1 << DLIM1pin;
     dlim2_mask = 1 << DLIM2pin;
+
+
+    On();
+
     DIRA |= en_mask; // Set to output
     DIRA |= dlim1_mask; // Set to output
     DIRA |= dlim2_mask; // Set to output
     DIRA &= ~chg_mask; // Set to input
     DIRA &= ~cen_mask; // Set to input
 
-
-    On();
-    SetCharge(OFF);
+    SetCharge(HIGH);
 }
 
 inline Max8819::~Max8819() {
@@ -129,7 +140,7 @@ inline bool Max8819::GetCharge() {
 }
 
 inline bool Max8819::GetPluggedIn() {
-   return (INA & cen_mask) != 0;
+    return (INA & cen_mask) != 0;
 }
 
 inline void Max8819::SetCharge(int rate) {

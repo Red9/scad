@@ -109,8 +109,8 @@ const int kBLUETOOTH_BAUD = 460800;
 Status Variables
  */
 
-int lastButtonPressDuration = 0;
-int currentButtonPressDuration = 0;
+//int lastButtonPressDuration = 0;
+//int currentButtonPressDuration = 0;
 
 volatile int unitNumber;
 volatile int boardVersion;
@@ -291,10 +291,6 @@ void KillSelf(void) {
 
 void InnerLoop(void) {
 
-
-
-
-
     // Test: Battery is too low?
     if (sensors.fuel_voltage < 3500
             and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
@@ -341,11 +337,15 @@ void InnerLoop(void) {
 
     }
 
-    if (lastButtonPressDuration > 50 && lastButtonPressDuration < 1000) {
+    if (ui.CheckButton() == false
+            && ui.GetButtonPressDuration() > 50
+            && ui.GetButtonPressDuration() < 1000) {
         debug->Put("\r\nShort Button press. Turning self on.");
+        ui.ClearButtonPressDuration();
         TurnSDOn();
     }
-    if (currentButtonPressDuration > 3000) {
+    if (ui.CheckButton() == true
+            && ui.GetButtonPressDuration() > 3000) {
         debug->Put("\r\nLong Button press. Turning self off.");
         KillSelf();
     }
@@ -354,32 +354,25 @@ void InnerLoop(void) {
 
 }
 
-void MainLoop(void) {
-    Stopwatch buttonTimer;
-
-    while (true) {
-        //Time the button:
-        if (ui.GetButton() == true) {
-            if (buttonTimer.GetStarted() == false) {
-                buttonTimer.Start();
-            }
-            currentButtonPressDuration = buttonTimer.GetElapsed();
-        } else {
-            lastButtonPressDuration = currentButtonPressDuration;
-            currentButtonPressDuration = 0;
-            buttonTimer.Reset();
-        }
-
-        InnerLoop();
-    }
-}
-
 void init(void) {
     //Power
     pmic.Start(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
-    pmic.SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
+    //pmic.SetCharge(Max8819::HIGH); //TODO: There is some sort of bug where this *must* be in the code, otherwise it causes a reset.
+    pmic.On();
+
+    //LEDs and Button
+#ifdef GAMMA
+    ui.Init(board::kPIN_LEDW, board::kPIN_LEDR, board::kPIN_BUTTON);
+#elif BETA2
+    ui.Init(board::kPIN_LEDG, board::kPIN_LEDR, board::kPIN_BUTTON);
+#endif
+    ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
+
+
+
+
 
     //EEPROM
     eeprom.Start();
@@ -419,13 +412,7 @@ void init(void) {
 
 #endif
 
-    //LEDs and Button
 
-#ifdef BETA2
-    ui.Init(board::kPIN_LEDG, board::kPIN_LEDR, board::kPIN_BUTTON);
-#elif GAMMA
-    ui.Init(board::kPIN_LEDW, board::kPIN_LEDR, board::kPIN_BUTTON);
-#endif
 
 
 
@@ -438,31 +425,31 @@ int main(void) {
     debug = new Serial();
     debug->Start(31, 30, 460800);
     debug->Put("\r\nSCAD Debug Port: ");
-
 #ifdef GAMMA
     debug->Put(" Gamma!");
 #elif BETA2
     debug->Put(" Beta2!");
 #endif
-
 #endif
+
+
     init();
 
-    ui.DisplayDeviceStatus(UserInterface::kPowerOn, sensors.fuel_soc);
+    //ui.DisplayDeviceStatus(UserInterface::kNoSD, sensors.fuel_soc);
 
-    while (ui.GetButton()) { //Check the plugged in assumption
-        pmic.On(); //It's not plugged in, so we should keep the power on...
-        ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
+
+    while (ui.CheckButton()) {
+        waitcnt(CLKFREQ / 10 + CNT);
     } //Wait for the user to release the button, if turned on that way.
-    waitcnt(CLKFREQ / 10 + CNT);
 
     if (pmic.GetPluggedIn() == true) {
         ui.DisplayDeviceStatus(UserInterface::kCharging, sensors.fuel_soc);
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
 
-    MainLoop();
-
+    while (true) {
+        InnerLoop();
+    }
 }
 
 

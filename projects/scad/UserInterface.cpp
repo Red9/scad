@@ -11,7 +11,6 @@
 
 extern Serial * debug;
 
-
 UserInterface::UserInterface() {
     currentState = kUnknown;
     //Make sure that we're keeping track of the last time display has been updated.
@@ -31,12 +30,31 @@ void UserInterface::Init(const int kPinLedWhite, const int kPinLedRed, const int
     button.input();
 }
 
-bool UserInterface::GetButton(void) {
+bool UserInterface::CheckButton(void) {
+    bool buttonPress =
 #ifdef GAMMA
-    return button.input();
+            button.input();
 #elif BETA2
-    return !button.input();
+            !button.input();
 #endif
+
+    if (buttonPress == true) {
+        if (buttonTimer.GetStarted() == false) {
+            buttonTimer.Start();
+        }
+        buttonDuration = buttonTimer.GetElapsed();
+    } else {
+        buttonTimer.Reset();
+    }
+    return buttonPress;
+}
+
+int UserInterface::GetButtonPressDuration(void) {
+    return buttonDuration;
+}
+
+void UserInterface::ClearButtonPressDuration(void){
+    buttonDuration = 0;
 }
 
 void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
@@ -47,12 +65,12 @@ void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
         return;
     }
 
-    if(lastFuel > 100){
+    if (lastFuel > 100) {
         lastFuel = 100;
-    }else if(lastFuel < 0){
+    } else if (lastFuel < 0) {
         lastFuel = 0;
     }
-    
+
 
 
     currentState = state;
@@ -105,7 +123,7 @@ void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
 }
 
 int UserInterface::dataloggingBlinkRate(const int fuel) {
-        return (-90 * fuel) / 100 + 100;
-   
+    return (-90 * fuel) / 100 + 100;
+
 }
 

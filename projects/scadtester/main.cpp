@@ -239,7 +239,7 @@ int ScanBus(const int SCL, const int SDA) {
                     printf("\n");
                     knownDevices += 1;
                 } else {
-                    printf("0x%X - Found \n", address << 1);
+                    printf("0x%X - Found [Unknown]\n", address << 1);
                 }
             } else {
                 //printf("0x%X - \n", address << 1);

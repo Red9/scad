@@ -3,6 +3,7 @@
 
 #include "librednine/pin/pin.h"
 #include "librednine/scheduler/scheduler.h"
+#include "librednine/stopwatch/stopwatch.h"
 
 //#include "libpropeller/c++allocate/c++allocate.h"
 
@@ -21,8 +22,16 @@ public:
 
     void DisplayDeviceStatus(DeviceState state, int lastFuel);
     
-    bool GetButton(void);
+    bool CheckButton(void);
+    
+    /** 
+     *  Should call @CheckButton() before calling this function.
+     * 
+     * @return The duration of the most recent (or current) button press in ms.
+     */
+    int GetButtonPressDuration(void);
 
+    void ClearButtonPressDuration(void);
 
 private:
     Pin ledWhite, ledRed, button;
@@ -36,7 +45,15 @@ private:
     static const int kFastBlink = 20;
     static const int kSlowBlink = 8;
     
+    int buttonDuration;
+    Stopwatch buttonTimer;
+    
+    
     int dataloggingBlinkRate(const int kFuelSoc);
+    
+    
+    
+    
 
 };
 
