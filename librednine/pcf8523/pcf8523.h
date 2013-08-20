@@ -1,3 +1,9 @@
+#ifndef LIBREDNINE_PCF8523_H_
+#define LIBREDNINE_PCF8523_H_
+
+#include <propeller.h>
+#include "librednine/i2c/i2c.h"
+
 /** Interface to the PCF8523 Real Time Clock (RTC).
  * 
  * Hardware connections: The PCF8523 should be connected to an I2C bus. If you 
@@ -5,26 +11,18 @@
  * battery to the batt pin. The SQW pin can optionally be connected. At this 
  * time, this class does not use that pin for any purpose.
  * 
- * @todo(SRLM): Remove the SQW stuff.
- * 
  * Possible improvements:
  *   + Use the OS bit to keep track of oscillator state.
  *   + Make use of the SQW pin.
  * 
  * @author SRLM
  */
-
-#ifndef SRLM_PROPGCC_PCF8523_H_
-#define SRLM_PROPGCC_PCF8523_H_
-
-#include <propeller.h>
-#include "i2c.h"
-
 class PCF8523 {
 public:
 
     /**    
      * Set the control registers of the device:
+     * 
        - CONTROL_1 (set to 0b10000000):
          + Set to 12.5pF capacitor (matches crystal)
          + 0 (no functionality)
@@ -50,35 +48,34 @@ public:
          + 0 (no functionality on write)
          + Set to no interrupt when battery switch over flag is set
          + Set to no interrupt when battery low flag is set
+     * 
      * @param newbus The i2c bus to use.
      * @param newkPIN_SQW The square wave pin. If not used leave out or set to -1.
      */
-    PCF8523(i2c * newbus, int newkPIN_SQW = -1) {
-        kPIN_SQW = newkPIN_SQW;
-        bus = newbus;
+    PCF8523(I2C * newbus) {
+        bus_ = newbus;
         GetStatus();
-        if (status == false) {
+        if (status_ == false) {
             return; //No device
         }
 
         //Initialize the device
-        bus->Put(deviceRtc, kCONTROL_1, 0b10000000);
-        bus->Put(deviceRtc, kCONTROL_2, 0b00000000);
-        bus->Put(deviceRtc, kCONTROL_3, 0b00000000);
+        bus_->Put(kDeviceAddress, kCONTROL_1, 0b10000000);
+        bus_->Put(kDeviceAddress, kCONTROL_2, 0b00000000);
+        bus_->Put(kDeviceAddress, kCONTROL_3, 0b00000000);
     }
 
-    /** Test to see if the device is present and readable. Sends a ping on the 
-     * i2c bus.
+    /** Test to see if the device is present and readable. Sends a ping on the i2c bus.
      * 
      * @return present (true) or missing (false).
      */
     bool GetStatus() {
-        if (bus == NULL) {
-            status = false;
+        if (bus_ == NULL) {
+            status_ = false;
         } else {
-            status = bus->Ping(deviceRtc);
+            status_ = bus_->Ping(kDeviceAddress);
         }
-        return status;
+        return status_;
     }
 
     /** Sets the time on the RTC. The various limits (ie, month less than 12) 
@@ -98,9 +95,9 @@ public:
      *                 incremented when the day changes. 
      * @return        true if the clock was successfully set, false otherwise. 
      */
-    bool SetClock(int year, int month, int day,
-            int hour, int minute, int second, int weekday = 0) {
-        if (!status) {
+    bool SetClock(const int year, const int month, const int day,
+            const int hour, const int minute, const int second, const int weekday = 0) {
+        if (!status_) {
             return false;
         }
 
@@ -115,7 +112,7 @@ public:
 
         clock[0] &= 0b01111111; //Clear OS bit
 
-        bus->Put(deviceRtc, kSECONDS, clock, 7);
+        bus_->Put(kDeviceAddress, kSECONDS, clock, 7);
 
         return true;
     }
@@ -135,12 +132,12 @@ public:
      */
     bool GetClock(int & year, int & month, int & day,
             int & hour, int & minute, int & second, int & weekday) {
-        if (!status) {
+        if (!status_) {
             return false;
         }
 
         char clock[7];
-        bus->Get(deviceRtc, kSECONDS, clock, 7);
+        bus_->Get(kDeviceAddress, kSECONDS, clock, 7);
         second = ConvertFromBCD(clock[0]);
         minute = ConvertFromBCD(clock[1]);
         hour = ConvertFromBCD(clock[2]);
@@ -172,33 +169,27 @@ public:
 
 
 private:
-    i2c * bus;
-    bool status;
-    int kPIN_SQW;
+    I2C * bus_;
+    bool status_;
 
 
-
-
-    const static unsigned char deviceRtc = 0b11010000;
+    const static unsigned char kDeviceAddress = 0b11010000;
 
     const static unsigned char kCONTROL_1 = 0x00;
     const static unsigned char kCONTROL_2 = 0x01;
     const static unsigned char kCONTROL_3 = 0x02;
     const static unsigned char kSECONDS = 0x03;
 
-public:
-
     /** Convert an integer representation of a number into it's Binary Coded 
      * Digit equivalent.
      * 
      * @warning Converts at most 2 binary coded digits (up to a value of 99).
      * @warning Undefined operation with negative numbers
-     * @warning Should not be used publicly: made public for use with testing.
      * 
      * @param number the number to convert.
      * @returns the 8 bits (2 digits) of binary coded number.
      */
-    char ConvertToBCD(int number) {
+    char ConvertToBCD(const int number) const {
         int unit = number % 10;
         int tens = (number % 100) / 10;
 
@@ -209,15 +200,17 @@ public:
      * 
      * @warning Converts at most 2 binary coded digits (up to a value of 99).
      * @warning Undefined operation with negative numbers
-     * @warning Should not be used publicly: made public for use with testing.
      * 
      * @param bcd The one or two digit number to convert.
      * @return    The converted number, in binary.
      */
-    int ConvertFromBCD(unsigned char bcd) {
+    int ConvertFromBCD(const unsigned char bcd) const {
         return ((bcd >> 4) * 10) + (bcd & 0xF);
     }
+
+public:
+    friend class UnityTests;
 };
 
 
-#endif // SRLM_PROPGCC_PCF8523_H_
+#endif // LIBREDNINE_PCF8523_H_

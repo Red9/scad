@@ -1,15 +1,5 @@
-/** Utility class for timing duration of certain events.
- * 
- * @warning The maximum time that can be recorded is (2^32/CLKFREQ) seconds. At
- * 80Mhz that is a bit over 53 seconds. Longer durations will rollover and make
- * the stopwatch operate incorrectly.
- * 
- * @author srlm (srlm@srlmproductions.com)
- * 
- */
-
-#ifndef SRLM_PROPGCC_STOPWATCH_H_
-#define SRLM_PROPGCC_STOPWATCH_H_
+#ifndef LIBREDNINE_STOPWATCH_H_
+#define LIBREDNINE_STOPWATCH_H_
 
 
 #ifndef UNIT_TEST
@@ -25,6 +15,15 @@ extern unsigned int unit_CNT;
 extern unsigned int unit_CLKFREQ;
 #endif
 
+/** Utility class for timing event duration.
+ * 
+ * @warning The maximum time that can be recorded is (2^32/CLKFREQ) seconds. At
+ * 80Mhz that is a bit over 53 seconds. Longer durations will rollover and make
+ * the stopwatch operate incorrectly.
+ * 
+ * @author srlm (srlm@srlmproductions.com)
+ * 
+ */
 class Stopwatch {
 public:
 
@@ -36,48 +35,46 @@ public:
         Reset();
     }
 
-    /**
-     * 
+    /** Stop timing.
      */
     void Reset(void) {
-        started = false;
+        started_ = false;
     }
 
-    /**
-     * 
+    /** Start timing. Can be called without calling reset first.
      */
     void Start(void) {
-        startCNT = CNT;
-        started = true;
+        start_CNT_ = CNT;
+        started_ = true;
     }
 
-    /**
-    @returns the number of elapsed milliseconds since start.
+    /** Get current stopwatch time (when started).
+     * 
+     * @returns the number of elapsed milliseconds since start.
      */
-    int GetElapsed(void) {
-        if (started == true) {
-            return (CNT - startCNT) / (CLKFREQ / 1000);
+    int GetElapsed(void) const {
+        if (started_ == true) {
+            return (CNT - start_CNT_) / (CLKFREQ / 1000);
         } else {
             return 0;
         }
     }
 
-    /**
+    /** Get started state.
      * 
-     * @return 
+     * @return  true if started, false otherwise.
      */
-    bool GetStarted(void) {
-        return started;
+    bool GetStarted(void) const {
+        return started_;
     }
 
 private:
-
-    unsigned int startCNT;
-    bool started;
+    unsigned int start_CNT_;
+    bool started_;
 
 };
 
 
 
 
-#endif // SRLM_PROPGCC_STOPWATCH_H_
+#endif // LIBREDNINE_STOPWATCH_H_

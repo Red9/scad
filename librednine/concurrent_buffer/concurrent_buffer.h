@@ -4,7 +4,7 @@
  * created, a single circular buffer is created. Instances can then add to the
  * global buffer, and read from it. 
  * 
- * @warning: you can have only one buffer per project. You may have multiple
+ * @warning: you can have only one buffer per compilation. You may have multiple
  * views on it (as represented by an instance of this class), but there is one a 
  * single buffer for all the data. If you want more then you'll have to make 
  * copies of the class.
@@ -14,18 +14,12 @@
  *      - make the "Put" functions static.
  *      - add a semaphore system to automatically deallocate the lock when the last instance is destroyed.
  * @author SRLM (srlm@srlmproductions.com)
- * @date   2013-06-04
- * @version 1.0
- * 
- * Version History
- * + 1.0 Cleaned up tests, fixed kSize and getFree(), refactored to coding standards.
- * + 0.1 Initial creation
  */
 
 
 
-#ifndef SRLM_PROPGCC_CONCURRENTBUFFER_H_
-#define SRLM_PROPGCC_CONCURRENTBUFFER_H_
+#ifndef LIBREDNINE_CONCURRENT_BUFFER_H_
+#define LIBREDNINE_CONCURRENT_BUFFER_H_
 
 #include <propeller.h>
 
@@ -41,7 +35,7 @@ public:
      *      microseconds. Default is 1 second timeout.
      * @return true if successfully started, false otherwise.
      */
-    static bool Start(int timeout_in_us = 1000000) {
+    static bool Start(const int timeout_in_us = 1000000) {
         Stop();
 
         timeout_ = (CLKFREQ / 1000000) * timeout_in_us;
@@ -75,7 +69,7 @@ public:
      * @param data the byte of data to add.
      * @returns true if data is added to the buffer, false if timeout occurs
      */
-    static bool Put(char data) {
+    static bool Put(const char data) {
         if (Lockset() == false) {
             return false;
         }
@@ -114,7 +108,7 @@ public:
      * is like @a Put(array), but will append a string on the end.
      * 
      */
-    static bool PutWithString(const char data[], const int size, const char * string, char terminator = '\0') {
+    static bool PutWithString(const char data[], const int size, const char * string, const char terminator = '\0') {
         if (Lockset() == false) {
             return false;
         }
@@ -136,7 +130,7 @@ public:
      * up with the put() operations. Otherwise, data is lost (for this instance of 
      * the class.
      */
-    char Get() {
+    char Get(void) {
         while (head_ == tail_) {
         }
 
@@ -152,8 +146,8 @@ public:
      * Note that, if no bytes are added to the buffer, this function will return all 
      * bytes in at most 2 calls.
      * 
-     * @warning @Get() must be called often enough so that the get operations keep 
-     * up with the put() operations. Otherwise, data is lost (for this instance of 
+     * @warning Get() must be called often enough so that the get operations keep 
+     * up with the Put() operations. Otherwise, data is lost (for this instance of 
      * the class.
      * 
      * @warning The contents of the array may change if another thread adds too 
@@ -221,7 +215,7 @@ public:
      * @returns the number of free bytes (corrected difference of head and tail) 
      * Note: if there is nothing in the buffer, then it is equal to kSize
      */
-    int GetFree() {
+    int GetFree(void) const {
         const int kHead = head_;
         if (kHead >= tail_) { // no wrap-around
             return kSize - (kHead - tail_) - 1;
@@ -232,9 +226,9 @@ public:
 
     /** Get the total usable buffer size.
      * 
-     * @returns the available size of the buffer.
+     * @returns the available size of the buffer in bytes.
      */
-    static int GetkSize() {
+    static int GetkSize(void) {
         return kSize - 1; // -1 because one spot needs to be used for record keeping.
     };
 
@@ -247,7 +241,7 @@ public:
      * 
      * @returns true if lock is acquired, false if timeout occurs.
      */
-    static bool Lockset() {
+    static bool Lockset(void) {
         unsigned int end_CNT = CNT + timeout_;
         while (lockset(lock_)) {
             if ((int) (end_CNT - CNT) < 0) {
@@ -257,7 +251,7 @@ public:
         return true;
     }
 
-    static void Lockclear() {
+    static void Lockclear(void) {
         lockclr(lock_);
     }
 
@@ -268,27 +262,22 @@ private:
     static bool initialized_;
     static volatile int head_; //Points to the next free byte
     static unsigned int timeout_;
+    static int lock_;
 
     int tail_; //Points to the next byte to read
 
-    static void StoreByte(char data) {
+    static void StoreByte(const char data) {
         buffer_[head_++] = data;
         if (head_ == kSize) {
             head_ = 0;
         }
     }
 
-
-
 public:
-    /**
-     * @warning lock is made public so that it can be accessed for testing. Should 
-     * not be called directly otherwise!
-     */
-    static int lock_;
+    friend class UnityTests;
 
 };
 
 
 
-#endif // SRLM_PROPGCC_CONCURRENTBUFFER_H_
+#endif // LIBREDNINE_CONCURRENT_BUFFER_H_

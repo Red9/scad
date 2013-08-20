@@ -1,8 +1,17 @@
-#ifndef SRLM_PROPGCC_MS5611_H_
-#define SRLM_PROPGCC_MS5611_H_
+#ifndef LIBREDNINE_MS5611_H_
+#define LIBREDNINE_MS5611_H_
 
 #include <propeller.h>
-#include "i2c.h"
+#include "librednine/i2c/i2c.h"
+
+#ifdef UNIT_TEST
+#undef UNIT_TEST
+#define UNIT_TEST_
+#endif
+#include "librednine/stopwatch/stopwatch.h"
+#ifdef UNIT_TEST_
+#define UNIT_TEST
+#endif
 
 /** MS5611 Barometer interface
  * 
@@ -11,8 +20,6 @@
  * 
  * @author SRLM (srlm@srlmproductions.com)
  */
-
-
 class MS5611 {
 public:
 
@@ -26,15 +33,15 @@ public:
      * 
      * @param newbus The I2C bus to use.
      */
-    MS5611(i2c * newbus) {
-        bus = newbus;
+    MS5611(I2C * newbus) {
+        bus_ = newbus;
 
         GetStatus();
-        if (status == false) {
+        if (status_ == false) {
             return;
         }
 
-        const char kPROMRead [] = {
+        static const char kPROMRead [] = {
             0b10100000, // 16 bit reserved for manufacturer
             0b10100010, // C1
             0b10100100, // C2
@@ -46,27 +53,26 @@ public:
         };
 
 
-        D1 = 0; // Pressure
-        D2 = 0; // Temperature
+        D1_ = 0; // Pressure
+        D2_ = 0; // Temperature
 
         //Read PROM here
         int C[6];
         for (int i = 0; i < 6; i++) {
             char data[2];
-            bus->Put(deviceBaro, kPROMRead[i + 1]);
-            bus->Get(deviceBaro, data, 2);
+            bus_->Put(kDeviceAddress, kPROMRead[i + 1]);
+            bus_->Get(kDeviceAddress, data, 2);
             C[i] = data[0] << 8 | data[1];
 
         }
         SetC(C[0], C[1], C[2], C[3], C[4], C[5]);
 
-        convertingTemperature = true;
-        bus->Put(deviceBaro, kConvertD2OSR4096);
+        convertingTemperature_ = true;
+        bus_->Put(kDeviceAddress, kConvertD2OSR4096);
 
-        newData = false;
+        newData_ = false;
 
-        conversionValidCNT = CNT + (CLKFREQ * 9) / 1000;
-
+        timer.Start();
     }
 
     /** Keep the MS5611 running.
@@ -75,47 +81,44 @@ public:
      * 
      * "Touches" the sensor to make sure that it keeps converting at the maximum pace.
      * 
-     * @warning Undefined behavior if called more than every 8.5 ms.
+     * @warning Undefined behavior if called more than every 8.5 ms or less than every 53 seconds.
      * 
      * Test results indicate that the Touch function takes the following amount 
      * of time, at 80MHz in:
      * + CMM -Os mode: 49056 cycles (~0.62ms)
      * + LMM -Os mode: 22624 cycles (~0.28ms)
-     * @returns true when a new set of data is ready. If result is true, then 
-     *  @a Get() should be called.
+     * @returns true when a new set of data is ready. If result is true, then @a Get() should be called.
      */
     bool Touch(void) {
-        if (CNT < conversionValidCNT //Not ready, simple case
-                || (CNT > 0x7fffFfff && conversionValidCNT < 0x7fffFfff)
-                ) {
+        if (timer.GetElapsed() < 9) {
             return false;
         }
 
         //Read ADC on MS5611, and get whatever it was converting.
         char data[3];
 
-        bus->Put(deviceBaro, kADCRead);
+        bus_->Put(kDeviceAddress, kADCRead);
 
-        bus->Get(deviceBaro, data, 3);
+        bus_->Get(kDeviceAddress, data, 3);
         int reading = ExpandReading(data);
-        newData = true;
+        newData_ = true;
 
-        conversionValidCNT = CNT + (CLKFREQ * 9) / 1000;
+        timer.Start();
 
 
-        if (convertingTemperature) {
-            D2 = reading;
+        if (convertingTemperature_) {
+            D2_ = reading;
             //Set ADC to convert pressure
-            bus->Put(deviceBaro, kConvertD1OSR4096);
+            bus_->Put(kDeviceAddress, kConvertD1OSR4096);
 
-            convertingTemperature = false;
+            convertingTemperature_ = false;
             return false;
         } else {
-            D1 = reading;
+            D1_ = reading;
             //Set ADC to convert temperature
-            bus->Put(deviceBaro, kConvertD2OSR4096);
+            bus_->Put(kDeviceAddress, kConvertD2OSR4096);
 
-            convertingTemperature = true;
+            convertingTemperature_ = true;
             return true;
         }
     }
@@ -139,15 +142,15 @@ public:
             const bool calibrationCalculation = true) {
 
         if (calibrationCalculation == true) {
-            if (newData) {
+            if (newData_) {
                 Calculate();
             }
-            tPressure = pressure;
-            tTemperature = temperature;
-            newData = false;
+            tPressure = pressure_;
+            tTemperature = temperature_;
+            newData_ = false;
         } else {
-            tPressure = D1;
-            tTemperature = D2;
+            tPressure = D1_;
+            tTemperature = D2_;
         }
     }
 
@@ -155,40 +158,42 @@ public:
      * @returns true if device is present and ready, false otherwise
      */
     bool GetStatus(void) {
-        if (bus == NULL) {
-            status = false;
+        if (bus_ == NULL) {
+            status_ = false;
         } else {
-            status = bus->Ping(deviceBaro);
+            status_ = bus_->Ping(kDeviceAddress);
         }
-        return status;
+        return status_;
     }
 
-    /**
-    @warning untested! (How do I test this?)
-    @return true if successfully reset, false otherwise. Takes 2.8ms to reload.
+    /** Reset the pressure sensor.
+     * 
+     * @warning untested! (How do I test this?)
+     * @return true if successfully reset, false otherwise. Takes 2.8ms to reload.
      */
     bool Reset(void) {
-        return bus->Put(deviceBaro, kReset);
+        return bus_->Put(kDeviceAddress, kReset);
     }
+private:
 
-    /**
-    Set the C PROM calibration constants.
-    @param C1
-    @param C2
-    @param C3
-    @param C4
-    @param C5
-    @param C6
+    /** Set the C PROM calibration constants.
+     * 
+     * @param C1
+     * @param C2
+     * @param C3
+     * @param C4
+     * @param C5
+     * @param C6
      */
     void SetC(const int newC1, const int newC2, const int newC3,
             const int newC4, const int newC5, const int newC6) {
-        C1 = ((int64_t) newC1) << 15;
-        C2 = ((int64_t) newC2) << 16;
-        C3 = (int64_t) newC3;
-        C4 = (int64_t) newC4;
+        C1_ = ((int64_t) newC1) << 15;
+        C2_ = ((int64_t) newC2) << 16;
+        C3_ = (int64_t) newC3;
+        C4_ = (int64_t) newC4;
 
-        C5 = newC5 << 8;
-        C6 = newC6;
+        C5_ = newC5 << 8;
+        C6_ = newC6;
     }
 
     /** Get the C PROM calibration constants.
@@ -202,12 +207,12 @@ public:
      */
     void GetC(int & oldC1, int & oldC2, int & oldC3,
             int & oldC4, int & oldC5, int & oldC6) {
-        oldC1 = (int) (C1 >> 15);
-        oldC2 = (int) (C2 >> 16);
-        oldC3 = (int) C3;
-        oldC4 = (int) C4;
-        oldC5 = C5 >> 8;
-        oldC6 = C6;
+        oldC1 = (int) (C1_ >> 15);
+        oldC2 = (int) (C2_ >> 16);
+        oldC3 = (int) C3_;
+        oldC4 = (int) C4_;
+        oldC5 = C5_ >> 8;
+        oldC6 = C6_;
     }
 
     /**
@@ -216,73 +221,75 @@ public:
      * @param newD2 The raw temperature value
      */
     void TEST_SetD(const int newD1, const int newD2) {
-        D1 = newD1;
-        D2 = newD2;
-        newData = true;
+        D1_ = newD1;
+        D2_ = newD2;
+        newData_ = true;
     }
-
-private:
 
     void Calculate(void) {
         //These equations are straight from the MS5611 datasheet.
-        int dT = D2 - C5;
-        temperature = 2000 + ((dT * C6) >> 23);
+        int dT = D2_ - C5_;
+        temperature_ = 2000 + ((dT * C6_) >> 23);
 
         int64_t T2 = 0;
         int64_t OFF2 = 0;
         int64_t SENS2 = 0;
 
-        if (temperature < 2000) {
+        if (temperature_ < 2000) {
 
             int64_t dT64 = dT;
 
             T2 = (dT64 * dT64) >> 31;
-            OFF2 = (5 * (temperature - 2000) * (temperature - 2000)) >> 1;
+            OFF2 = (5 * (temperature_ - 2000) * (temperature_ - 2000)) >> 1;
             SENS2 = OFF2 >> 1;
 
-            if (temperature < -1500) { //Very low temperature
-                OFF2 = OFF2 + (7 * (temperature + 1500) * (temperature + 1500));
-                SENS2 = SENS2 + ((11 * (temperature + 1500) * (temperature + 1500)) >> 1);
+            if (temperature_ < -1500) { //Very low temperature
+                OFF2 = OFF2 + (7 * (temperature_ + 1500) * (temperature_ + 1500));
+                SENS2 = SENS2 + ((11 * (temperature_ + 1500) * (temperature_ + 1500)) >> 1);
             }
         }
 
 
-        int64_t OFF = C2 + ((C4 * dT) >> 7);
-        int64_t SENS = C1 + ((C3 * dT) >> 8);
+        int64_t OFF = C2_ + ((C4_ * dT) >> 7);
+        int64_t SENS = C1_ + ((C3_ * dT) >> 8);
 
-        temperature = temperature - T2;
+        temperature_ = temperature_ - T2;
         OFF = OFF - OFF2;
         SENS = SENS - SENS2;
 
-        pressure = (int) ((((((int64_t) D1) * SENS) >> 21) - OFF) >> 15);
+        pressure_ = (int) ((((((int64_t) D1_) * SENS) >> 21) - OFF) >> 15);
     }
 
-    int ExpandReading(const char data[]) {
+    int ExpandReading(const char data[]) const {
         //MS5611 returns a 24 bit unsigned number.
         return data[0] << 16 | data[1] << 8 | data[2];
     }
 
-    i2c * bus;
+    I2C * bus_;
+    Stopwatch timer;
 
     // These variables are straight from the MS5611 datasheet.
-    int64_t C1, C2, C3, C4;
-    int C5, C6;
+    int64_t C1_, C2_, C3_, C4_;
+    int C5_, C6_;
 
-    int D1, D2;
-    int temperature, pressure;
+    int D1_, D2_;
+    int temperature_, pressure_;
 
-    bool newData;
-    bool convertingTemperature;
-    bool status;
+    bool newData_;
+    bool convertingTemperature_;
+    bool status_;
 
-    unsigned int conversionValidCNT;
+    //unsigned int conversionValidCNT_;
 
-    const static char deviceBaro = 0b11101110;
+    const static char kDeviceAddress = 0b11101110;
     const static char kConvertD1OSR4096 = 0x48; //D1 is the pressure value
     const static char kConvertD2OSR4096 = 0x58; //D2 is the temperature value
     const static char kADCRead = 0x00;
     const static char kReset = 0b00011110;
 
+public:
+    friend class UnityTests;
+
 };
 
-#endif // SRLM_PROPGCC_MS5611_H_
+#endif // LIBREDNINE_MS5611_H_

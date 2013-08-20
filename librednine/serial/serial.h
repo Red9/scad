@@ -1,41 +1,30 @@
-#ifndef SRLM_PROPGCC_SERIAL_H_
-#define SRLM_PROPGCC_SERIAL_H_
+#ifndef LIBREDNINE_SERIAL_H_
+#define LIBREDNINE_SERIAL_H_
 
 #include <cstdarg>
 #include <propeller.h>
-#include "numbers.h"
+#include "librednine/numbers/numbers.h"
 
 extern char _load_start_serial_cog[];
 
-
-
-/**
-
-Based on Fast Full-Duplex Serial 1 (FFDS1) version 0.9 by Jonathan Dummer
-(lonesock). C++ Port done by SRLM.
-
-Serial provides a fast and stable serial interface using a single cog.
-
-Max baudrate = clkfreq / (86 * 2)
-
-    Clock  | MaxBaud | Standard
-    -------+---------+---------
-    96 MHz | 558_139 | 500_000    - 6MHz XTAL at 16x PLL
-    80 MHz | 465_116 | 460_800    - 5MHz XTAL at 16x PLL (most common)
-    12 MHz |  69_767 |  57_600    - approx RCFAST
-    20 kHz |     116 | hah hah    - approx RCSLOW
-
-Bit period is calculated to the nearest 2 clocks. So, the bit period should be
-within 1 clock, or 12.5 ns at 80 MHz.
-
-@author SRLM
-@date   2013-06-04
-@version 1.2
-
-Version History
-- 1.2
-- 1.1 Added CTS support to suppress tx output from Propeller (2013-04-11)
-- 1.0 Initial creation
+/** A high speed and high accuracy serial driver.
+ * Based on Fast Full-Duplex Serial 1 (FFDS1) version 0.9 by Jonathan Dummer (lonesock). C++ Port done by SRLM.
+ * 
+ * Serial provides a fast and stable serial interface using a single cog.
+ * 
+ * Max baudrate = clkfreq / (86 * 2)
+ * 
+ *    Clock  | MaxBaud | Standard
+ *    -------+---------+---------
+ *    96 MHz | 558_139 | 500_000    - 6MHz XTAL at 16x PLL
+ *    80 MHz | 465_116 | 460_800    - 5MHz XTAL at 16x PLL (most common)
+ *    12 MHz |  69_767 |  57_600    - approx RCFAST
+ *    20 kHz |     116 | hah hah    - approx RCSLOW
+ * 
+ * Bit period is calculated to the nearest 2 clocks. So, the bit period should be within 1 clock, or 12.5 ns at 80 MHz.
+ * 
+ * @author SRLM (srlm@srlmproductions.com)
+ * 
  */
 class Serial {
 public:
@@ -64,8 +53,10 @@ public:
      * @param ctspin  cts is an input for control of flow from the tx pin. If high, it disables transmissions.
      * @return  Returns true if the cog started OK, false otherwise
      */
-    bool Start(const int rxpin, const int txpin, const int rate, const int ctspin = -1) {
-        // Prevent garbage collection
+    bool Start(const int rxpin, const int txpin, const int rate, 
+    const int ctspin = -1) {
+        
+        // Prevent garbage collection of the ASM code
         volatile void * asm_driver_reference = NULL;
         __asm__ volatile ("mov %[asm_driver_reference], #Fds_entry \n\t"
                 : [asm_driver_reference] "+r" (asm_driver_reference));
@@ -208,9 +199,6 @@ public:
     int Put(const char * buffer_ptr) {
         return Put(buffer_ptr, strlen(buffer_ptr));
     }
-
-    // SRLM: Put(buffer) has a bug in it's implementation. I don't know what it is.
-    //int PutBuffer(char * buffer_ptr, const bool wait = false, int buffer_bytes = -1, const char terminator = '\0');
 
     /** Transmit a string (printf function-alike).
      *
@@ -364,8 +352,6 @@ public:
 
     /** Receive a byte (wait) or timeout.
      * 
- 
-    
      * @warning This function may block indefinitely if timeout is set to a
      *                  negative value, and no data is received.
      * 
@@ -452,9 +438,9 @@ public:
 
     /** Get the number of bytes in the receive buffer.
      */
-    int GetCount(void) {
-        int tail = rx_tail_;
-        int head = rx_head_;
+    int GetCount(void) const {
+        const int tail = rx_tail_;
+        const int head = rx_head_;
         if (head >= tail) {
             return head - tail;
         } else {
@@ -464,9 +450,9 @@ public:
 
 
 private:
-    /**
-    Half period must be at least this, otherwise the cog will
-    sleep for a whole counter cycle (2^32 / clkfreq seconds).
+    /** Half period must be at least this, otherwise the cog will sleep for a whole counter cycle (2^32 / clkfreq seconds).
+     * 
+     * 86 @80MHz
      */
     static const int kMinimumHalfPeriod = 86;
 
@@ -543,4 +529,4 @@ private:
 //	return buffer_bytes;
 //}
 
-#endif //SRLM_PROPGCC_SERIAL_H_
+#endif // LIBREDNINE_SERIAL_H_

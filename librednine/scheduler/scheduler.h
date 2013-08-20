@@ -1,5 +1,5 @@
-#ifndef SRLM_PROPGCC_SCHEDULER_H_
-#define SRLM_PROPGCC_SCHEDULER_H_
+#ifndef LIBREDNINE_SCHEDULER_H_
+#define LIBREDNINE_SCHEDULER_H_
 
 
 #ifndef UNIT_TEST
@@ -36,10 +36,9 @@ public:
      *          error.
      * @param deci_hz The frequency (in 10x true return values per second).
      */
-    Scheduler(int deci_hz){
-            
-    periodTicks = GetTicksPerPeriod(deci_hz);
-    startCNT = CNT;
+    Scheduler(const int deci_hz) {
+        period_ticks_ = GetTicksPerPeriod(deci_hz);
+        start_CNT_ = CNT;
     }
 
     /** Check to see if the time period has passed yet.
@@ -57,15 +56,14 @@ public:
      *
      * @returns true if the time period has passed, false otherwise.
      */
-    bool Run(){
-            if ((CNT - startCNT) >= periodTicks) {
-        startCNT += periodTicks;
-        return true;
-    } else {
-        return false;
+    bool Run(void) {
+        if ((CNT - start_CNT_) >= period_ticks_) {
+            start_CNT_ += period_ticks_;
+            return true;
+        } else {
+            return false;
+        }
     }
-    }
-
 
     /** Calculates how many clock cycles are in each period.
      * 
@@ -74,16 +72,14 @@ public:
      * @param hz The frequency is deci-hz (hz * 10)
      * @return The number of clock cycles (ticks) per period.
      */
-    static unsigned int GetTicksPerPeriod(int deci_hz){
-            return (CLKFREQ * 10) / deci_hz;
+    static unsigned int GetTicksPerPeriod(const int deci_hz) {
+        return (CLKFREQ * 10) / deci_hz;
     }
 
 private:
-    unsigned int readPeriod;
-    unsigned int nextReadTime;
-
-    unsigned int startCNT;
-    unsigned int periodTicks;
+    unsigned int next_read_time_;
+    unsigned int start_CNT_;
+    unsigned int period_ticks_;
 };
 
-#endif // SRLM_PROPGCC_SCHEDULER_H_
+#endif // LIBREDNINE_SCHEDULER_H_

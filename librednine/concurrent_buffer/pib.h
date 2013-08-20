@@ -1,7 +1,7 @@
 #ifndef SRLM_PROPGCC_PIB_H__
 #define SRLM_PROPGCC_PIB_H__
 
-#include "concurrentbuffer.h"
+#include "concurrent_buffer.h"
 
 /** Put elements into the buffer.
 

@@ -1,78 +1,67 @@
-#ifndef SRLM_PROPGCC_I2CBASE_H__
-#define SRLM_PROPGCC_I2CBASE_H__
+#ifndef LIBREDNINE_I2C_BASE_H_
+#define LIBREDNINE_I2C_BASE_H_
 
 #include <propeller.h>
 
-#define i2c_float_scl_high (DIRA &= ~SCLMask)
-#define i2c_set_scl_low    (DIRA |= SCLMask)
-#define i2c_float_sda_high (DIRA &= ~SDAMask)
-#define i2c_set_sda_low    (DIRA |= SDAMask)
+#define I2C_FLOAT_SCL_HIGH (DIRA &= ~scl_mask_)
+#define I2C_SET_SCL_LOW    (DIRA |= scl_mask_)
+#define I2C_FLOAT_SDA_HIGH (DIRA &= ~sda_mask_)
+#define I2C_SET_SDA_LOW    (DIRA |= sda_mask_)
 
 //Note: refactoring this into it's own class took all of 8 bytes extra :^)
 
-/** Low level I2C driver. Only does the most basic functions that all I2C
-devices implement.
-
-Requires that the SDA and SCL pins have sufficient pullups. These should be
-selected based on the capacitance of the devices on the I2C bus, and the
-expected clock speed (400kHz currently).
-
-
-@author SRLM
-@date   2013-01-21
-@version 1.1
-
-Version History
-+ 1.1 Updated the routines to use FCACHE'd inline assembly. It now runs faster
-      and more precisely.
-+ 1.0 Initial release.
+/** Low level I2C driver. Only does the most basic functions that all I2C devices implement.
+ * 
+ * Requires that the SDA and SCL pins have sufficient pullups. These should be selected based on the capacitance of the devices on the I2C bus, and the expected clock speed (400kHz currently).
+ * 
+ * @author SRLM
  */
-class i2cBase {
+class I2CBase {
 public:
 
     /** Set the IO Pins to float high. Does not require a cog.
-
-    Sets the bus speed to 444kHz.
-
-    @param scl The I2C SCL pin. Defaults to the Propeller default SCL pin.
-    @param sda The I2C SDA pin. Defaults to the Propeller default SDA pin.
-    @returns Nothing, right now...
+     * 
+     * Sets the bus speed to 444kHz.
+     * 
+     * @param scl The I2C SCL pin. Defaults to the Propeller default SCL pin.
+     * @param sda The I2C SDA pin. Defaults to the Propeller default SDA pin.
      */
-    void Initialize(const int scl = 28, const int sda = 29) {
-        SCLMask = 1 << scl;
-        SDAMask = 1 << sda;
+    void Init(const int scl = 28, const int sda = 29) {
+        scl_mask_ = 1 << scl;
+        sda_mask_ = 1 << sda;
 
         //Set pins to input
-        i2c_float_scl_high;
-        i2c_float_sda_high;
+        I2C_FLOAT_SCL_HIGH;
+        I2C_FLOAT_SDA_HIGH;
 
 
         //Set outputs low
-        OUTA &= ~SCLMask;
-        OUTA &= ~SDAMask;
+        OUTA &= ~scl_mask_;
+        OUTA &= ~sda_mask_;
 
-        clockDelay = 100; //90;
+        clock_delay_ = 100; //90;
     }
 
     /** Output a start condition on the I2C bus.
      */
-    void Start() {
-        i2c_float_sda_high;
-        i2c_float_scl_high;
-        i2c_set_sda_low;
-        i2c_set_scl_low;
+    void Start(void) {
+        I2C_FLOAT_SDA_HIGH;
+        I2C_FLOAT_SCL_HIGH;
+        I2C_SET_SDA_LOW;
+        I2C_SET_SCL_LOW;
     }
 
     /** Output a stop condition on the I2C bus.
      */
-    void Stop() {
-        i2c_float_scl_high;
-        i2c_float_sda_high;
+    void Stop(void) {
+        I2C_FLOAT_SCL_HIGH;
+        I2C_FLOAT_SDA_HIGH;
     }
 
-    /** Ouput a byte on the I2C bus.
-    @param   byte the 8 bits to send on the bus.
-    @returns      true if the device acknowledges, false otherwise.
+    /** Output a byte on the I2C bus.
+     * 
+     * @param   byte the 8 bits to send on the bus.
+     * @returns true if the device acknowledges, false otherwise.
      */
     bool SendByte(const unsigned char byte) {
         int result;
@@ -124,19 +113,19 @@ public:
                 [nextCNT] "=&r" (nextCNT),
                 [temp] "=&r" (temp)
                 : // Inputs
-                [SDAMask] "r" (SDAMask),
-                [SCLMask] "r" (SCLMask),
+                [SDAMask] "r" (sda_mask_),
+                [SCLMask] "r" (scl_mask_),
                 [databyte] "r" (byte),
-                [clockDelay] "r" (clockDelay)
+                [clockDelay] "r" (clock_delay_)
                 );
 
         return result;
     }
 
     /** Get a byte from the I2C bus.
-
-    @param acknowledge true to acknowledge the byte received, false otherwise.
-    @returns the byte clocked in off the bus.
+     * 
+     * @param acknowledge true to acknowledge the byte received, false otherwise.
+     * @returns the byte clocked in off the bus.
      */
     unsigned char ReadByte(const bool acknowledge) {
 
@@ -194,10 +183,10 @@ public:
                 [nextCNT] "=&r" (nextCNT)
 
                 : // Inputs
-                [SDAMask] "r" (SDAMask),
-                [SCLMask] "r" (SCLMask),
+                [SDAMask] "r" (sda_mask_),
+                [SCLMask] "r" (scl_mask_),
                 [acknowledge] "r" (acknowledge),
-                [clockDelay] "r" (clockDelay)
+                [clockDelay] "r" (clock_delay_)
                 );
 
         return result;
@@ -205,8 +194,8 @@ public:
     }
 
 private:
-    unsigned int SCLMask;
-    unsigned int SDAMask;
+    unsigned int scl_mask_;
+    unsigned int sda_mask_;
 
 
     //Clock delay values (@80MHz system clock):
@@ -215,10 +204,10 @@ private:
     //  100 == 400kHz
     //   90 == 444kHz
     //   32 == 1.25MHz
-    int clockDelay;
+    int clock_delay_;
 
 };
 
 
 
-#endif // SRLM_PROPGCC_I2CBASE_H__
+#endif // LIBREDNINE_I2C_BASE_H_

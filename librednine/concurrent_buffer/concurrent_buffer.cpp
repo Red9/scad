@@ -1,4 +1,4 @@
-#include "../concurrentbuffer/concurrentbuffer.h"
+#include "../concurrent_buffer/concurrent_buffer.h"
 
 const int ConcurrentBuffer::kSize;
 volatile char ConcurrentBuffer::buffer_[kSize];

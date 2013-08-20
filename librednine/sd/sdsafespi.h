@@ -1,10 +1,9 @@
 
-#ifndef SRLM_PROPGCC_SDSAFESPI_H__
-#define SRLM_PROPGCC_SDSAFESPI_H__
+#ifndef LIBREDNINE_SDSAFESPI_H_
+#define LIBREDNINE_SDSAFESPI_H_
 
 
 #define YIELD() __asm__ volatile( "" ::: "memory" )
-//#define ERROR_CHECK {if(error != kNoError){return error;}} 
 
 
 #define RET_IF_ERROR_INT if(HasError()){return error;}
@@ -12,9 +11,7 @@
 #define THROW_INT(value) {SetErrorCode((value)); return error;}
 #define THROW(value) {SetErrorCode((value)); return;}
 
-/**
- *
- *   SPI interface routines for SD & SDHC & MMC cards
+/**  SPI interface routines for SD & SDHC & MMC cards
  * 
  * C++ conversion by SRLM, based on sdsafespi.spin version 0.3.0 by Jonathan
  * "lonesock" Dummer.
@@ -40,7 +37,7 @@
  * 
  * @author SRLM (srlm@srlmproductions.com)     
  */
-class SdSafeSPI {
+class SDSafeSPI {
 public:
     static const int kCardTypeMMC = 1;
     static const int kCardTypeSD = 2;
@@ -69,7 +66,7 @@ public:
      * 
      * @return The card type constant.
      */
-    int Start(int basepin) {
+    int Start(const int basepin) {
         return Start(basepin, (basepin + 1), (basepin + 2), (basepin + 3));
     }
 
@@ -81,14 +78,15 @@ public:
      * @param Cs
      * @return The card type constant.
      */
-    int Start(int pin_do, int pin_clk, int pin_di, int pin_cs) {
+    int Start(const int pin_do, const int pin_clk,
+            const int pin_di, const int pin_cs) {
 
         // Do all of the card initialization in C++, then hand off the pin
         // information to the assembly cog for hot SPI block R/W action!
         error = kNoError;
 
         Stop();
-        waitcnt(500 + CLKFREQ * 4 / 1000 + CNT);
+        waitcnt((CLKFREQ >> 6) + CNT); // ~ equal to CLKFREQ * 4 / 1000
 
         mask_do = 1 << pin_do;
         mask_di = 1 << pin_di;
@@ -239,7 +237,7 @@ public:
         return card_type;
     }
 
-    void ReadBlock(int block_index, char * buffer_address) {
+    void ReadBlock(const int block_index, char * buffer_address) {
         if (spi_engine_cog == 0) {
             THROW(kErrorSpiEngineNotRunning);
 
@@ -259,7 +257,7 @@ public:
         }
     }
 
-    void WriteBlock(int block_index, char * buffer_address) {
+    void WriteBlock(const int block_index, char * buffer_address) {
         if (spi_engine_cog == 0) {
             THROW(kErrorSpiEngineNotRunning);
 
@@ -280,7 +278,7 @@ public:
     }
 
     /** Release the SPI bus and allow other devices to use it. The SPI bus is
-     * reacquired the next time a block is transfered. 
+     * re-acquired the next time a block is transfered. 
      * 
      * @warning If you release the lines, make sure that the other devices are
      * not using the bus the next time you do an SD operation.
@@ -300,7 +298,7 @@ public:
 
     }
 
-    /** kill the assembly driver cog.
+    /** Kill the assembly driver cog.
      */
     void Stop(void) {
         ReleaseCard();
@@ -315,7 +313,7 @@ public:
      * 
      * @return The error code.
      */
-    bool HasError(void) {
+    bool HasError(void) const {
         return error != kNoError;
     }
 
@@ -327,7 +325,7 @@ public:
 
     /**
      */
-    int GetError(void) {
+    int GetError(void) const {
         return error;
     }
 
@@ -352,7 +350,7 @@ private:
      * 
      * @param Abort_code passed through to return.
      */
-    void SetErrorCode(int abort_code) {
+    void SetErrorCode(const int abort_code) {
         // and we no longer need to control any pins from here
         DIRA &= ~mask_all;
         error = abort_code;
@@ -409,8 +407,8 @@ private:
         return ReplyB;
     }
 
-    void SendSlow(int value, int bits_to_send) {
-        value = (__builtin_propeller_rev(value, 32 - bits_to_send));
+    void SendSlow(int value, const int bits_to_send) {
+        value = __builtin_propeller_rev(value, 32 - bits_to_send);
 
         for (int i = 0; i < bits_to_send; i++) {
             OUTA &= ~mask_clk;
@@ -448,17 +446,17 @@ private:
     int ReadSlow(void) {
         OUTA |= mask_di; // we need the DI line high so a read can occur
 
-        int R = 0;
+        int result = 0;
         for (int i = 0; i < 8; i++) { // Get 8 bits
             OUTA &= ~mask_clk;
             OUTA |= mask_clk;
-            R += R + ((INA & mask_do) ? 1 : 0);
+            result += result + ((INA & mask_do) ? 1 : 0);
         }
         if ((CNT - spi_block_index) > (CLKFREQ << 2)) {
             THROW_INT(kErrorCardBusyTimeout);
             RET_IF_ERROR_INT;
         }
-        return R;
+        return result;
     }
 
 
@@ -477,7 +475,6 @@ private:
     }
 
     int GetMilliseconds(void) {
-        int Ms = 0;
         if (spi_engine_cog == 0) {
             THROW_INT(kErrorSpiEngineNotRunning);
         }
@@ -486,9 +483,9 @@ private:
         while (spi_command == 't') {
             YIELD();
         }
-        Ms = (spi_block_index * 1000);
-        Ms = (Ms + (((int) spi_buffer_address * 1000) / CLKFREQ));
-        return Ms;
+        int milliseconds = (spi_block_index * 1000);
+        milliseconds = (milliseconds + (((int) spi_buffer_address * 1000) / CLKFREQ));
+        return milliseconds;
     }
 
     //  SDHC/SD/MMC command set for SPI
@@ -600,4 +597,4 @@ private:
 
 };
 
-#endif // SRLM_PROPGCC_SDSAFESPI_H__
+#endif // LIBREDNINE_SDSAFESPI_H_
