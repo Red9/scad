@@ -419,8 +419,7 @@ int main(void) {
 
 #ifdef DEBUG_PORT    
     debug = new Serial();
-    //debug->Start(31, 30, 460800);
-    debug->Start(14,13,460800);
+    debug->Start(31, 30, 460800);
     debug->Put("\r\nSCAD Debug Port: ");
 #ifdef GAMMA
     debug->Put(" Gamma!");
