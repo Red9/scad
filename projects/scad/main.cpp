@@ -10,8 +10,6 @@
 #include <string.h>
 #include <propeller.h>
 
-//#include <thread.h>
-
 #include <stdlib.h>
 
 #include "libpropeller/c++allocate/c++allocate.h"
@@ -22,8 +20,8 @@
 #include "librednine/max8819/max8819.h"
 #include "librednine/numbers/numbers.h"
 #include "librednine/scheduler/scheduler.h"
-#include "librednine/concurrentbuffer/concurrentbuffer.h"
-#include "librednine/concurrentbuffer/pib.h"
+#include "librednine/concurrent_buffer/concurrent_buffer.h"
+#include "librednine/concurrent_buffer/pib.h"
 #include "librednine/eeprom/eeprom.h"
 #include "librednine/stopwatch/stopwatch.h"
 
@@ -69,9 +67,9 @@ Cog Usage:
 1: GPS driver (ASM)
 2: Sensors Controller cog
 3: SD driver (ASM)
-4: Serial driver (ASM)(USB/Bluetooth)
+4: Serial driver (ASM)(Bluetooth)
 5: Datalog Controller cog
-6: 
+6: Debug Serial
 7:
  */
 
@@ -93,7 +91,7 @@ const int kBluetoothTimeout = 10000;
 //TODO: Do any of these need to be volatile?
 
 Max8819 pmic;
-Eeprom eeprom;
+EEPROM eeprom;
 Sensors sensors;
 DatalogController dc;
 UserInterface ui;
@@ -108,10 +106,6 @@ const int kBLUETOOTH_BAUD = 460800;
 /*
 Status Variables
  */
-
-//int lastButtonPressDuration = 0;
-//int currentButtonPressDuration = 0;
-
 volatile int unitNumber;
 volatile int boardVersion;
 
@@ -201,9 +195,10 @@ void TurnSDOn(void) {
                     sensors.hour, sensors.minute, sensors.second);
             dc.StartSD();
             dc.BlockUntilWaiting();
-            eeprom.Put(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
+            eeprom.PutNumber(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
             OutputGlobalLogHeaders();
             ui.DisplayDeviceStatus(UserInterface::kDatalogging, sensors.fuel_soc);
+            debug->Put("\r\nStarted SD...");
         }
     } else {
         debug->Put("\r\nSD Error!");
@@ -281,6 +276,7 @@ void KillSelf(void) {
     TurnSDOff();
     ui.DisplayDeviceStatus(UserInterface::kPowerOff, sensors.fuel_soc);
 
+    waitcnt(CLKFREQ + CNT);
     pmic.Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
 
     while (true) {
@@ -289,19 +285,7 @@ void KillSelf(void) {
     //TODO(SRLM): Add check here: if still on, we're plugged in.
 }
 
-void InnerLoop(void) {
-
-    // Test: Battery is too low?
-    if (sensors.fuel_voltage < 3500
-            and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
-#ifdef DEBUG_PORT
-        debug->Put("\r\nWarning: Low fuel!!! Turning off.");
-#endif
-        LogStatusElement(kFatal, "Low Voltage");
-        KillSelf();
-    }
-
-
+void ParseBluetoothCommands(void) {
     if (bluetooth->Get(0) == 'C') {
         for (int i = 0; i < 4; i++) {
             bluetooth->Get(); //Throw away CNT
@@ -336,9 +320,25 @@ void InnerLoop(void) {
         }
 
     }
+}
+
+void InnerLoop(void) {
+
+    // Test: Battery is too low?
+    /*if (sensors.fuel_voltage < 3500
+            and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+#ifdef DEBUG_PORT
+        debug->Put("\r\nWarning: Low fuel!!! Turning off.");
+#endif
+        LogStatusElement(kFatal, "Low Voltage");
+        KillSelf();
+    }*/
+
+
+    ParseBluetoothCommands();
 
     if (ui.CheckButton() == false
-            && ui.GetButtonPressDuration() > 50
+            && ui.GetButtonPressDuration() > 100
             && ui.GetButtonPressDuration() < 1000) {
         debug->Put("\r\nShort Button press. Turning self on.");
         ui.ClearButtonPressDuration();
@@ -354,7 +354,7 @@ void InnerLoop(void) {
 
 }
 
-void init(void) {
+void Init(void) {
     //Power
     pmic.Start(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
@@ -371,13 +371,10 @@ void init(void) {
     ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
 
 
-
-
-
     //EEPROM
-    eeprom.Start();
-    unitNumber = eeprom.Get(kEepromUnitAddress, 4);
-    boardVersion = eeprom.Get(kEepromBoardAddress, 4);
+    eeprom.Init();
+    unitNumber = eeprom.GetNumber(kEepromUnitAddress, 4);
+    boardVersion = eeprom.GetNumber(kEepromBoardAddress, 4);
 #ifdef DEBUG_PORT
     debug->Put("\r\nEEPROM initialized.");
     debug->PutFormatted("\r\nUnit number: %i", unitNumber);
@@ -394,12 +391,17 @@ void init(void) {
 
 
 
-    int canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
+    const int canonNumber = eeprom.GetNumber(kEepromCanonNumberAddress, 4);
     //Datalog Controller
-    dc.Init(canonNumber, unitNumber, board::kPIN_SD_DO, board::kPIN_SD_CLK,
+    bool mounted = dc.Init(canonNumber, unitNumber, board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS);
-    datalogStack = (int *) malloc(stacksize);
-    cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
+    if (mounted == false) {
+        ui.DisplayDeviceStatus(UserInterface::kNoSD, -1);
+        LogStatusElement(kError, "SD Error at Init!");
+    } else {
+        datalogStack = (int *) malloc(stacksize);
+        cogstart(DatalogCogRunner, &dc, datalogStack, stacksize);
+    }
 
 #ifdef DEBUG_PORT
     debug->Put("\r\nDatalog Cog initialized.");
@@ -411,19 +413,14 @@ void init(void) {
     debug->PutFormatted("\r\n\tFuel SOC: %i", sensors.fuel_soc);
 
 #endif
-
-
-
-
-
-
 }
 
 int main(void) {
 
 #ifdef DEBUG_PORT    
     debug = new Serial();
-    debug->Start(31, 30, 460800);
+    //debug->Start(31, 30, 460800);
+    debug->Start(14,13,460800);
     debug->Put("\r\nSCAD Debug Port: ");
 #ifdef GAMMA
     debug->Put(" Gamma!");
@@ -433,20 +430,19 @@ int main(void) {
 #endif
 
 
-    init();
-
-    //ui.DisplayDeviceStatus(UserInterface::kNoSD, sensors.fuel_soc);
-
-
+    Init();
+    
+    
     while (ui.CheckButton()) {
         waitcnt(CLKFREQ / 10 + CNT);
     } //Wait for the user to release the button, if turned on that way.
+    waitcnt(CLKFREQ / 10 + CNT);
 
     if (pmic.GetPluggedIn() == true) {
         ui.DisplayDeviceStatus(UserInterface::kCharging, sensors.fuel_soc);
         pmic.Off(); //Turn off in case it's unplugged while charging
     }
-
+    
     while (true) {
         InnerLoop();
     }

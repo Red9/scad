@@ -19,7 +19,7 @@ Summary of supported sentences (note: order changed):
 #ifndef SRLM_PROPGCC_MTK3339_H_
 #define SRLM_PROPGCC_MTK3339_H_
 
-#include "gpsparser.h"
+#include "librednine/gpsparser/gpsparser.h"
 #include <propeller.h>
 
 class MTK3339 : public GPSParser {
@@ -45,23 +45,26 @@ public:
 
      */
 
-    MTK3339(int rxPin, int txPin, int ppsPin = -1) : GPSParser(rxPin, txPin, 9600) {
+    bool Start(int rxPin, int txPin, int ppsPin = -1){
+        GPSParser::Start(rxPin, txPin, 9600);
         gpsStatus = CheckBaud();
         if (gpsStatus == true) { //GPS running at 9600
             //Update to 115200
-            gps.PutFormatted(kPMTK_SET_NMEA_BAUDRATE_115200);
+            gps_serial_.PutFormatted(kPMTK_SET_NMEA_BAUDRATE_115200);
             waitcnt(CLKFREQ / 19 + CNT); //Make sure it's transmitted.
-            gps.SetBaud(115200);
+            gps_serial_.SetBaud(115200);
         } else { //GPS may be runnning at 115200
-            gps.SetBaud(115200);
+            gps_serial_.SetBaud(115200);
             gpsStatus = CheckBaud();
             if (gpsStatus == false) {
-                return;
+                return false;
             }
         }
 
-        gps.PutFormatted(kPMTK_API_SET_NMEA_OUTPUT);
-        gps.PutFormatted(kPMTK_SET_NMEA_UPDATE_10HZ);
+        gps_serial_.PutFormatted(kPMTK_API_SET_NMEA_OUTPUT);
+        gps_serial_.PutFormatted(kPMTK_SET_NMEA_UPDATE_10HZ);
+        
+        return GetStatus();
 
     }
 
@@ -86,11 +89,11 @@ private:
     @return true if the baud produces printable characters, false otherwise.
      */
     bool CheckBaud(void) {
-        gps.GetFlush();
+        gps_serial_.GetFlush();
         waitcnt(CLKFREQ / 10 + CNT);
-        gps.GetFlush();
+        gps_serial_.GetFlush();
         for (int i = 0; i < 50; i++) {
-            unsigned char byte = (unsigned char) gps.Get();
+            unsigned char byte = (unsigned char) gps_serial_.Get();
             if (byte > (0x7F)) {
                 return false;
             }

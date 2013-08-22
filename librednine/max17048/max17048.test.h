@@ -15,7 +15,8 @@ public:
     static void setUp(void) {
         bus = new I2C();
         bus->Init(kPIN_I2C_SCL, kPIN_I2C_SDA);
-        sut = new MAX17048(bus);
+        sut = new MAX17048();
+        sut->Init(bus);
     }
 
     static void tearDown(void) {

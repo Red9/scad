@@ -20,11 +20,13 @@ class UnityTests {
 public:
 
     static void setUp(void) {
-        sut = new GPSParser(kPIN_USER_1, kPIN_USER_2, 9600);
+        sut = new GPSParser();
+        sut->Start(kPIN_USER_1, kPIN_USER_2, 9600);
     }
 
     static void tearDown(void) {
         delete sut;
+        sut = NULL;
     }
 
     static char FillBuffer(const char letter) {
@@ -103,7 +105,7 @@ public:
     static void test_MaxBytesCutoff(void) {
         const char * line0 = FillBuffer("$GPRMC Dummy Sentence");
         char buffer[100];
-        TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)), strlen(line0));
+        TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)+1), strlen(line0));
     }
 
     static void test_MaxBytesCutoffWithMoreBytesInBuffer(void) {
@@ -111,7 +113,7 @@ public:
         FillBuffer("Some noise...");
         const char * line1 = FillBuffer("$GPVTG,0.00,T,,M,0.00,N,0.00,K,N*32\r\n");
         char buffer[100];
-        TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)), strlen(line0));
+        TEST_ASSERT_EQUAL_MEMORY(line0, sut->Get(buffer, strlen(line0)+1), strlen(line0));
         TEST_ASSERT_EQUAL_MEMORY(line1, sut->Get(), strlen(line1) - 2);
     }
 

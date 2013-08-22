@@ -23,7 +23,21 @@
 class MS5611 {
 public:
 
-    /** Create a new MS5611 Barometer instance
+    /** Specify the least significant address bit.
+     */
+    enum AddressLSB {
+        LSB_0, LSB_1
+    };
+    
+    /** Initialize a new MS5611 instance.
+     * 
+     */
+    MS5611(){
+        bus_ = NULL;
+        status_ = false;
+    }
+
+    /** Initialize MS5611 Barometer instance
      * 
      * This resets and initializes the sensor, reads the PROM, and begins a 
      * conversion.
@@ -33,12 +47,15 @@ public:
      * 
      * @param newbus The I2C bus to use.
      */
-    MS5611(I2C * newbus) {
+    bool Init(I2C * newbus, const AddressLSB address = LSB_0) {
+
+        SetAddress(address);
+
         bus_ = newbus;
 
         GetStatus();
         if (status_ == false) {
-            return;
+            return false;
         }
 
         static const char kPROMRead [] = {
@@ -60,19 +77,21 @@ public:
         int C[6];
         for (int i = 0; i < 6; i++) {
             char data[2];
-            bus_->Put(kDeviceAddress, kPROMRead[i + 1]);
-            bus_->Get(kDeviceAddress, data, 2);
+            bus_->Put(device_address, kPROMRead[i + 1]);
+            bus_->Get(device_address, data, 2);
             C[i] = data[0] << 8 | data[1];
 
         }
         SetC(C[0], C[1], C[2], C[3], C[4], C[5]);
 
         convertingTemperature_ = true;
-        bus_->Put(kDeviceAddress, kConvertD2OSR4096);
+        bus_->Put(device_address, kConvertD2OSR4096);
 
         newData_ = false;
 
         timer.Start();
+
+        return status_;
     }
 
     /** Keep the MS5611 running.
@@ -97,9 +116,9 @@ public:
         //Read ADC on MS5611, and get whatever it was converting.
         char data[3];
 
-        bus_->Put(kDeviceAddress, kADCRead);
+        bus_->Put(device_address, kADCRead);
 
-        bus_->Get(kDeviceAddress, data, 3);
+        bus_->Get(device_address, data, 3);
         int reading = ExpandReading(data);
         newData_ = true;
 
@@ -109,14 +128,14 @@ public:
         if (convertingTemperature_) {
             D2_ = reading;
             //Set ADC to convert pressure
-            bus_->Put(kDeviceAddress, kConvertD1OSR4096);
+            bus_->Put(device_address, kConvertD1OSR4096);
 
             convertingTemperature_ = false;
             return false;
         } else {
             D1_ = reading;
             //Set ADC to convert temperature
-            bus_->Put(kDeviceAddress, kConvertD2OSR4096);
+            bus_->Put(device_address, kConvertD2OSR4096);
 
             convertingTemperature_ = true;
             return true;
@@ -161,7 +180,7 @@ public:
         if (bus_ == NULL) {
             status_ = false;
         } else {
-            status_ = bus_->Ping(kDeviceAddress);
+            status_ = bus_->Ping(device_address);
         }
         return status_;
     }
@@ -172,7 +191,7 @@ public:
      * @return true if successfully reset, false otherwise. Takes 2.8ms to reload.
      */
     bool Reset(void) {
-        return bus_->Put(kDeviceAddress, kReset);
+        return bus_->Put(device_address, kReset);
     }
 private:
 
@@ -281,11 +300,22 @@ private:
 
     //unsigned int conversionValidCNT_;
 
-    const static char kDeviceAddress = 0b11101110;
+
     const static char kConvertD1OSR4096 = 0x48; //D1 is the pressure value
     const static char kConvertD2OSR4096 = 0x58; //D2 is the temperature value
     const static char kADCRead = 0x00;
     const static char kReset = 0b00011110;
+
+    unsigned char device_address;
+
+    void SetAddress(const AddressLSB address) {
+        if (address == LSB_0) {
+            device_address = 0b11101100;
+        } else if (address == LSB_1) {
+            device_address = 0b11101110;
+        }
+    }
+
 
 public:
     friend class UnityTests;

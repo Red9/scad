@@ -6,8 +6,8 @@
 #ifndef SRLM_PROPGCC_DATALOGCONTROLLER_H
 #define	SRLM_PROPGCC_DATALOGCONTROLLER_H
 
-#include "librednine/sd/securedigitalcard.h"
-#include "librednine/concurrentbuffer/concurrentbuffer.h"
+#include "librednine/sd/sd.h"
+#include "librednine/concurrent_buffer/concurrent_buffer.h"
 #include "rovingbluetooth.h"
 
 class DatalogController {
@@ -57,7 +57,7 @@ private:
     bool IsFileOnSD(const int fileNumber);
     void ComposeFileName(char * buffer, const int unit, const int canon);
 
-    SecureDigitalCard sd;
+    SD sd;
     ConcurrentBuffer sdBuffer;
     ConcurrentBuffer serialBuffer;
 

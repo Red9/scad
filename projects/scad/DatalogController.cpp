@@ -6,8 +6,11 @@ DatalogController::~DatalogController() {
     KillServer();
 }
 
-bool DatalogController::Init(int storedLastCanonNumber, int unitNumber, int kPIN_SD_DO, int kPIN_SD_CLK,
-        int kPIN_SD_DI, int kPIN_SD_CS) {
+bool DatalogController::Init(const int storedLastCanonNumber, 
+        const int unitNumber, 
+        const int kPIN_SD_DO, const int kPIN_SD_CLK,
+        const int kPIN_SD_DI, const int kPIN_SD_CS) {
+    
     sdMounted = false;
     rootDirectoryIsOpen = false;
 
@@ -16,18 +19,14 @@ bool DatalogController::Init(int storedLastCanonNumber, int unitNumber, int kPIN
 
     sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
 
+    //TODO(SRLM): try out writing a file and see if we get any errors (and store for future reference)
 
-
-
-    //TODO(SRLM): try out writing a file and see if we get any errors (and store for future refence)
-
-    if (sd.HasError() == true) {
-        //		debug->Put("Failed to mount SD card: %i\n\r", sd.GetError());
-        sdMounted = false;
-    } else {
-        sdMounted = true;
+    sdMounted = !sd.HasError(); 
+    if(sdMounted == false){
+        return false;
     }
-    return sdMounted;
+    
+    return true;
 }
 
 void DatalogController::ComposeFileName(char * buffer, const int unit, const int canon) {

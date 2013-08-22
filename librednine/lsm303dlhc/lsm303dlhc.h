@@ -19,6 +19,13 @@
 class LSM303DLHC {
 public:
 
+    /** Create a new LSM303DLHC instance.
+     */
+    LSM303DLHC() {
+        bus_ = NULL;
+        status_ = false;
+    }
+
     /**Tests to make sure that the LSM303DLHC is actually on the bus, and returns false if it is not. Otherwise, sets the registers as follows and returns true.
      * 
      * Set the control registers of the accelerometer:
@@ -58,11 +65,14 @@ public:
 
         //Check to make sure the LSM303DLHC is actually there.
         status_ = bus_->Ping(kDeviceMagnAddress);
-        if (status_ == false)
+        if (status_ == false) {
             return false;
+        }
+        
         status_ = bus_->Ping(kDeviceAcclAddress);
-        if (status_ == false)
+        if (status_ == false) {
             return false;
+        }
 
 
         //Initialize Magn

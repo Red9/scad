@@ -22,12 +22,13 @@ public:
      * @param txPin the pin to transmit data to the GPS. If not used, set to -1.
      * @param baud  the baud rate to use for tranmission and receiving.
      */
-    GPSParser(const int rxPin, const int txPin, const int baud) {
+    bool Start(const int rxPin, const int txPin, const int baud) {
         gps_serial_.Stop();
         next_character_position_ = 0;
         gps_serial_.Start(rxPin, txPin, baud);
 
         recording_sentence_ = false;
+        return true;
     }
 
     /** Stop the GPS parsing, and the cog that was started.
@@ -86,7 +87,7 @@ public:
                 string[next_character_position_++] = byte;
             }
 
-            if (next_character_position_ >= maxBytes) {
+            if (next_character_position_ == maxBytes - 1) {
                 return TerminateString(string);
             }
         }

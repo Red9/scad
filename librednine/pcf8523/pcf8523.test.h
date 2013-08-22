@@ -18,7 +18,8 @@ public:
     static void setUp(void) {
         bus = new I2C;
         bus->Init(kPIN_I2C_SCL, kPIN_I2C_SDA);
-        sut = new PCF8523(bus);
+        sut = new PCF8523();
+        sut->Init(bus);
     }
 
     static void tearDown(void) {
@@ -104,7 +105,7 @@ public:
     }
 
     static void test_GetStatusIsFalseForNoBus(void) {
-        PCF8523 dummy(nullptr);
+        PCF8523 dummy;
         TEST_ASSERT_FALSE(dummy.GetStatus());
     }
 };

@@ -4,10 +4,12 @@
 
 #include <string.h>
 #include "librednine/i2c/i2c.h"
-#include "librednine/sd/securedigitalcard.h"
+#include "librednine/sd/sd.h"
 #include "librednine/pcf8523/pcf8523.h"
 #include "librednine/eeprom/eeprom.h"
 #include "librednine/numbers/numbers.h"
+
+#include "librednine/pin/pin.h"
 
 /* Pin definitions */
 #ifdef GAMMA
@@ -118,8 +120,8 @@ int GetTwoDigits(const char * caption) {
 
     char num[3];
     printf(caption);
-    num[0] = (char)getchar();
-    num[1] = (char)getchar();
+    num[0] = (char) getchar();
+    num[1] = (char) getchar();
     num[2] = 0;
     getchar(); //Throw away enter
     return Numbers::Dec(num);
@@ -129,7 +131,7 @@ void SetTime(PCF8523 * rtc) {
     printf("Set time?\n(y)es\n*no\n>>> ");
 
     char choice = getchar();
-    getchar();//Throw away enter
+    getchar(); //Throw away enter
     printf("%c\n", choice);
 
     if (choice != 'y') {
@@ -222,8 +224,8 @@ bool IsKnownAddress(unsigned char address, char * buffer) {
  * @return    The number of known devices found.
  */
 int ScanBus(const int SCL, const int SDA) {
-    i2c bus;
-    bus.Initialize(SCL, SDA);
+    I2C bus;
+    bus.Init(SCL, SDA);
 
     int knownDevices = 0;
 
@@ -265,7 +267,7 @@ bool ScanBusRunner(const int SCL, const int SDA, const int deviceCount, const ch
 }
 
 bool TestSD(const int Do, const int Clk, const int Di, const int Cs) {
-    SecureDigitalCard sd;
+    SD sd;
     sd.Mount(Do, Clk, Di, Cs);
     if (sd.HasError()) {
         printf("ERROR: SD could not mount. Error code %i\n", sd.GetError());
@@ -300,24 +302,23 @@ bool TestSD(const int Do, const int Clk, const int Di, const int Cs) {
     return true;
 }
 
-
-bool TestSQWDLIMcut(){
+bool TestSQWDLIMcut() {
 #ifdef GAMMA
     int mask = 1 << board::kPIN_MAX8819_DLIM2;
     DIRA &= !mask;
-    
-    for(int i = 0; i < 1000; i++){
-        if((INA & mask) != 0){
+
+    for (int i = 0; i < 1000; i++) {
+        if ((INA & mask) != 0) {
             printf("ERROR: SQW and DLIM not cut!\n");
             return false;
         }
-        waitcnt(CLKFREQ/1000 + CNT);
+        waitcnt(CLKFREQ / 1000 + CNT);
     }
-    
+
     printf("SQW successfully cut.\n");
     return true;
-    
-    
+
+
 #elif BETA2
     return true;
 #endif
@@ -326,32 +327,34 @@ bool TestSQWDLIMcut(){
 void configureBoard() {
     printf("Let's configure!\n");
 
-    Eeprom eeprom;
-    eeprom.Start();
+    EEPROM eeprom;
+    eeprom.Init();
 
     int boardVersion = 0;
     int unitNumber = 0;
     int canonNumber = 0;
 
-    i2c rtcBus;
+    I2C rtcBus;
 
 #ifdef GAMMA
-    rtcBus.Initialize(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
+    rtcBus.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
 #elif BETA2
-    rtcBus.Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA);
+    rtcBus.Init(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA);
 #endif
-    
-    
-    PCF8523 rtc(&rtcBus);
+
+
+    PCF8523 rtc;
+    rtc.Init(&rtcBus);
 
     for (;;) {
 
 
-        unitNumber = eeprom.Get(kEepromUnitAddress, 4);
-        boardVersion = eeprom.Get(kEepromBoardAddress, 4);
-        canonNumber = eeprom.Get(kEepromCanonNumberAddress, 4);
+        unitNumber = eeprom.GetNumber(kEepromUnitAddress, 4);
+        boardVersion = eeprom.GetNumber(kEepromBoardAddress, 4);
+        canonNumber = eeprom.GetNumber(kEepromCanonNumberAddress, 4);
 
         int year, month, day, hour, minute, second;
+        year = month = day = hour = minute = second = 0;
         rtc.GetClock(year, month, day, hour, minute, second);
 
 
@@ -364,13 +367,13 @@ void configureBoard() {
 
 
         boardVersion = GetBoardVersion(boardVersion);
-        eeprom.Put(kEepromBoardAddress, boardVersion, 4);
+        eeprom.PutNumber(kEepromBoardAddress, boardVersion, 4);
 
         unitNumber = GetUnitNumber(unitNumber);
-        eeprom.Put(kEepromUnitAddress, unitNumber, 4);
+        eeprom.PutNumber(kEepromUnitAddress, unitNumber, 4);
 
         canonNumber = GetCanonNumber(canonNumber);
-        eeprom.Put(kEepromCanonNumberAddress, canonNumber, 4);
+        eeprom.PutNumber(kEepromCanonNumberAddress, canonNumber, 4);
 
         SetTime(&rtc);
     }
@@ -399,6 +402,11 @@ int main(void) {
     pass = pass && TestSD(board::kPIN_SD_DO, board::kPIN_SD_CLK, board::kPIN_SD_DI, board::kPIN_SD_CS);
 
     if (pass) {
+#ifdef GAMMA
+        Pin led = Pin(board::kPIN_LEDW);
+        led.high();
+#endif
+
         printf("\nOK\n");
 
         printf("\nConfigure (y/n)?");
@@ -410,6 +418,10 @@ int main(void) {
 
 
     } else {
+#ifdef GAMMA
+        Pin led = Pin(board::kPIN_LEDR);
+        led.high();
+#endif
         printf("\nFAIL FAIL FAIL\n");
     }
 

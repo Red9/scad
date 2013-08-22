@@ -18,20 +18,21 @@ int Sensors::magn_x, Sensors::magn_y, Sensors::magn_z;
 
 
 #ifdef GAMMA
-i2c Sensors::bus1;
-i2c Sensors::bus2;
+I2C Sensors::bus1;
+I2C Sensors::bus2;
 #elif BETA2
-i2c Sensors::bus;
+I2C Sensors::bus;
 #endif
 
 
-LSM303DLHC * Sensors::lsm;
-L3GD20 * Sensors::l3g;
+LSM303DLHC Sensors::lsm;
+L3GD20 Sensors::l3g;
 
-PCF8523 * Sensors::rtc;
-MAX17048 * Sensors::fuel;
-MTK3339 * Sensors::gps;
-MS5611 * Sensors::baro;
+PCF8523 Sensors::rtc;
+MAX17048 Sensors::fuel;
+MS5611 Sensors::baro;
+
+MTK3339 Sensors::gps;
 
 volatile bool Sensors::paused;
 
@@ -53,53 +54,46 @@ void Sensors::init(void) {
     paused = false;
     killed = false;
 
-    //I2C
-    //bus = new i2c();
 #ifdef GAMMA
-    bus1.Initialize(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1);
-    bus2.Initialize(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
-    i2c * bus1addr = &bus1;
-    i2c * bus2addr = &bus2;
+    bus1.Init(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1);
+    bus2.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
+    I2C * bus1addr = &bus1;
+    I2C * bus2addr = &bus2;
 #elif BETA2
-    bus.Initialize(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
-    i2c * bus1addr = &bus;
-    i2c * bus2addr = &bus;
+    bus.Init(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
+    I2C * bus1addr = &bus;
+    I2C * bus2addr = &bus;
 #endif
 
     LogStatusElement(kInfo, "I2C Bus Initialized.");
 
-
-    fuel = new MAX17048(bus2addr);
-    if (fuel->GetStatus() == false) {
+    if (fuel.Init(bus2addr) == false) {
         LogStatusElement(kError, "Failed to initialize the MAX17048");
     } else {
         ReadFuel();
         LogStatusElement(kInfo, "Fuel gauge initialized");
     }
 
-    lsm = new LSM303DLHC;
-    if (!lsm->Init(bus1addr)) {
+    if (lsm.Init(bus1addr) == false) {
         LogStatusElement(kError, "Failed to initialize the LSM303DLHC.");
     } else {
         LogStatusElement(kInfo, "Accelerometer and Magnetometer initialized");
     }
 
-    l3g = new L3GD20;
-    if (!l3g->Init(bus1addr)) {
+    if (l3g.Init(bus1addr, L3GD20::LSB_1) == false) {
         LogStatusElement(kError, "Failed to initialize the L3GD20.");
     } else {
         LogStatusElement(kInfo, "Gyro initialized");
     }
 
-    rtc = new PCF8523(bus2addr);
-    if (rtc->GetStatus() == false) {
+    if (rtc.Init(bus2addr) == false) {
         LogStatusElement(kError, "Failed to initialize the PCF8523.");
     } else {
         LogStatusElement(kInfo, "RTC initialized");
     }
 
-    baro = new MS5611(bus2addr);
-    if (baro->GetStatus() == false) {
+
+    if (baro.Init(bus2addr, MS5611::LSB_1) == false) {
         LogStatusElement(kError, "Failed to initialize the MS5611.");
     } else {
         LogStatusElement(kInfo, "Barometer initialized");
@@ -108,8 +102,8 @@ void Sensors::init(void) {
     LogStatusElement(kInfo, "Preparing GPS");
 
     //GPS
-    gps = new MTK3339(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
-    if (gps->GetStatus() == false) {
+    gps.Start(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
+    if (gps.GetStatus() == false) {
         LogStatusElement(kError, "Failed to initialize the GPS.");
     }
 
@@ -136,7 +130,7 @@ void Sensors::AutoRead(void) {
 
     char * gpsString = NULL;
     //Flush GPS buffer.
-    while ((gpsString = gps->Get()) != NULL) {
+    while ((gpsString = gps.Get()) != NULL) {
         /*Throw away stings*/
     }
 
@@ -181,13 +175,13 @@ void Sensors::AutoRead(void) {
             PIB::_3x2('D', CNT, year, month, day);
         }
 
-        if (baro->Touch() == true) {
+        if (baro.Touch() == true) {
             ReadBaro();
             PIB::_2x4('E', CNT, pressure, temperature);
         }
 
 
-        if ((gpsString = gps->Get()) != NULL) {
+        if ((gpsString = gps.Get()) != NULL) {
             PIB::_string('P', CNT, gpsString, '\0');
         }
     }
@@ -226,29 +220,29 @@ void Sensors::AddScales() {
 }
 
 void Sensors::ReadDateTime(void) {
-    rtc->GetClock(year, month, day, hour, minute, second);
+    rtc.GetClock(year, month, day, hour, minute, second);
 }
 
 void Sensors::ReadGyro(void) {
-    l3g->ReadGyro(gyro_x, gyro_y, gyro_z);
+    l3g.ReadGyro(gyro_x, gyro_y, gyro_z);
 }
 
 void Sensors::ReadAccl(void) {
-    lsm->ReadAccl(accl_x, accl_y, accl_z);
+    lsm.ReadAccl(accl_x, accl_y, accl_z);
 }
 
 void Sensors::ReadMagn(void) {
-    lsm->ReadMagn(magn_x, magn_y, magn_z);
+    lsm.ReadMagn(magn_x, magn_y, magn_z);
 }
 
 void Sensors::ReadFuel() {
-    fuel_soc = fuel->GetStateOfCharge();
-    fuel_voltage = fuel->GetVoltage();
-    fuel_rate = fuel->GetChargeRate();
+    fuel_soc = fuel.GetStateOfCharge();
+    fuel_voltage = fuel.GetVoltage();
+    fuel_rate = fuel.GetChargeRate();
 }
 
 void Sensors::ReadBaro() {
-    baro->Get(pressure, temperature, true);
+    baro.Get(pressure, temperature, true);
 }
 
 void Sensors::PauseReading(void) {

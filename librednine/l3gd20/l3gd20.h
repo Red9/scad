@@ -19,6 +19,18 @@
 class L3GD20 {
 public:
 
+    /** Specify the least significant bit of the L3GD20 I2C address.*/
+    enum AddressLSB {
+        LSB_0, LSB_1
+    };
+    
+    /** Create a new L3GD20 instance.
+     */
+    L3GD20(){
+        bus_ = NULL;
+        status_ = false;
+    }
+
     /** Set the control registers of the device:
      * 
         CTRL_REG1
@@ -38,19 +50,20 @@ public:
      * @param i2cbus the I2C bus that the gyro is connected to.
      * @return true when the gyro is successfully initialized.
      */
-    bool Init(I2C * i2c_bus) {
+    bool Init(I2C * i2c_bus, const AddressLSB address = LSB_0) {
+        SetAddress(address);
         bus_ = i2c_bus;
 
         //Check to make sure the gyro is actually there.
-        status_ = bus_->Ping(kDeviceAddress);
+        status_ = bus_->Ping(device_address);
         if (status_ == false) {
             return false;
         }
 
-        bus_->Put(kDeviceAddress, kCTRL_REG1, 0b11111111);
-        bus_->Put(kDeviceAddress, kCTRL_REG4, 0b00110000);
+        bus_->Put(device_address, kCTRL_REG1, 0b11111111);
+        bus_->Put(device_address, kCTRL_REG4, 0b00110000);
 
-        return true;
+        return status_;
     }
 
     /** Get the current rotation rate readings from the gyroscope.
@@ -71,7 +84,7 @@ public:
             return false;
         }
 
-        if (bus_->Get(kDeviceAddress, kOUT_X_L, data, 6) == false) {
+        if (bus_->Get(device_address, kOUT_X_L, data, 6) == false) {
             x = y = z = 0;
             return false;
         }
@@ -87,10 +100,21 @@ private:
 
     int status_;
 
-    const static unsigned char kDeviceAddress = 0b11010110;
+
     const static unsigned char kCTRL_REG1 = 0x20;
     const static unsigned char kCTRL_REG4 = 0x23;
     const static unsigned char kOUT_X_L = 0x28 | 0x80; //(turn on auto increment)
+
+    unsigned char device_address;
+
+    void SetAddress(const AddressLSB address) {
+        if (address == LSB_0) {
+            device_address = 0b11010100;
+        } else if (address == LSB_1) {
+            device_address = 0b11010110;
+        }
+    }
+
 };
 
 #endif // LIBREDNINE_L3GD20_H_

@@ -20,7 +20,16 @@
 class PCF8523 {
 public:
 
-    /**    
+    /** Create a PCF8523 instance.
+     * 
+     */
+    PCF8523() {
+        bus_ = NULL;
+        status_ = false;
+    }
+
+    /** Initialize a PCF8523 instance.
+     * 
      * Set the control registers of the device:
      * 
        - CONTROL_1 (set to 0b10000000):
@@ -42,27 +51,29 @@ public:
          + Disable countdown timer A interrupt.
          + Disable countdown timer B interrupt.
        - CONTROL_3 (set to 0b00000000):
-         + Battery switch over (standard mode), batery low detection enabled
+         + Battery switch over (standard mode), battery low detection enabled
          + 0 (no functionality)
-         + Reset battery switchover interupt (whether set or not)
+         + Reset battery switchover interrupt (whether set or not)
          + 0 (no functionality on write)
          + Set to no interrupt when battery switch over flag is set
          + Set to no interrupt when battery low flag is set
      * 
      * @param newbus The i2c bus to use.
-     * @param newkPIN_SQW The square wave pin. If not used leave out or set to -1.
+     * @return true if successfully initialized, false otherwise
+     * 
      */
-    PCF8523(I2C * newbus) {
+    bool Init(I2C * newbus) {
         bus_ = newbus;
         GetStatus();
         if (status_ == false) {
-            return; //No device
+            return false; //No device
         }
 
         //Initialize the device
         bus_->Put(kDeviceAddress, kCONTROL_1, 0b10000000);
         bus_->Put(kDeviceAddress, kCONTROL_2, 0b00000000);
         bus_->Put(kDeviceAddress, kCONTROL_3, 0b00000000);
+        return status_;
     }
 
     /** Test to see if the device is present and readable. Sends a ping on the i2c bus.

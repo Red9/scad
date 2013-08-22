@@ -3,8 +3,8 @@
 #include "unity.h"
 #include "c++-alloc.h"
 #include "librednine/l3gd20/l3gd20.h"
-#include "librednine/i2c/i2c.h"
-
+//#include "librednine/i2c/i2c.h"
+#include "i2cMOCK.h"
 
 
 //TODO(SRLM): Get rid of the hardcoded pins.
@@ -21,7 +21,7 @@ public:
     static void setUp(void) {
         bus = new I2C();
         bus->Init(kSCLPin, kSDAPin);
-        gyro.Init(bus);
+        gyro.Init(bus, L3GD20::LSB_1);
     }
 
     static void tearDown(void) {

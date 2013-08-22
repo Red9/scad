@@ -3,8 +3,8 @@
 
 #include <propeller.h>
 
-#include "librednine/concurrentbuffer/concurrentbuffer.h"
-#include "librednine/concurrentbuffer/pib.h"
+#include "librednine/concurrent_buffer/concurrent_buffer.h"
+#include "librednine/concurrent_buffer/pib.h"
 #include "librednine/scheduler/scheduler.h"
 #include "librednine/i2c/i2c.h"
 #include "librednine/lsm303dlhc/lsm303dlhc.h"
@@ -70,21 +70,22 @@ private:
 
 /* Pin definitions */
 #ifdef GAMMA
-    static i2c bus1;
-    static i2c bus2;
+    static I2C bus1;
+    static I2C bus2;
 #elif BETA2
-    static i2c bus;
+    static I2C bus;
 #endif
 
     
     
-    static LSM303DLHC * lsm;
-    static L3GD20 * l3g;
+    static LSM303DLHC lsm;
+    static L3GD20 l3g;
 
-    static PCF8523 * rtc;
-    static MAX17048 * fuel;
-    static MTK3339 * gps;
-    static MS5611 * baro;
+    static PCF8523 rtc;
+    static MAX17048 fuel;
+    static MS5611 baro;
+    
+    static MTK3339 gps;
 
     static volatile bool paused;
 

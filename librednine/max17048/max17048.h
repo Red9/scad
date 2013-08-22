@@ -19,17 +19,22 @@
 class MAX17048 {
 public:
 
-    /**Create a MAX17048 object.
+    /** Create a new MAX17048 instance.
+     */
+    MAX17048() {
+        bus_ = NULL;
+        status_ = false;
+    }
+
+    /**Initialize a MAX17048 object.
      * 
      * @param bus The I2C bus that the MAX17048 is on.
+     * @return true if successfully initiated, false otherwise.
      */
-    MAX17048(I2C * bus) {
+    bool Init(I2C * bus) {
         bus_ = bus;
         GetStatus();
-        if (!status_) {
-            return;
-        }
-
+        return status_;
     }
 
     /** Test the presence of the MAX17048 chip by pinging the bus.
