@@ -2,9 +2,9 @@
 #define LIBREDNINE_L3GD20_H_
 
 #ifndef UNIT_TEST
-#include "librednine/i2c/i2c.h"
+#include "libpropeller/i2c/i2c.h"
 #else
-#include "i2cMOCK.h"
+#include "libpropeller/i2c/i2cMOCK.h"
 #endif
 
 /** Provides an interface the L3GD20 gyroscope.

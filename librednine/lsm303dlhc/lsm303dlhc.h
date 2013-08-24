@@ -2,9 +2,9 @@
 #define LIBREDNINE_LSM303DLHC_H_
 
 #ifndef UNIT_TEST
-#include "librednine/i2c/i2c.h"
+#include "libpropeller/i2c/i2c.h"
 #else
-#include "i2cMOCK.h"
+#include "libpropeller/i2c/i2cMOCK.h"
 #endif
 
 /** Provides an interface to the LSM303DLHC accelerometer and magnetometer.

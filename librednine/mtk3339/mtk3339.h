@@ -19,7 +19,7 @@ Summary of supported sentences (note: order changed):
 #ifndef SRLM_PROPGCC_MTK3339_H_
 #define SRLM_PROPGCC_MTK3339_H_
 
-#include "librednine/gpsparser/gpsparser.h"
+#include "libpropeller/gpsparser/gpsparser.h"
 #include <propeller.h>
 
 class MTK3339 : public GPSParser {

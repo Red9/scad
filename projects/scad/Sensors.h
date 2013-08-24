@@ -5,13 +5,13 @@
 
 #include "librednine/concurrent_buffer/concurrent_buffer.h"
 #include "librednine/concurrent_buffer/pib.h"
-#include "librednine/scheduler/scheduler.h"
-#include "librednine/i2c/i2c.h"
+#include "libpropeller/scheduler/scheduler.h"
+#include "libpropeller/i2c/i2c.h"
 #include "librednine/lsm303dlhc/lsm303dlhc.h"
 #include "librednine/l3gd20/l3gd20.h"
-#include "librednine/pcf8523/pcf8523.h"
-#include "librednine/max17048/max17048.h"
-#include "librednine/ms5611/ms5611.h"
+#include "libpropeller/pcf8523/pcf8523.h"
+#include "libpropeller/max17048/max17048.h"
+#include "libpropeller/ms5611/ms5611.h"
 #include "librednine/mtk3339/mtk3339.h"
 
 /* Pin definitions */

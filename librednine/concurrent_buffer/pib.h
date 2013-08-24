@@ -1,7 +1,7 @@
 #ifndef SRLM_PROPGCC_PIB_H__
 #define SRLM_PROPGCC_PIB_H__
 
-#include "concurrent_buffer.h"
+#include "librednine/concurrent_buffer/concurrent_buffer.h"
 
 /** Put elements into the buffer.
 
@@ -31,7 +31,6 @@ public:
 
     /** Put 3 numbers 2 bytes wide into the buffer.
 
-    @param buffer     The buffer object to add the data to.
     @param identifier A single byte identifier for the element
     @param cnt        The element timestamp.
     @param a          Number 0, will be masked to 16 bits.
@@ -66,7 +65,6 @@ public:
 
     /** Put 3 numbers 4 bytes wide into the buffer.
 
-    @param buffer     The buffer object to add the data to.
     @param identifier A single byte identifier for the element
     @param cnt        The element timestamp.
     @param a          Number 0
@@ -107,7 +105,6 @@ public:
 
     /** Put 2 numbers 4 bytes wide into the buffer.
 
-    @param buffer     The buffer object to add the data to.
     @param identifier A single byte identifier for the element
     @param cnt        The element timestamp.
     @param a          Number 0
@@ -141,7 +138,6 @@ public:
 
     /** Put a terminator ended string into the buffer.
 
-    @param buffer     The buffer object to add the data to.
     @param identifier A single byte identifier for the element
     @param cnt        The element timestamp.
     @param string     The data to store.

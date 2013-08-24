@@ -18,8 +18,8 @@
 
 
 
-#ifndef LIBREDNINE_CONCURRENT_BUFFER_H_
-#define LIBREDNINE_CONCURRENT_BUFFER_H_
+#ifndef LIBPROPELLER_CONCURRENT_BUFFER_H_
+#define LIBPROPELLER_CONCURRENT_BUFFER_H_
 
 #include <propeller.h>
 
@@ -31,7 +31,7 @@ public:
     }
 
     /**
-     * @param new_timeout The maximum amount of time to wait for a @a Put(), in 
+     * @param timeout_in_us The maximum amount of time to wait for a @a Put(), in 
      *      microseconds. Default is 1 second timeout.
      * @return true if successfully started, false otherwise.
      */
@@ -85,7 +85,7 @@ public:
      * time. The others wait for their turn.
      * 
      * @param data The array of bytes to add.
-     * @param length The number of bytes to add,
+     * @param size The number of bytes to add,
      * @returns true if data is added to the buffer, false if timeout occurs
      */
     static bool Put(const char data[], const int size) {
@@ -106,7 +106,12 @@ public:
      * This function is useful for when there is some binary data (for example, a 
      * time stamp) and some textual data (for example, a GPS string). This function 
      * is like @a Put(array), but will append a string on the end.
-     * 
+     *
+     * @param data
+     * @param size
+     * @param string
+     * @param terminator
+     * @return 
      */
     static bool PutWithString(const char data[], const int size, const char * string, const char terminator = '\0') {
         if (Lockset() == false) {
@@ -280,4 +285,4 @@ public:
 
 
 
-#endif // LIBREDNINE_CONCURRENT_BUFFER_H_
+#endif // LIBPROPELLER_CONCURRENT_BUFFER_H_

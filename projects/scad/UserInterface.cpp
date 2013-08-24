@@ -7,8 +7,7 @@
 
 #include "UserInterface.h"
 
-#include "librednine/serial/serial.h"
-
+#include "libpropeller/serial/serial.h"
 extern Serial * debug;
 
 UserInterface::UserInterface() {

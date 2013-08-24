@@ -1,8 +1,8 @@
 #ifndef SRLM_PROPGCC_ROVING_BLUETOOTH_H__
 #define SRLM_PROPGCC_ROVING_BLUETOOTH_H__
 
-#include "librednine/serial/serial.h"
-#include "librednine/pin/pin.h"
+#include "libpropeller/serial/serial.h"
+#include "libpropeller/pin/pin.h"
 
 class Bluetooth {
 

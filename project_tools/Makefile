@@ -17,7 +17,7 @@ ROOT=../../
 endif
 
 ifndef LIBPROPELLER
-LIBPROPELLER=/home/clewis/consulting/parallax/code/
+LIBPROPELLER=/home/clewis/consulting/parallax/libpropeller/
 endif
 
 ifndef DEFINEFLAGS
@@ -72,10 +72,10 @@ gamma: buildgamma
 	ln -s main.gamma.elf main.elf
 	
 buildbeta2:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}/libpropeller/extras/*
 	
 buildgamma:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}/libpropeller/extras/*
 	
 
 

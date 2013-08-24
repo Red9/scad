@@ -1,9 +1,9 @@
 #ifndef USERINTERFACE_H
 #define	USERINTERFACE_H
 
-#include "librednine/pin/pin.h"
-#include "librednine/scheduler/scheduler.h"
-#include "librednine/stopwatch/stopwatch.h"
+#include "libpropeller/pin/pin.h"
+#include "libpropeller/scheduler/scheduler.h"
+#include "libpropeller/stopwatch/stopwatch.h"
 
 //#include "libpropeller/c++allocate/c++allocate.h"
 

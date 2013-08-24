@@ -15,15 +15,15 @@
 #include "libpropeller/c++allocate/c++allocate.h"
 #include "libpropeller/pin/pin.h"
 
-#include "librednine/serial/serial.h"
-#include "librednine/i2c/i2c.h"
-#include "librednine/max8819/max8819.h"
-#include "librednine/numbers/numbers.h"
-#include "librednine/scheduler/scheduler.h"
+#include "libpropeller/serial/serial.h"
+#include "libpropeller/i2c/i2c.h"
+#include "libpropeller/max8819/max8819.h"
+#include "libpropeller/numbers/numbers.h"
+#include "libpropeller/scheduler/scheduler.h"
 #include "librednine/concurrent_buffer/concurrent_buffer.h"
 #include "librednine/concurrent_buffer/pib.h"
-#include "librednine/eeprom/eeprom.h"
-#include "librednine/stopwatch/stopwatch.h"
+#include "libpropeller/eeprom/eeprom.h"
+#include "libpropeller/stopwatch/stopwatch.h"
 
 #include "rovingbluetooth.h"
 #include "DatalogController.h"
@@ -337,6 +337,7 @@ void InnerLoop(void) {
 
     ParseBluetoothCommands();
 
+    /*
     if (ui.CheckButton() == false
             && ui.GetButtonPressDuration() > 100
             && ui.GetButtonPressDuration() < 1000) {
@@ -344,6 +345,9 @@ void InnerLoop(void) {
         ui.ClearButtonPressDuration();
         TurnSDOn();
     }
+     */
+      
+    
     if (ui.CheckButton() == true
             && ui.GetButtonPressDuration() > 3000) {
         debug->Put("\r\nLong Button press. Turning self off.");
@@ -432,6 +436,8 @@ int main(void) {
     Init();
     
     
+    
+    
     while (ui.CheckButton()) {
         waitcnt(CLKFREQ / 10 + CNT);
     } //Wait for the user to release the button, if turned on that way.
@@ -440,7 +446,14 @@ int main(void) {
     if (pmic.GetPluggedIn() == true) {
         ui.DisplayDeviceStatus(UserInterface::kCharging, sensors.fuel_soc);
         pmic.Off(); //Turn off in case it's unplugged while charging
+        while(true){};
     }
+    
+    debug->Put("Automatically turning SD on.");
+    TurnSDOn();
+    
+    
+    
     
     while (true) {
         InnerLoop();

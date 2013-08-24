@@ -3,13 +3,13 @@
 
 
 #include <string.h>
-#include "librednine/i2c/i2c.h"
-#include "librednine/sd/sd.h"
-#include "librednine/pcf8523/pcf8523.h"
-#include "librednine/eeprom/eeprom.h"
-#include "librednine/numbers/numbers.h"
+#include "libpropeller/i2c/i2c.h"
+#include "libpropeller/sd/sd.h"
+#include "libpropeller/pcf8523/pcf8523.h"
+#include "libpropeller/eeprom/eeprom.h"
+#include "libpropeller/numbers/numbers.h"
 
-#include "librednine/pin/pin.h"
+#include "libpropeller/pin/pin.h"
 
 /* Pin definitions */
 #ifdef GAMMA
