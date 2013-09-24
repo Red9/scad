@@ -7,12 +7,12 @@
 #include "librednine/concurrent_buffer/pib.h"
 #include "libpropeller/scheduler/scheduler.h"
 #include "libpropeller/i2c/i2c.h"
-#include "librednine/lsm303dlhc/lsm303dlhc.h"
-#include "librednine/l3gd20/l3gd20.h"
+#include "libpropeller/lsm303dlhc/lsm303dlhc.h"
+#include "libpropeller/l3gd20/l3gd20.h"
 #include "libpropeller/pcf8523/pcf8523.h"
 #include "libpropeller/max17048/max17048.h"
 #include "libpropeller/ms5611/ms5611.h"
-#include "librednine/mtk3339/mtk3339.h"
+#include "libpropeller/mtk3339/mtk3339.h"
 
 /* Pin definitions */
 #ifdef GAMMA
@@ -50,17 +50,7 @@ public:
      */
     static void Stop(void);
 
-    /**
-     * 
-     * @param timeout the timeout in milliseconds
-     */
-    //bool GetLock(int timeout = -1);
-    //void ReturnLock(void);
-
-
-    //void SetAutomaticRead(bool new_value);
-    static void PauseReading(void);
-    static void ResumeReading(void);
+    static void SetLogging(const bool new_logging);
 
     /**
      * @TODO: Make sure this thread safe!
@@ -88,6 +78,7 @@ private:
     static MTK3339 gps;
 
     static volatile bool paused;
+    static volatile bool logging;
 
     static volatile bool killed;
 
@@ -132,6 +123,8 @@ private:
      * own cog.
      */
     static void Server(void * temp);
+    
+    
 };
 
 #endif	/* PROPGCC_SRLM_SENSORS_H */

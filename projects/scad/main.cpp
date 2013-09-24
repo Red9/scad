@@ -44,21 +44,13 @@
 
 //TODO(SRLM): Make sure there isn't a problem with the delay between a command to DatalogController (such as start SD), and the time that getsdActive returns the new state.
 
-// ------------------------------------------------------------------------------
-
 //TODO(SRLM): Add tests to beginning to not log when battery voltage is too low.
-
-//TODO(SRLM): Change ELUM to something more generic...
 
 //TODO(SRLM): check pointers for null, and so on (be safe!).
 
 //TODO(SRLM): Numbers::Dec is not thread safe... Check!
 
-//TODO(SRLM): Somewhere I have two calls to dc.AddScales();
-
 //TODO(SRLM): Add some sort of detection for removal of charging during the loop...
-
-//TODO(SRLM): I think there is a bug that the display (LEDs) won't get changed while datalogging. So, if the battery runs down there is no indication of this.
 
 /**
 
@@ -87,7 +79,6 @@ const int kBoardBeta = 0x0000000B;
 const int kBoardBeta2 = 0x000000B2;
 const int kBoardGamma = 0x00000004;
 
-const int kBluetoothTimeout = 10000;
 //TODO: Do any of these need to be volatile?
 
 Max8819 pmic;
@@ -101,7 +92,6 @@ Serial * debug = NULL;
 #endif
 
 Bluetooth * bluetooth = NULL;
-const int kBLUETOOTH_BAUD = 460800;
 
 /*
 Status Variables
@@ -111,7 +101,6 @@ volatile int boardVersion;
 
 int * datalogStack = NULL; //TODO(SRLM): can these be static?
 int * sensorsStack = NULL;
-
 
 //TODO(SRLM): for some reason it suddenly can't find _thread_state_t!
 //const int stacksize = sizeof (_thread_state_t) + sizeof (int)*3 + sizeof (int)*100;
@@ -136,7 +125,6 @@ void LogVElement() {
     strcat(string, " ");
 
     strcat(string, Numbers::Hex(boardVersion, 8));
-    //strcat(string, " ");
 
     PIB::_string('V', CNT, string, '\0');
 
@@ -181,7 +169,6 @@ void DatalogCogRunner(void * parameter) {
 void OutputGlobalLogHeaders(void) {
     LogVElement();
     sensors.AddScales();
-    //TODO(SRLM): Add in something here to log the scale factors as well.
 }
 
 void TurnSDOn(void) {
@@ -197,12 +184,11 @@ void TurnSDOn(void) {
             dc.BlockUntilWaiting();
             eeprom.PutNumber(kEepromCanonNumberAddress, dc.GetLastFileNumber(), 4); //Store canonFilenumber for persistence
             OutputGlobalLogHeaders();
-            ui.DisplayDeviceStatus(UserInterface::kDatalogging, sensors.fuel_soc);
-            debug->Put("\r\nStarted SD...");
+            Sensors::SetLogging(true);
+            ui.SetState(UserInterface::kDatalogging);
         }
     } else {
-        debug->Put("\r\nSD Error!");
-        ui.DisplayDeviceStatus(UserInterface::kNoSD, sensors.fuel_soc);
+        ui.SetState(UserInterface::kNoSD);
         LogStatusElement(kError, "SD Error!");
     }
 }
@@ -212,10 +198,11 @@ void TurnSDOff(void) {
     debug->Put("\r\nTurnSDOff()");
 #endif    
     if (dc.getsdActive() == true) {
+        Sensors::SetLogging(false);
         dc.StopSD();
     }
-
-    ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
+    
+    ui.SetState(UserInterface::kWaiting);
 }
 
 void TransferFile(const char * filename) {
@@ -226,13 +213,14 @@ void TransferFile(const char * filename) {
     debug->Put("'");
 #endif
 
-    sensors.PauseReading();
+    
+    Sensors::SetLogging(false);
     if (dc.getsdActive() == false) {
         //TODO output file Header here
         dc.InjectFile(filename);
         //TODO output file Closer here
     }
-    sensors.ResumeReading();
+    Sensors::SetLogging(true);
     //TODO(SRLM): Add error output if SD is open (and can't list files)
 }
 
@@ -274,7 +262,9 @@ void KillSelf(void) {
     debug->Put("\r\nKillSelf()");
 #endif    
     TurnSDOff();
-    ui.DisplayDeviceStatus(UserInterface::kPowerOff, sensors.fuel_soc);
+
+    ui.SetState(UserInterface::kPowerOff);
+    ui.DisplayState(sensors.fuel_soc);
 
     waitcnt(CLKFREQ + CNT);
     pmic.Off(); //TODO(SRLM): Make this set a global variable instead of hacking it...
@@ -325,36 +315,31 @@ void ParseBluetoothCommands(void) {
 void InnerLoop(void) {
 
     // Test: Battery is too low?
-    /*if (sensors.fuel_voltage < 3500
+    if (sensors.fuel_voltage < 3500
             and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
 #ifdef DEBUG_PORT
         debug->Put("\r\nWarning: Low fuel!!! Turning off.");
 #endif
         LogStatusElement(kFatal, "Low Voltage");
         KillSelf();
-    }*/
+    }
 
 
     ParseBluetoothCommands();
 
-    /*
     if (ui.CheckButton() == false
             && ui.GetButtonPressDuration() > 100
             && ui.GetButtonPressDuration() < 1000) {
-        debug->Put("\r\nShort Button press. Turning self on.");
         ui.ClearButtonPressDuration();
         TurnSDOn();
     }
-     */
-      
     
     if (ui.CheckButton() == true
             && ui.GetButtonPressDuration() > 3000) {
-        debug->Put("\r\nLong Button press. Turning self off.");
         KillSelf();
     }
-
-
+    
+    ui.DisplayState(sensors.fuel_soc);
 
 }
 
@@ -372,7 +357,9 @@ void Init(void) {
 #elif BETA2
     ui.Init(board::kPIN_LEDG, board::kPIN_LEDR, board::kPIN_BUTTON);
 #endif
-    ui.DisplayDeviceStatus(UserInterface::kWaiting, sensors.fuel_soc);
+    
+    ui.SetState(UserInterface::kWaiting);
+    
 
 
     //EEPROM
@@ -400,7 +387,7 @@ void Init(void) {
     bool mounted = dc.Init(canonNumber, unitNumber, board::kPIN_SD_DO, board::kPIN_SD_CLK,
             board::kPIN_SD_DI, board::kPIN_SD_CS);
     if (mounted == false) {
-        ui.DisplayDeviceStatus(UserInterface::kNoSD, -1);
+        ui.SetState(UserInterface::kNoSD);
         LogStatusElement(kError, "SD Error at Init!");
     } else {
         datalogStack = (int *) malloc(stacksize);
@@ -411,6 +398,7 @@ void Init(void) {
     debug->Put("\r\nDatalog Cog initialized.");
 #endif
     sensors.Start();
+    sensors.SetLogging(false);
 
 #ifdef DEBUG_PORT
     debug->Put("\r\nSensor Cog initialized.");
@@ -444,15 +432,9 @@ int main(void) {
     waitcnt(CLKFREQ / 10 + CNT);
 
     if (pmic.GetPluggedIn() == true) {
-        ui.DisplayDeviceStatus(UserInterface::kCharging, sensors.fuel_soc);
+        ui.SetState(UserInterface::kCharging);
         pmic.Off(); //Turn off in case it's unplugged while charging
-        while(true){};
     }
-    
-    debug->Put("Automatically turning SD on.");
-    TurnSDOn();
-    
-    
     
     
     while (true) {

@@ -11,7 +11,7 @@
 extern Serial * debug;
 
 UserInterface::UserInterface() {
-    currentState = kUnknown;
+    previousState = kUnknown;
     //Make sure that we're keeping track of the last time display has been updated.
     displayDeviceState = new Scheduler(1); //0.1 Hz
 
@@ -52,15 +52,18 @@ int UserInterface::GetButtonPressDuration(void) {
     return buttonDuration;
 }
 
-void UserInterface::ClearButtonPressDuration(void){
+void UserInterface::ClearButtonPressDuration(void) {
     buttonDuration = 0;
 }
 
-void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
-        ) {
+void UserInterface::SetState(DeviceState new_state){
+    state = new_state;
+}
+
+void UserInterface::DisplayState(int lastFuel) {
 
     //Exit if the state is the same, and we've updated the display recently.
-    if (currentState == state && !displayDeviceState->Run()) {
+    if (previousState == state && !displayDeviceState->Run()) {
         return;
     }
 
@@ -72,17 +75,17 @@ void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
 
 
 
-    currentState = state;
+    previousState = state;
 
     ledRed.pwm(0);
     ledWhite.pwm(0);
 
 
-    if (currentState == kUnknownError) {
+    if (previousState == kUnknownError) {
         ledRed.pwm(kFastBlink, kUseCTRA, &ledWhite);
-    } else if (currentState == kNoSD) {
+    } else if (previousState == kNoSD) {
         ledRed.pwm(kSlowBlink, kUseCTRA, &ledWhite);
-    } else if (currentState == kCharging) {
+    } else if (previousState == kCharging) {
         if (lastFuel < 90) {//pmic->GetCharge() == true){
             //Fade LED in and out
             ledRed.high();
@@ -92,7 +95,7 @@ void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
             ledWhite.high();
             ledRed.low();
         }
-    } else if (currentState == kDatalogging) {
+    } else if (previousState == kDatalogging) {
         if (lastFuel > 25) {
             //Flash green LED
             //elum.Flash(Elum::GREEN, 1000,  * 10);
@@ -108,8 +111,8 @@ void UserInterface::DisplayDeviceStatus(const DeviceState state, int lastFuel
             ledRed.pwm(dataloggingBlinkRate(lastFuel), kUseCTRA);
             ledWhite.low();
         }
-    } else if (currentState == kPowerOn
-            || currentState == kWaiting) {
+    } else if (previousState == kPowerOn
+            || previousState == kWaiting) {
         ledWhite.high();
         ledRed.low();
     } else {

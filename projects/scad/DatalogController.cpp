@@ -19,8 +19,6 @@ bool DatalogController::Init(const int storedLastCanonNumber,
 
     sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
 
-    //TODO(SRLM): try out writing a file and see if we get any errors (and store for future reference)
-
     sdMounted = !sd.HasError(); 
     if(sdMounted == false){
         return false;

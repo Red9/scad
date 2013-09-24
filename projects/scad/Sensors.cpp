@@ -34,9 +34,8 @@ MS5611 Sensors::baro;
 
 MTK3339 Sensors::gps;
 
-volatile bool Sensors::paused;
-
 volatile bool Sensors::killed;
+volatile bool Sensors::logging;
 
 int Sensors::stack[stackSize];
 
@@ -51,16 +50,16 @@ void Sensors::init(void) {
     fuel_rate = 0;
     fuel_voltage = kDefaultFuelVoltage;
 
-    paused = false;
     killed = false;
+    logging = false;
 
 #ifdef GAMMA
-    bus1.Init(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1);
-    bus2.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
+    bus1.Init(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1, 444000);
+    bus2.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2, 444000);
     I2C * bus1addr = &bus1;
     I2C * bus2addr = &bus2;
 #elif BETA2
-    bus.Init(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA); //For Beta2 Boards
+    bus.Init(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA, 444000); //For Beta2 Boards
     I2C * bus1addr = &bus;
     I2C * bus2addr = &bus;
 #endif
@@ -116,17 +115,12 @@ void Sensors::Start(void) {
 }
 
 void Sensors::Server(void * temp) {
-    while (!killed) {
-        AutoRead();
-    }
-    killed = false;
+    AutoRead();
+    killed = false; // Set flag to indicate done.
     cogstop(cogid());
 }
 
 void Sensors::AutoRead(void) {
-
-
-    AddScales();
 
     char * gpsString = NULL;
     //Flush GPS buffer.
@@ -141,48 +135,59 @@ void Sensors::AutoRead(void) {
     Scheduler timeScheduler(1); //10 second cycle
 
 
-    //Make sure to log fuel at least once...
+    //Make sure to read fuel and time at least once...
     ReadFuel();
-    PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+    ReadDateTime();
 
-    while (paused == false) {
 
-        //Note: each Put into the buffer must have a matching Get! Otherwise, on
-        //occasion the get test will misinterpret a data byte as the start of a
-        //packet.
+    while (killed == false) {
 
         if (acclScheduler.Run()) {
             ReadAccl();
-            PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
+            if (logging == true) {
+                PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
+            }
         }
 
         if (gyroScheduler.Run()) {
             ReadGyro();
-            PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
+            if (logging == true) {
+                PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
+            }
         }
 
         if (magnScheduler.Run()) {
             ReadMagn();
-            PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
+            if (logging == true) {
+                PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
+            }
         }
         if (fuelScheduler.Run()) {
             ReadFuel();
-            PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+            if (logging == true) {
+                PIB::_3x2('F', CNT, fuel_voltage, fuel_soc, fuel_rate);
+            }
         }
         if (timeScheduler.Run()) {
             ReadDateTime();
-            PIB::_3x2('T', CNT, hour, minute, second);
-            PIB::_3x2('D', CNT, year, month, day);
+            if (logging == true) {
+                PIB::_3x2('T', CNT, hour, minute, second);
+                PIB::_3x2('D', CNT, year, month, day);
+            }
         }
 
         if (baro.Touch() == true) {
             ReadBaro();
-            PIB::_2x4('E', CNT, pressure, temperature);
+            if (logging == true) {
+                PIB::_2x4('E', CNT, pressure, temperature);
+            }
         }
 
 
         if ((gpsString = gps.Get()) != NULL) {
-            PIB::_string('P', CNT, gpsString, '\0');
+            if (logging == true) {
+                PIB::_string('P', CNT, gpsString, '\0');
+            }
         }
     }
 
@@ -207,16 +212,33 @@ void Sensors::AddScales() {
     const int acclScale = *(int *) &acclScaleFloat;
     PIB::_3x4('A' | 0x80, CNT, acclScale, acclScale, acclScale);
 
+
     //Magn
-    const float magnScaleFloatXY = 4.347826e-7f; // 1/230gauss * 0.0001 tesla
+    //const float magnScaleFloatXY = 4.347826e-7f; // 1/230gauss * 0.0001 tesla
+    //const float magnScaleFloatXY = 1.16959e-7f; // 1/855gauss * 0.0001 tesla
+    const float magnScaleFloatXY = 9.09091e-8f; // 1/1100gauss * 0.0001 tesla
     const int magnScaleXY = *(int *) &magnScaleFloatXY;
-    const float magnScaleFloatZ = 4.87804878e-7f; // 1/205gauss * 0.0001 tesla
+    //const float magnScaleFloatZ = 4.87804878e-7f; // 1/205gauss * 0.0001 tesla
+    //const float magnScaleFloatZ = 1.31579e-7f; // 1/760gauss * 0.0001 tesla
+    const float magnScaleFloatZ = 1.02041e-7f; // 1/980gauss * 0.0001 tesla
     const int magnScaleZ = *(int *) &magnScaleFloatZ;
     PIB::_3x4('M' | 0x80, CNT, magnScaleXY, magnScaleXY, magnScaleZ);
 
     const float gyroScaleFloat = 0.001221730475f; // 0.070degrees * 0.0174532925 radians
     const int gyroScale = *(int *) &gyroScaleFloat;
     PIB::_3x4('G' | 0x80, CNT, gyroScale, gyroScale, gyroScale);
+
+
+    //F: 6267046, 4198.000000, 98.000000, 76.000000
+    const float fuelScaleFloatVoltage = 0.001;
+    const int fuelScaleVoltage = *(int *) &fuelScaleFloatVoltage;
+    const float fuelScaleFloatSOC = 1;
+    const int fuelScaleSOC = *(int *) &fuelScaleFloatSOC;
+    const float fuelScaleFloatRate = 0.1;
+    const int fuelScaleRate = *(int *) &fuelScaleFloatRate;
+    PIB::_3x4('F' | 0x80, CNT, fuelScaleVoltage, fuelScaleSOC, fuelScaleRate);
+
+
 }
 
 void Sensors::ReadDateTime(void) {
@@ -245,10 +267,6 @@ void Sensors::ReadBaro() {
     baro.Get(pressure, temperature, true);
 }
 
-void Sensors::PauseReading(void) {
-    paused = true;
-}
-
-void Sensors::ResumeReading(void) {
-    paused = false;
+void Sensors::SetLogging(const bool new_logging) {
+    logging = new_logging;
 }

@@ -1,12 +1,9 @@
-#ifndef USERINTERFACE_H
-#define	USERINTERFACE_H
+#ifndef REDNINE_USERINTERFACE_H_
+#define	REDNINE_USERINTERFACE_H_
 
 #include "libpropeller/pin/pin.h"
 #include "libpropeller/scheduler/scheduler.h"
 #include "libpropeller/stopwatch/stopwatch.h"
-
-//#include "libpropeller/c++allocate/c++allocate.h"
-
 
 class UserInterface {
 public:
@@ -20,7 +17,8 @@ public:
 
     void Init(const int kPinLedWhite, const int kPinLedRed, const int kPinButton);
 
-    void DisplayDeviceStatus(DeviceState state, int lastFuel);
+    void DisplayState(int lastFuel);
+    void SetState(DeviceState new_state);
     
     bool CheckButton(void);
     
@@ -36,7 +34,7 @@ public:
 private:
     Pin ledWhite, ledRed, button;
 
-    volatile DeviceState currentState;
+    volatile DeviceState previousState;
     Scheduler * displayDeviceState;
     
     
@@ -48,6 +46,8 @@ private:
     int buttonDuration;
     Stopwatch buttonTimer;
     
+    DeviceState state;
+    
     
     int dataloggingBlinkRate(const int kFuelSoc);
     
@@ -57,5 +57,5 @@ private:
 
 };
 
-#endif	/* USERINTERFACE_H */
+#endif	// REDNINE_USERINTERFACE_H_
 
