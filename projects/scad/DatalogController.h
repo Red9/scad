@@ -1,92 +1,309 @@
-/**
- * 
- * @author srlm (srlm@srlmproductions.com)
- */
-
-#ifndef SRLM_PROPGCC_DATALOGCONTROLLER_H
-#define	SRLM_PROPGCC_DATALOGCONTROLLER_H
+#ifndef REDNINE_DATALOGCONTROLLER_H_
+#define	REDNINE_DATALOGCONTROLLER_H_
 
 #include "libpropeller/sd/sd.h"
 #include "librednine/concurrent_buffer/concurrent_buffer.h"
 #include "rovingbluetooth.h"
+#include "Sensors.h"
+
+extern Bluetooth bluetooth; //TODO(SRLM): This should be a parameter, not an extern.
+
+extern Serial debug;
 
 class DatalogController {
 public:
-    ~DatalogController();
 
-    bool Init(int storedLastCanonNumber, int unitNumber, int kPIN_SD_DO, int kPIN_SD_CLK, int kPIN_SD_DI, int kPIN_SD_CS);
-
-    void SetClock(int year, int month, int day,
-            int hour, int minute, int second);
-
-    void Server(void);
-    void KillServer(void);
-
-    void GetCurrentFilename(char * filename);
-    int GetLastFileNumber(void);
+    struct Configuration {
+        int unitNumber;
+        int canonNumber;
+        const char * sensorJSON;
 
 
-    void StartSD(void);
-    void StopSD(void);
-    void InjectFile(const char * tfilename);
-    void ListFilenamesOnDisk(void);
+        // Initial
+        int year, month, day, hour, minute, second;
+        int timestamp;
+        
+        
+        // RFC822 format timezone
+        char timezoneSign;
+        int timezoneHours;
+        int timezoneMinutes;
+        
 
+        const char * compileDate;
+        const char * compileTime;
 
+        int bitsPerTimestamp;
 
-    void BlockUntilWaiting(void);
+        int boardVersion;
 
-    bool getsdActive(void);
-
-    bool getsdMounted(void);
-    
-private:
-    bool OpenNewFile(void);
-
-    enum COMMAND_LIST {
-        WAIT, LOG_SD, STOP_SD, TRANSFER_FILE, LIST_FILENAMES, KILL_SELF
+        char filename[13];
     };
-    volatile COMMAND_LIST command;
-    volatile char transferFilename[13];
+
+    ~DatalogController() {
+        // TODO(SRLM): Stop logging (if logging).
+    }
+
+    bool Init(const int kPIN_SD_DO, const int kPIN_SD_CLK,
+            const int kPIN_SD_DI, const int kPIN_SD_CS) {
+
+        sdMounted = false;
+        recording = kNO_RECORD;
+
+        sd.Mount(kPIN_SD_DO, kPIN_SD_CLK, kPIN_SD_DI, kPIN_SD_CS);
+        sdMounted = !sd.HasError();
+        return sdMounted;
+    }
+
+    bool ListFiles(void) {
+        bool successFlag = false;
+        StopRecording();
+        char filename[13];
+        filename[0] = '\0';
+
+        if (DiskReady() == true) {
+
+            sd.OpenRootDirectory();
+
+            // TODO(SRLM): What if there is no output?
+            while (sd.NextFile(filename) == true) {
+                bluetooth.Put(filename);
+                bluetooth.Put('\r');
+                bluetooth.Put('\n');
+            }
+            successFlag = true;
+        }
+        return successFlag;
+    }
+
+    bool TransferFile(const char * filename) {
+        StopRecording();
+        bool successFlag = false;
+        if (DiskReady() == true) {
+            sd.ClearError();
+            sd.Open(filename, 'r');
+            if (sd.HasError()) {
+                sd.ClearError();
+            } else {
+                int byte;
+                bluetooth.Put("[[[[[[[[");
+                
+                int sdStartCnt;
+                int bluetoothStartCnt;
+                
+                int sdCntTotal = 0;
+                int bluetoothCntTotal = 0;
+                
+                sdStartCnt = CNT;
+                while ((byte = sd.Get()) != -1) {
+                    sdCntTotal += CNT - sdStartCnt;
+                    
+                    bluetoothStartCnt = CNT;
+                    bluetooth.Put(byte);
+                    bluetoothCntTotal += CNT - bluetoothStartCnt;
+                    
+                    sdStartCnt = CNT;
+                }
+                bluetooth.Put("]]]]]]]]");
+                
+                debug.PutFormatted("\r\nTransfer cycles; SD: %i; Bluetooth:%i", sdCntTotal, bluetoothCntTotal);
+                
+                successFlag = true;
+            }
+        }
+        return successFlag;
+    }
+
+    void DeleteFile(const char * filename) {
+        StopRecording();
+        if (DiskReady() == true) {
+            sd.ClearError();
+            sd.Open(filename, 'd');
+            sd.ClearError();
+        }
+    }
+
+    void RecordFile(Configuration & config) {
+
+        sd.SetDate(config.year, config.month, config.day, config.hour, config.minute, config.second);
+
+        recording = kSTART_RECORD;
+
+        if (ServerStartSD(config) == true) {
+            recording = kRECORD;
+            while (recording == kRECORD) {
+                LogSequenceSD();
+            }
+            ServerStopSD();
+        }
+        recording = kNO_RECORD;
+    }
+
+    void StopRecording(void) {
+        while (recording == kSTART_RECORD) {
+            /* Do nothing */
+        }
+
+        if (recording == kRECORD) {
+            recording = kFINISH_RECORDING;
+        }
+
+        while (recording != kNO_RECORD) {
+            /* Do nothing */
+        }
+    }
+
+    bool DiskReady(void) {
+        return sdMounted;
+    }
+    
+    bool IsRecording(void){
+        return recording != kNO_RECORD;
+    }
+
+    bool WaitUntilRecordingReady(void) {
+        // Delay through the startup of recording
+        while (recording == kSTART_RECORD) {
+            /* Do nothing */
+        }
+
+        return recording == kRECORD;
+    }
 
 
-    void ServerStopSD(void);
-    void ServerTransferFile(void);
-    void ServerStartSD(void);
-    void ServerListFilenames(void);
+private:
 
-    bool IsFileOnSD(const int fileNumber);
-    void ComposeFileName(char * buffer, const int unit, const int canon);
+    enum RecordingControl {
+        kNO_RECORD, kSTART_RECORD, kRECORD, kFINISH_RECORDING
+    };
+
+    volatile RecordingControl recording;
 
     SD sd;
     ConcurrentBuffer sdBuffer;
-    ConcurrentBuffer serialBuffer;
-
-    volatile bool sdActive;
-
-
-    int lastCanonNumber;
-    int unitNumber;
-
-    void ComposeElementHeader(char * data, const char elementIdentifier);
-    
-    /**
-     * 
-     * @param live
-     * @param filename
-     * @param filesize If filesize is unknown or isn't transmitted put -1 here.
-     */
-    void LogRElementBluetooth(const bool live, const char * filename, const int filesize);
-
 
     volatile bool sdMounted;
-    volatile bool rootDirectoryIsOpen;
 
-    void LogSequence(void);
-    void LogSequenceSD(void);
-    void LogSequenceSerial(void);
-    
+    bool OpenNewFile(Configuration & config) {
+        char buffer[13];
+        ComposeFileName(buffer, config.unitNumber, config.canonNumber);
+        sd.Open(buffer, 'w');
 
+        if (sd.HasError() == true) {
+            sd.ClearError();
+            sd.Close();
+            return false;
+        } else {
+            strcpy(config.filename, buffer);
+            OutputPreamble(config);
+            return true;
+        }
+    }
+
+    bool ServerStartSD(Configuration & config) {
+        bool successFlag = false;
+        if (DiskReady() == true) {
+            int currentNumber = (config.canonNumber + 1) % 1000;
+            while (currentNumber != config.canonNumber) {
+                if (FindFile(config.unitNumber, currentNumber) == false) {
+                    config.canonNumber = currentNumber;
+                    OpenNewFile(config);
+                    successFlag = true;
+                    break;
+                }
+                currentNumber = (currentNumber + 1) % 1000;
+            }
+            // TODO(SRLM): Do we really want to reset the tail? Shouldn't we take out a lock first?
+            sdBuffer.ResetTail(); //Make sure that there are no unaccounted for bytes.
+        }
+        return successFlag;
+    }
+
+    void LogSequenceSD(void) {
+        if (sdBuffer.GetFree() != ConcurrentBuffer::GetkSize()) {
+            volatile char * data = NULL;
+            int data_size = sdBuffer.Get(data);
+            sd.Put((char *) data, data_size);
+        }
+    }
+
+    void ServerStopSD(void) {
+        //Finish up remaining bytes in buffer here.
+        //TODO(SRLM): Make the log buffer cleanup have a timeout feature...
+        if (ConcurrentBuffer::Lockset() == true) {
+            LogSequenceSD();
+            LogSequenceSD(); // Twice to make sure we've got everything.
+            ConcurrentBuffer::Lockclear();
+            waitcnt(CLKFREQ / 100 + CNT); //10 ms @80MHz
+        }
+        sd.Close();
+    }
+
+    void ComposeFileName(char * buffer, const int unit, const int canon) {
+        buffer[0] = 0;
+        //This version is B###F###.EXT
+        strcat(buffer, "B");
+        strcat(buffer, Numbers::Dec(unit));
+        strcat(buffer, "F");
+        strcat(buffer, Numbers::Dec(canon));
+        strcat(buffer, ".RNC");
+    }
+
+    bool FindFile(const int unitNumber, const int fileNumber) {
+
+        char buffer[13];
+        ComposeFileName(buffer, unitNumber, fileNumber);
+
+        return FindFile(buffer);
+    }
+
+    bool FindFile(const char * filename) {
+        sd.Open(filename, 'r');
+        bool result = !sd.HasError();
+        sd.ClearError();
+        sd.Close();
+        sd.ClearError();
+        return result;
+    }
+
+    void OutputPreamble(Configuration & config) {
+
+        static const char * const preambleJSON = R"PREAMBLE({
+	"contentType":"RNC",
+	"timestampFormat":{
+		"frequency":%i,
+		"bitsPerTimestamp":%i
+	},
+	"createTime":{
+		"brokenTime":"%04i-%02i-%02iT%02i:%02i:%02i%c%02i%02i",
+		"timestamp":%i
+	},
+	"scadUnit":%i,
+	"softwareVersion":"%s %s",
+	"createName":"%s",
+	"sensors":{
+                %s
+        }
+        }
+        )PREAMBLE";
+
+
+
+        sd.PutFormatted(preambleJSON,
+                CLKFREQ,
+                config.bitsPerTimestamp,
+                config.year, config.month, config.day, config.hour, config.minute, config.second,
+                config.timezoneSign, config.timezoneHours, config.timezoneMinutes,
+                config.timestamp,
+                config.unitNumber,
+                config.compileDate,
+                config.compileTime,
+                config.filename,
+                config.sensorJSON);
+
+        sd.Put("||||||||");
+    }
 };
 
-#endif	/* SRLM_PROPGCC_DATALOGCONTROLLER_H */
+#endif	// REDNINE_DATALOGCONTROLLER_H_
 

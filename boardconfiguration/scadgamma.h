@@ -3,8 +3,8 @@
 
 */
 
-#ifndef SRLM_PROPGCC_BOARD_H__
-#define SRLM_PROPGCC_BOARD_H__
+#ifndef SRLM_PROPGCC_BOARD_SCADGAMMA__
+#define SRLM_PROPGCC_BOARD_SCADGAMMA__
 
 namespace board{
 
@@ -55,5 +55,5 @@ namespace board{
 	const int kPIN_USB_RX = 31; //Rx to the Propeller
 }
 
-#endif // SRLM_PROPGCC_BOARD_H__
+#endif // SRLM_PROPGCC_BOARD_SCADGAMMA__
 

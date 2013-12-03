@@ -17,7 +17,7 @@ ROOT=../../
 endif
 
 ifndef LIBPROPELLER
-LIBPROPELLER=/home/clewis/consulting/parallax/libpropeller/
+LIBPROPELLER=../../
 endif
 
 ifndef DEFINEFLAGS
@@ -56,8 +56,8 @@ CLD = propeller-elf-ld
 
 INLINEFLAGS = #-fno-default-inline
 
-OPTIMIZEFLAGS = -Os -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti -m32bit-doubles -mno-fcache -fpermissive
-CXXFLAGS = -m${MODEL} ${INCLUDE} ${INLINEFLAGS} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x -fno-strict-aliasing 
+OPTIMIZEFLAGS =  -Os -ffunction-sections -fdata-sections -pipe -fno-exceptions -fno-rtti -m32bit-doubles -mno-fcache -fpermissive -fno-strict-aliasing
+CXXFLAGS = -m${MODEL} ${INCLUDE} ${INLINEFLAGS} ${DEBUGFLAGS} ${DEFINEFLAGS} ${OPTIMIZEFLAGS} -std=gnu++0x
 CLDFLAGS = -Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
 
 
@@ -72,10 +72,10 @@ gamma: buildgamma
 	ln -s main.gamma.elf main.elf
 	
 buildbeta2:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}/libpropeller/extras/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
 buildgamma:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}/libpropeller/extras/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
 
 

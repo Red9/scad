@@ -4,30 +4,42 @@
 #include "libpropeller/serial/serial.h"
 #include "libpropeller/pin/pin.h"
 
-class Bluetooth {
-
+class Bluetooth : public Serial {
 public:
-	Bluetooth(int rxpin, int txpin, int ctspin, int connectpin);
-	
-	
-	int Put(const char character);
 
-	int Put(const char * buffer_ptr, const int count);
-	int Put(const char * buffer_pointer);
-	
-	int Get(int timeout = -1);
-	int Get(char * buffer, int length, int timeout=-1);
-	int Get(char * buffer, char terminator='\n');
-	void GetFlush(void);
+    void Start(const int rxpin, const int txpin, const int ctspin, const int connectpin) {
+        connection = Pin(connectpin);
+        connection.input();
+        Serial::Start(rxpin, txpin, kBAUD, ctspin);
+    }
 
-        int GetCount(void);
-        
+    void Put(const char character) {
+        if (connection.input() == 1) {
+            Serial::Put(character);
+        }
+    }
+
+    int Put(const char * buffer_pointer, const int count) {
+        if (connection.input() == 1) {
+            return Serial::Put(buffer_pointer, count);
+        } else {
+            return 0;
+        }
+    }
+
+    int Put(const char * buffer_pointer) {
+        if (connection.input() == 1) {
+            return Serial::PutFormatted(buffer_pointer);
+        } else {
+            return 0;
+        }
+    }
+
+
 private:
-	int baud;
-	Serial serial;
-        Serial serialTx;
-	Pin connection;
-	
+    static const int kBAUD = 460800;
+    Pin connection;
+
 };
 
 #endif //SRLM_PROPGCC_ROVING_BLUETOOTH_H__

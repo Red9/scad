@@ -1,1 +1,1 @@
-../../project_tools/Makefile
+../../tools/Makefile
