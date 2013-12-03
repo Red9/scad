@@ -21,6 +21,8 @@
 #include "scadbeta2.h"
 #endif
 
+extern Serial debug;
+
 class Sensors {
 public:
     
@@ -155,30 +157,36 @@ private:
 
         if (fuel.Init(bus2addr) == false) {
             result = false;
+            debug.Put("\r\nFailed to init fuel.");
         } else {
             ReadFuel();
         }
 
         if (lsm.Init(bus1addr) == false) {
             result = false;
+            debug.Put("\r\nFailed to init lsm.");
         }
 
         if (l3g.Init(bus1addr, L3GD20::LSB_1) == false) {
             result = false;
+            debug.Put("\r\nFailed to init l3gd20.");
         }
 
         if (rtc.Init(bus2addr) == false) {
             result = false;
+            debug.Put("\r\nFailed to init rtc.");
         }
 
         if (baro.Init(bus2addr, MS5611::LSB_1) == false) {
             result = false;
+            debug.Put("\r\nFailed to init baro.");
         }
 
         //GPS
         gps.Start(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
         if (gps.GetStatus() == false) {
             result = false;
+            debug.Put("\r\nFailed to init gps.");
         }
 
         return result;

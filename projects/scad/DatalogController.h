@@ -86,7 +86,7 @@ public:
                 sd.ClearError();
             } else {
                 int byte;
-                bluetooth.Put("[[[[[[[[");
+                bluetooth.Put("{{{__[[[");
                 
                 int sdStartCnt;
                 int bluetoothStartCnt;
@@ -104,7 +104,7 @@ public:
                     
                     sdStartCnt = CNT;
                 }
-                bluetooth.Put("]]]]]]]]");
+                bluetooth.Put("]]]__}}}");
                 
                 debug.PutFormatted("\r\nTransfer cycles; SD: %i; Bluetooth:%i", sdCntTotal, bluetoothCntTotal);
                 

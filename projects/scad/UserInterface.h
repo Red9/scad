@@ -60,11 +60,11 @@ public:
         } else if (previousState == kCharging) {
             if (lastFuel < 90) {//pmic->GetCharge() == true){
                 //Fade LED in and out
-                ledRed.high();
-                ledWhite.low();
+                ledRed.low();
+                ledWhite.high();
             } else {
                 //Done charging status
-                ledWhite.high();
+                ledWhite.low();
                 ledRed.low();
             }
         } else if (previousState == kDatalogging) {

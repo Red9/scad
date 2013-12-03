@@ -102,6 +102,8 @@ void BeginRecording(void) {
         config.timezoneMinutes = timeZoneMinutes;
         config.unitNumber = unitNumber;
         config.boardVersion = boardVersion;
+        
+        config.timestamp = CNT;
 
         config.year = sensors.year + 2000;
         config.month = sensors.month;
@@ -141,6 +143,7 @@ void EndRecording(void) {
         debug.Put("\r\nEndRecording()");
 #endif    
         Sensors::SetLogging(false);
+        waitcnt(CLKFREQ/10 + CNT); // Give everything some time to settle
         dc.StopRecording();
 
         ui.SetState(UserInterface::kWaiting);
@@ -417,7 +420,7 @@ void Init(void) {
     pmic.Start(board::kPIN_MAX8819_CEN, board::kPIN_MAX8819_CHG,
             board::kPIN_MAX8819_EN123, board::kPIN_MAX8819_DLIM1,
             board::kPIN_MAX8819_DLIM2);
-    pmic.On();
+    pmic.On(); // We'll turn it off later if we need to.
 
     //LEDs and Button
 #ifdef GAMMA
@@ -495,6 +498,9 @@ int main(void) {
     if (pmic.GetPluggedIn() == true) {
         ui.SetState(UserInterface::kCharging);
         pmic.Off(); //Turn off in case it's unplugged while charging
+#ifdef DEBUG_PORT
+        debug.Put("\r\nCharging.");
+#endif
     }
 
 

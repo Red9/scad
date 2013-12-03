@@ -12,6 +12,7 @@
 #include "libpropeller/pin/pin.h"
 
 /* Pin definitions */
+#include "scad.h"
 #ifdef GAMMA
 #include "scadgamma.h"
 #elif BETA2
@@ -333,6 +334,10 @@ void configureBoard() {
     int boardVersion = 0;
     int unitNumber = 0;
     int canonNumber = 0;
+    
+    int timeZoneSign = 0;
+    int timeZoneHours = 0;
+    int timeZoneMinutes = 0;
 
     I2C rtcBus;
 
@@ -352,6 +357,10 @@ void configureBoard() {
         unitNumber = eeprom.GetNumber(kEepromUnitAddress, 4);
         boardVersion = eeprom.GetNumber(kEepromBoardAddress, 4);
         canonNumber = eeprom.GetNumber(kEepromCanonNumberAddress, 4);
+        
+        timeZoneSign = eeprom.GetNumber(board::kEepromTimeZoneSign, 4);
+        timeZoneHours = eeprom.GetNumber(board::kEepromTimeZoneHours, 4);
+        timeZoneMinutes = eeprom.GetNumber(board::kEepromTimeZoneMinutes, 4);
 
         int year, month, day, hour, minute, second;
         year = month = day = hour = minute = second = 0;
@@ -363,6 +372,7 @@ void configureBoard() {
         printf("Current board version: 0x%x\n", boardVersion);
         printf("Current Canon file:    %d\n", canonNumber);
         printf("Current RTC clock is: 20%d-%d-%d at %d:%d:%d\n", year, month, day, hour, minute, second);
+        printf("Current timezone is: %c%d%d", timeZoneSign, timeZoneHours, timeZoneMinutes);
         printf("\n--------------------------\n\n");
 
 
@@ -374,7 +384,7 @@ void configureBoard() {
 
         canonNumber = GetCanonNumber(canonNumber);
         eeprom.PutNumber(kEepromCanonNumberAddress, canonNumber, 4);
-
+        
         SetTime(&rtc);
     }
 
