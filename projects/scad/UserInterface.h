@@ -32,7 +32,7 @@ public:
         button.input();
     }
 
-    void DisplayState(int lastFuel) {
+    void UpdateDisplayState(int lastFuel) {
 
         //Exit if the state is the same, and we've updated the display recently.
         if (previousState == state && !displayDeviceState.Run()) {

@@ -52,6 +52,9 @@ DEBUGFLAGS = -Wall #-Wa,-alh,-L#-pedantic #-fstack-usage #-save-temps #-ftime-re
 
 CXX = /opt/parallax/bin/propeller-elf-g++
 CLD = propeller-elf-ld
+ELFSIZE = propeller-elf-size
+ELFHUBSIZE = propeller-elf-image-size
+
 #-Wall
 
 INLINEFLAGS = #-fno-default-inline
@@ -66,10 +69,14 @@ release: beta2 gamma
 beta2: buildbeta2
 	rm -f main.elf
 	ln -s main.beta2.elf main.elf
+	${ELFSIZE} main.beta2.elf
+	${ELFHUBSIZE} main.beta2.elf
 	
 gamma: buildgamma
 	rm -f main.elf
 	ln -s main.gamma.elf main.elf
+	${ELFSIZE} main.gamma.elf
+	${ELFHUBSIZE} main.gamma.elf
 	
 buildbeta2:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}libpropeller/compile_tools/statics/*

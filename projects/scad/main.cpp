@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // Board configuration
 // ------------------------------------------------------------------------------
-#define DEBUG_PORT
+//#define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -53,7 +53,6 @@ Cog Usage:
 
 Max8819 pmic;
 EEPROM eeprom;
-Sensors sensors;
 DatalogController dc;
 UserInterface ui;
 Bluetooth bluetooth;
@@ -64,7 +63,7 @@ Serial debug;
 
 //TODO(SRLM): for some reason it suddenly can't find _thread_state_t!
 //const int stacksize = sizeof (_thread_state_t) + sizeof (int)*3 + sizeof (int)*100;
-const int stacksize = 80 + sizeof (int)*3 + sizeof (int)*100;
+const int stacksize = 80 + sizeof (int)*3 + sizeof (int)*141;
 
 int datalogStack[stacksize];
 
@@ -102,15 +101,15 @@ void BeginRecording(void) {
         config.timezoneMinutes = timeZoneMinutes;
         config.unitNumber = unitNumber;
         config.boardVersion = boardVersion;
-        
+
         config.timestamp = CNT;
 
-        config.year = sensors.year + 2000;
-        config.month = sensors.month;
-        config.day = sensors.day;
-        config.hour = sensors.hour;
-        config.minute = sensors.minute;
-        config.second = sensors.second;
+        config.year = Sensors::year + 2000;
+        config.month = Sensors::month;
+        config.day = Sensors::day;
+        config.hour = Sensors::hour;
+        config.minute = Sensors::minute;
+        config.second = Sensors::second;
 
         cogstart(DatalogCogRunner, &config, datalogStack, stacksize);
         waitcnt(8000 * 2 + CNT); // Wait for cog to start.
@@ -118,7 +117,7 @@ void BeginRecording(void) {
         if (dc.WaitUntilRecordingReady() == true) {
             eeprom.PutNumber(board::kEepromCanonNumberAddress, config.canonNumber, 4); //Store canonFilenumber for persistence
 
-            sensors.AddScales();
+            Sensors::AddScales();
             Sensors::SetLogging(true);
             ui.SetState(UserInterface::kDatalogging);
         } else {
@@ -143,7 +142,7 @@ void EndRecording(void) {
         debug.Put("\r\nEndRecording()");
 #endif    
         Sensors::SetLogging(false);
-        waitcnt(CLKFREQ/10 + CNT); // Give everything some time to settle
+        waitcnt(CLKFREQ / 10 + CNT); // Give everything some time to settle
         dc.StopRecording();
 
         ui.SetState(UserInterface::kWaiting);
@@ -157,7 +156,7 @@ void KillSelf(bool doNotReboot = true) {
     EndRecording();
 
     ui.SetState(UserInterface::kPowerOff);
-    ui.DisplayState(sensors.fuel_soc);
+    ui.UpdateDisplayState(Sensors::fuel_soc);
 
     waitcnt(CLKFREQ / 4 + CNT);
 
@@ -182,7 +181,6 @@ char parameter[board::kMAX_SIZE_PARAMETER + 1];
 int parameterIndex = 0;
 
 void BluetoothError(const char * const parameter) {
-
 #ifdef DEBUG_PORT
     debug.PutFormatted("Error parsing bluetooth: '%s'\r\n", parameter);
 #endif
@@ -221,14 +219,14 @@ bool ReadWordIntoBuffer(char * const buffer, int & index, const int kMAX_SIZE) {
 
 void ListFiles(const char * const parameter) {
     if (dc.ListFiles() == false) {
-        BluetoothError("SD not available.");
+        //BluetoothError("SD not available.");
     }
 }
 
 bool CopyFile(const char * const filename) {
     bool successFlag = false;
     if (dc.TransferFile(filename) != true) {
-        BluetoothError("CopyFile failed");
+        //BluetoothError("CopyFile failed");
         successFlag = true;
     }
     return successFlag;
@@ -261,6 +259,9 @@ char * BreakOnDelimiter(char * parameter) {
 }
 
 void ParseStoredVariable(const bool echo, const short kEepromAddress, const char * userSpecifiedValue) {
+#ifdef DEBUG_PORT
+    debug.Put("\r\nStored variable...");
+#endif
     if (echo == true) {
         int value = eeprom.GetNumber(kEepromAddress, 4);
         bluetooth.Put(Numbers::Dec(value));
@@ -281,7 +282,9 @@ void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
     } else {
         if (strlen(userSpecifiedValue) != 5
                 || (userSpecifiedValue[0] != '+' && userSpecifiedValue[0] != '-')) {
+#ifdef DEBUG_PORT
             debug.Put("Timezone preconditions not met.");
+#endif
             return;
         }
 
@@ -294,25 +297,81 @@ void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
 
 
         if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+#ifdef DEBUG_PORT
             debug.PutFormatted("Got timezone: '%c%02i%02i'", sign, hours, minutes);
+#endif
             eeprom.PutNumber(board::kEepromTimeZoneSign, sign, 4);
             eeprom.PutNumber(board::kEepromTimeZoneHours, hours, 4);
             eeprom.PutNumber(board::kEepromTimeZoneMinutes, minutes, 4);
 
         } else {
+#ifdef DEBUG_PORT
             debug.Put("Timezone hours or minutes out of range.");
+#endif
+        }
+    }
+}
+
+void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
+    // Value is specified as in the following example:
+    // 0123456789012345678
+    // 2013-12-03T19:14:17
+
+    if (echo == true) {
+        bluetooth.PutFormatted("%04i-%02i-%02iT%02i:%02i:%02i",
+                Sensors::year + 2000, Sensors::day, Sensors::hour, Sensors::minute, Sensors::second);
+    } else {
+        if (strlen(userSpecifiedValue) != 19
+                || userSpecifiedValue[4] != '-'
+                || userSpecifiedValue[7] != '-'
+                || userSpecifiedValue[10] != 'T'
+                || userSpecifiedValue[13] != ':'
+                || userSpecifiedValue[16] != ':') {
+#ifdef DEBUG_PORT            
+            debug.PutFormatted("\r\nTime preconditions not met: '%s'", userSpecifiedValue);
+#endif
+            return;
+        }
+
+        userSpecifiedValue[4] = '\0';
+        userSpecifiedValue[7] = '\0';
+        userSpecifiedValue[10] = '\0';
+        userSpecifiedValue[13] = '\0';
+        userSpecifiedValue[16] = '\0';
+
+        int year = Numbers::Dec(userSpecifiedValue);
+        int month = Numbers::Dec(userSpecifiedValue + 5);
+        int day = Numbers::Dec(userSpecifiedValue + 8);
+        int hour = Numbers::Dec(userSpecifiedValue + 11);
+        int minute = Numbers::Dec(userSpecifiedValue + 14);
+        int second = Numbers::Dec(userSpecifiedValue + 17);
+
+        if (year < 0 || year > 9999
+                || month < 0 || month > 12
+                || day < 0 || day > 31
+                || hour < 0 || hour > 23
+                || minute < 0 || minute > 59
+                || second < 0 || second > 59) {
+#ifdef DEBUG_PORT
+            debug.Put("\r\nCould not parse given time (out of range");
+#endif
+
+        } else {
+            Sensors::SetClock(year, month, day, hour, minute, second);
         }
     }
 }
 
 void ParseVariable(char * key) {
 #ifdef DEBUG_PORT
-    debug.Put("ParseVariable()\r\n");
+    debug.Put("\r\nParseVariable()");
 #endif
 
-    const char * value = BreakOnDelimiter(key);
+    char * value = BreakOnDelimiter(key);
     const bool echo = value == NULL;
-
+#ifdef DEBUG_PORT
+    debug.Put("Finding key...");
+#endif
     if (strcasecmp(key, "$recording") == 0) {
         if (echo == true) {
             if (dc.IsRecording() == true) {
@@ -342,14 +401,19 @@ void ParseVariable(char * key) {
         ParseStoredVariable(echo, board::kEepromUnitAddress, value);
     } else if (strcasecmp(key, "$canon_number") == 0) {
         ParseStoredVariable(echo, board::kEepromCanonNumberAddress, value);
+    } else if (strcasecmp(key, "$date_time") == 0) {
+        ParseStoredTime(echo, value);
     } else {
-        BluetoothError("Echo error: can't find key.");
+        //BluetoothError("Echo error: can't find key.");
     }
 }
 
 void ParseCommand(char * command, char * parameter) {
 #ifdef DEBUG_PORT
-    debug.Put("ParseCommand\r\n");
+    debug.Put("\r\nParseCommand: ");
+    debug.Put(command);
+    debug.Put(", parameter: ");
+    debug.Put(parameter);
 #endif
     if (strcasecmp(command, "ls") == 0) {
         ListFiles(parameter);
@@ -368,7 +432,7 @@ void ParseCommand(char * command, char * parameter) {
     } else if (strcasecmp(command, "reboot") == 0) {
 
     } else {
-        BluetoothError(command);
+        //BluetoothError(command);
     }
 }
 
@@ -386,11 +450,25 @@ void ParseBluetoothCommands(void) {
     }
 }
 
+bool MountSD() {
+    //Datalog Controller
+    bool mounted = dc.Init(board::kPIN_SD_DO, board::kPIN_SD_CLK,
+            board::kPIN_SD_DI, board::kPIN_SD_CS);
+    if (mounted == false) {
+        ui.SetState(UserInterface::kNoSD);
+    } else {
+#ifdef DEBUG_PORT
+        debug.Put("\r\nDatalog Cog initialized.");
+#endif
+    }
+    return mounted;
+}
+
 void InnerLoop(void) {
 
     // Test: Battery is too low?
-    if (sensors.fuel_voltage < 3500
-            and sensors.fuel_voltage != sensors.kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
+    if (Sensors::fuel_voltage < 3500
+            and Sensors::fuel_voltage != Sensors::kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
 #ifdef DEBUG_PORT
         debug.Put("\r\nWarning: Low fuel!!! Turning off.");
 #endif
@@ -404,7 +482,9 @@ void InnerLoop(void) {
             && ui.GetButtonPressDuration() > 150
             && ui.GetButtonPressDuration() < 1000) {
         ui.ClearButtonPressDuration();
-        BeginRecording();
+        if (MountSD() == true) {
+            BeginRecording();
+        }
     }
 
     if (ui.CheckButton() == true
@@ -412,7 +492,7 @@ void InnerLoop(void) {
         KillSelf();
     }
 
-    ui.DisplayState(sensors.fuel_soc);
+    ui.UpdateDisplayState(Sensors::fuel_soc);
 }
 
 void Init(void) {
@@ -433,10 +513,11 @@ void Init(void) {
 
     //EEPROM
     eeprom.Init();
+
+#ifdef DEBUG_PORT
     int unitNumber = eeprom.GetNumber(board::kEepromUnitAddress, 4);
     int boardVersion = eeprom.GetNumber(board::kEepromBoardAddress, 4);
 
-#ifdef DEBUG_PORT
     debug.Put("\r\nEEPROM initialized.");
     debug.PutFormatted("\r\nUnit number: %i", unitNumber);
     debug.PutFormatted("\r\nBoard Version: %i", boardVersion);
@@ -449,29 +530,20 @@ void Init(void) {
     debug.Put("\r\nBluetooth initialized.");
 #endif    
 
-    //Datalog Controller
-    bool mounted = dc.Init(board::kPIN_SD_DO, board::kPIN_SD_CLK,
-            board::kPIN_SD_DI, board::kPIN_SD_CS);
-    if (mounted == false) {
-        ui.SetState(UserInterface::kNoSD);
-    }
-
-#ifdef DEBUG_PORT
-    debug.Put("\r\nDatalog Cog initialized.");
-#endif
-    if (sensors.Start() == false) {
+    if (Sensors::Start() == false) {
+        ui.SetState(UserInterface::kUnknownError);
 #ifdef DEBUG_PORT
         debug.Put("\r\nSensor Cog FAILED TO INIT");
 #endif
     } else {
-        sensors.SetLogging(false);
+        Sensors::SetLogging(false);
 #ifdef DEBUG_PORT
         debug.Put("\r\nSensor Cog initialized.");
 #endif       
     }
 
 #ifdef DEBUG_PORT
-    debug.PutFormatted("\r\n\tFuel SOC: %i", sensors.fuel_soc);
+    debug.PutFormatted("\r\n\tFuel SOC: %i", Sensors::fuel_soc);
 
 #endif
 }

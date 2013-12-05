@@ -8,7 +8,9 @@
 
 extern Bluetooth bluetooth; //TODO(SRLM): This should be a parameter, not an extern.
 
+#ifdef DEBUG_PORT
 extern Serial debug;
+#endif
 
 class DatalogController {
 public:
@@ -106,7 +108,9 @@ public:
                 }
                 bluetooth.Put("]]]__}}}");
                 
+#ifdef DEBUG_PORT
                 debug.PutFormatted("\r\nTransfer cycles; SD: %i; Bluetooth:%i", sdCntTotal, bluetoothCntTotal);
+#endif
                 
                 successFlag = true;
             }
@@ -276,7 +280,7 @@ private:
 	},
 	"createTime":{
 		"brokenTime":"%04i-%02i-%02iT%02i:%02i:%02i%c%02i%02i",
-		"timestamp":%i
+		"timestamp":"%08x"
 	},
 	"scadUnit":%i,
 	"softwareVersion":"%s %s",

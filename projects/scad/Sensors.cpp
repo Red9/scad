@@ -37,6 +37,16 @@ volatile bool Sensors::logging;
 
 int Sensors::stack[stackSize];
 
+
+volatile bool Sensors::set_clock;
+volatile int Sensors::set_year;
+volatile int Sensors::set_month;
+volatile int Sensors::set_day;
+volatile int Sensors::set_hour;
+volatile int Sensors::set_minute;
+volatile int Sensors::set_second;
+
+
 const char * const Sensors::sensorJSON = R"SENSORS(
 		"accelerometer":{
 			"name":"ACCL",

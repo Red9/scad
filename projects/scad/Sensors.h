@@ -21,7 +21,9 @@
 #include "scadbeta2.h"
 #endif
 
+#ifdef DEBUG_PORT
 extern Serial debug;
+#endif
 
 class Sensors {
 public:
@@ -43,6 +45,8 @@ public:
     static int magn_x, magn_y, magn_z;
 
     static bool Start(void) {
+        set_clock = false;
+        
         // TODO(SRLM) Add in some intelligence here that checks the return value of init (for error))
         bool result = init();
         cogstart(Server, NULL, stack, stackSize);
@@ -96,7 +100,28 @@ public:
     }
 
     
+    static bool SetClock(const int year, const int month, const int day,
+    const int hour, const int minute, const int second){
+        set_year = year - 2000;
+        set_month = month;
+        set_day = day;
+        set_hour = hour;
+        set_minute = minute;
+        set_second = second;
+        set_clock = true;
+        return true;
+    }
+    
 private:
+    
+    static volatile bool set_clock;
+    static volatile int set_year;
+    static volatile int set_month;
+    static volatile int set_day;
+    static volatile int set_hour;
+    static volatile int set_minute;
+    static volatile int set_second;
+    
 
     /* Pin definitions */
 #ifdef GAMMA
@@ -126,7 +151,7 @@ private:
 
 
 
-    static const int stackSize = 176 + 100;
+    static const int stackSize = 176 + 200;
     static int stack[stackSize];
 
     /** Setup to start the sensors Server. Must be called once (and only
@@ -157,43 +182,55 @@ private:
 
         if (fuel.Init(bus2addr) == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init fuel.");
+#endif
         } else {
             ReadFuel();
         }
 
         if (lsm.Init(bus1addr) == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init lsm.");
+#endif
         }
 
         if (l3g.Init(bus1addr, L3GD20::LSB_1) == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init l3gd20.");
+#endif
         }
 
         if (rtc.Init(bus2addr) == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init rtc.");
+#endif
         }
 
         if (baro.Init(bus2addr, MS5611::LSB_1) == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init baro.");
+#endif
         }
 
         //GPS
         gps.Start(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
         if (gps.GetStatus() == false) {
             result = false;
+#ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init gps.");
+#endif
         }
 
         return result;
     }
 
     static void AutoRead(void) {
-
+        
         char * gpsString = NULL;
         //Flush GPS buffer.
         while ((gpsString = gps.Get()) != NULL) {
@@ -204,13 +241,12 @@ private:
         Scheduler gyroScheduler(100 * 10);
         Scheduler magnScheduler(25 * 10);
         Scheduler fuelScheduler(1); //10 second cycle
-        Scheduler timeScheduler(1); //10 second cycle
+        Scheduler timeScheduler(10); //1 second cycle
 
 
         //Make sure to read fuel and time at least once...
         ReadFuel();
         ReadDateTime();
-
 
         while (killed == false) {
 
@@ -253,6 +289,11 @@ private:
                 if (logging == true) {
                     PIB::_string('P', CNT, gpsString, '\0');
                 }
+            }
+            
+            if(set_clock == true){
+                rtc.SetClock(set_year, set_month, set_day, set_hour, set_minute, set_second);
+                set_clock = false;
             }
         }
 
