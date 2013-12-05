@@ -48,8 +48,9 @@ if args.terminal:
 	terminal = "-t" + args.terminal
 
 
+
+
+os.system("propeller-elf-size " + elf)
 print "propeller-load -r " + terminal + " " + eeprom + " " + clkfreq + " " + elf
-
-
-os.system("/opt/parallax/bin/propeller-load -r -q " + terminal + " " + eeprom + " " + clkfreq + " " + elf)
+os.system("propeller-load -r -q " + terminal + " " + eeprom + " " + clkfreq + " " + elf)
 
