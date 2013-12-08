@@ -218,9 +218,10 @@ bool ReadWordIntoBuffer(char * const buffer, int & index, const int kMAX_SIZE) {
 }
 
 void ListFiles(const char * const parameter) {
-    if (dc.ListFiles() == false) {
+    dc.ListFiles();
+    //if (dc.ListFiles() == false) {
         //BluetoothError("SD not available.");
-    }
+    //}
 }
 
 bool CopyFile(const char * const filename) {
@@ -282,9 +283,6 @@ void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
     } else {
         if (strlen(userSpecifiedValue) != 5
                 || (userSpecifiedValue[0] != '+' && userSpecifiedValue[0] != '-')) {
-#ifdef DEBUG_PORT
-            debug.Put("Timezone preconditions not met.");
-#endif
             return;
         }
 
@@ -297,17 +295,11 @@ void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
 
 
         if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-#ifdef DEBUG_PORT
-            debug.PutFormatted("Got timezone: '%c%02i%02i'", sign, hours, minutes);
-#endif
             eeprom.PutNumber(board::kEepromTimeZoneSign, sign, 4);
             eeprom.PutNumber(board::kEepromTimeZoneHours, hours, 4);
             eeprom.PutNumber(board::kEepromTimeZoneMinutes, minutes, 4);
 
         } else {
-#ifdef DEBUG_PORT
-            debug.Put("Timezone hours or minutes out of range.");
-#endif
         }
     }
 }
@@ -327,9 +319,6 @@ void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
                 || userSpecifiedValue[10] != 'T'
                 || userSpecifiedValue[13] != ':'
                 || userSpecifiedValue[16] != ':') {
-#ifdef DEBUG_PORT            
-            debug.PutFormatted("\r\nTime preconditions not met: '%s'", userSpecifiedValue);
-#endif
             return;
         }
 
@@ -352,9 +341,6 @@ void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
                 || hour < 0 || hour > 23
                 || minute < 0 || minute > 59
                 || second < 0 || second > 59) {
-#ifdef DEBUG_PORT
-            debug.Put("\r\nCould not parse given time (out of range");
-#endif
 
         } else {
             Sensors::SetClock(year, month, day, hour, minute, second);
@@ -363,15 +349,8 @@ void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
 }
 
 void ParseVariable(char * key) {
-#ifdef DEBUG_PORT
-    debug.Put("\r\nParseVariable()");
-#endif
-
     char * value = BreakOnDelimiter(key);
     const bool echo = value == NULL;
-#ifdef DEBUG_PORT
-    debug.Put("Finding key...");
-#endif
     if (strcasecmp(key, "$recording") == 0) {
         if (echo == true) {
             if (dc.IsRecording() == true) {
@@ -457,9 +436,6 @@ bool MountSD() {
     if (mounted == false) {
         ui.SetState(UserInterface::kNoSD);
     } else {
-#ifdef DEBUG_PORT
-        debug.Put("\r\nDatalog Cog initialized.");
-#endif
     }
     return mounted;
 }
@@ -469,9 +445,6 @@ void InnerLoop(void) {
     // Test: Battery is too low?
     if (Sensors::fuel_voltage < 3500
             and Sensors::fuel_voltage != Sensors::kDefaultFuelVoltage) { //Dropout of 150mV@300mA, with some buffer
-#ifdef DEBUG_PORT
-        debug.Put("\r\nWarning: Low fuel!!! Turning off.");
-#endif
         KillSelf();
     }
 
@@ -482,7 +455,8 @@ void InnerLoop(void) {
             && ui.GetButtonPressDuration() > 150
             && ui.GetButtonPressDuration() < 1000) {
         ui.ClearButtonPressDuration();
-        if (MountSD() == true) {
+        
+        if (dc.DiskReady() == true) {
             BeginRecording();
         }
     }
@@ -530,6 +504,8 @@ void Init(void) {
     debug.Put("\r\nBluetooth initialized.");
 #endif    
 
+    MountSD();
+    
     if (Sensors::Start() == false) {
         ui.SetState(UserInterface::kUnknownError);
 #ifdef DEBUG_PORT
