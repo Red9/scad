@@ -217,6 +217,7 @@ bool ReadWordIntoBuffer(char * const buffer, int & index, const int kMAX_SIZE) {
     return result;
 }
 
+// TODO: Figure out why this works but the following does not work...
 void ListFiles(const char * const parameter) {
     dc.ListFiles();
     //if (dc.ListFiles() == false) {

@@ -24,13 +24,13 @@ public:
         // Initial
         int year, month, day, hour, minute, second;
         int timestamp;
-        
-        
+
+
         // RFC822 format timezone
         char timezoneSign;
         int timezoneHours;
         int timezoneMinutes;
-        
+
 
         const char * compileDate;
         const char * compileTime;
@@ -67,11 +67,15 @@ public:
 
             sd.OpenRootDirectory();
 
+
+            int filesize, year, month, day, hour, minute, second;
+
             // TODO(SRLM): What if there is no output?
-            while (sd.NextFile(filename) == true) {
-                bluetooth.Put(filename);
-                bluetooth.Put('\r');
-                bluetooth.Put('\n');
+            while (sd.NextFile(filename, filesize, year, month, day, hour, minute, second) == true) {
+
+                bluetooth.PutFormatted("%s %i %04i-%02i-%02iT%02i:%02i:%02i\r\n",
+                        filename, filesize,
+                        year, month, day, hour, minute, second);
             }
             successFlag = true;
         }
@@ -88,30 +92,47 @@ public:
                 sd.ClearError();
             } else {
                 int byte;
-                bluetooth.Put("{{{__[[[");
+                //bluetooth.Put("{{{__[[[");
+
+                //int sdStartCnt;
+                //int bluetoothStartCnt;
+
+                //int sdCntTotal = 0;
+                //int bluetoothCntTotal = 0;
+
+                //sdStartCnt = CNT;
+                //debug.PutFormatted("%i|", sd.GetFilesize());
+                bluetooth.PutFormatted("%i|", sd.GetFilesize());
                 
-                int sdStartCnt;
-                int bluetoothStartCnt;
-                
-                int sdCntTotal = 0;
-                int bluetoothCntTotal = 0;
-                
-                sdStartCnt = CNT;
+                int bytesTransfered = 0;
                 while ((byte = sd.Get()) != -1) {
-                    sdCntTotal += CNT - sdStartCnt;
-                    
-                    bluetoothStartCnt = CNT;
+                    //sdCntTotal += CNT - sdStartCnt;
+
+                    //bluetoothStartCnt = CNT;
                     bluetooth.Put(byte);
-                    bluetoothCntTotal += CNT - bluetoothStartCnt;
-                    
-                    sdStartCnt = CNT;
+                    bytesTransfered++;
+                    //bluetoothCntTotal += CNT - bluetoothStartCnt;
+
+                    if (bytesTransfered == 1024*10) {
+                        bytesTransfered = 0;
+                        int command = bluetooth.Get(2000);
+                        if (command == -1) {
+                            //Timeout!
+                            break;
+                        } else {
+                            // No timeout, so go on.
+                        }
+                    }
+
+
+                    //sdStartCnt = CNT;
                 }
-                bluetooth.Put("]]]__}}}");
-                
+                //bluetooth.Put("]]]__}}}");
+                //debug.Put("\r\nDone transferring");
 #ifdef DEBUG_PORT
-                debug.PutFormatted("\r\nTransfer cycles; SD: %i; Bluetooth:%i", sdCntTotal, bluetoothCntTotal);
+                //debug.PutFormatted("\r\nTransfer cycles; SD: %i; Bluetooth:%i", sdCntTotal, bluetoothCntTotal);
 #endif
-                
+
                 successFlag = true;
             }
         }
@@ -160,8 +181,8 @@ public:
     bool DiskReady(void) {
         return sdMounted;
     }
-    
-    bool IsRecording(void){
+
+    bool IsRecording(void) {
         return recording != kNO_RECORD;
     }
 
