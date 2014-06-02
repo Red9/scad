@@ -16,8 +16,6 @@
  * @author SRLM (srlm@srlmproductions.com)
  */
 
-
-
 #ifndef LIBPROPELLER_CONCURRENT_BUFFER_H_
 #define LIBPROPELLER_CONCURRENT_BUFFER_H_
 
@@ -284,5 +282,8 @@ public:
 };
 
 
+#ifdef SINGLE_TRANSLATION_UNIT
+#include "concurrent_buffer.cpp"
+#endif
 
 #endif // LIBPROPELLER_CONCURRENT_BUFFER_H_

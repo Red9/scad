@@ -204,7 +204,7 @@ private:
 
     volatile RecordingControl recording;
 
-    SD sd;
+    libpropeller::SD sd;
     ConcurrentBuffer sdBuffer;
 
     volatile bool sdMounted;
@@ -232,8 +232,7 @@ private:
             while (currentNumber != config.canonNumber) {
                 if (FindFile(config.unitNumber, currentNumber) == false) {
                     config.canonNumber = currentNumber;
-                    OpenNewFile(config);
-                    successFlag = true;
+                    successFlag = OpenNewFile(config);
                     break;
                 }
                 currentNumber = (currentNumber + 1) % 1000;
@@ -268,9 +267,9 @@ private:
         buffer[0] = 0;
         //This version is B###F###.EXT
         strcat(buffer, "B");
-        strcat(buffer, Numbers::Dec(unit));
+        strcat(buffer, libpropeller::Numbers::Dec(unit));
         strcat(buffer, "F");
-        strcat(buffer, Numbers::Dec(canon));
+        strcat(buffer, libpropeller::Numbers::Dec(canon));
         strcat(buffer, ".RNC");
     }
 

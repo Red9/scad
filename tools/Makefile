@@ -34,7 +34,7 @@ endif
 #file with the ruby command, and wildcard evaluates before it's generated.
 #Have to do the wildcard *.S because otherwise gcc complains if there are not
 #any .S files in the directory (if you pass it a *.S).
-SRCS=*.cpp $(wildcard *.S) #$(wildcard *.cpp) $(wildcard *.S)
+SRCS=main.cpp $(wildcard *.S) #$(wildcard *.cpp) $(wildcard *.S)
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 UNITYPATH = ${ROOT}unity/
@@ -52,8 +52,8 @@ DEBUGFLAGS = -Wall #-Wa,-alh,-L#-pedantic #-fstack-usage #-save-temps #-ftime-re
 
 CXX = /opt/parallax/bin/propeller-elf-g++
 CLD = propeller-elf-ld
-ELFSIZE = propeller-elf-size
-ELFHUBSIZE = propeller-elf-image-size
+ELFSIZE = /opt/parallax/bin/propeller-elf-size
+ELFHUBSIZE = /opt/parallax/bin/propeller-elf-image-size
 
 #-Wall
 
@@ -79,10 +79,10 @@ gamma: buildgamma
 	${ELFHUBSIZE} main.gamma.elf
 	
 buildbeta2:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -o main.beta2.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}libpropeller/compile_tools/statics/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -D SINGLE_TRANSLATION_UNIT -o main.beta2.elf ${SRCS} ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
 buildgamma:
-	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -o main.gamma.elf ${SRCS} ${LIBREDNINE}librednine/extras/* ${LIBPROPELLER}libpropeller/compile_tools/statics/*
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -D SINGLE_TRANSLATION_UNIT -o main.gamma.elf ${SRCS} ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
 
 

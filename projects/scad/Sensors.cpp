@@ -16,21 +16,21 @@ int Sensors::magn_x, Sensors::magn_y, Sensors::magn_z;
 
 
 #ifdef GAMMA
-I2C Sensors::bus1;
-I2C Sensors::bus2;
+libpropeller::I2C Sensors::bus1;
+libpropeller::I2C Sensors::bus2;
 #elif BETA2
-I2C Sensors::bus;
+libpropeller::I2C Sensors::bus;
 #endif
 
 
-LSM303DLHC Sensors::lsm;
-L3GD20 Sensors::l3g;
+libpropeller::LSM303DLHC Sensors::lsm;
+libpropeller::L3GD20 Sensors::l3g;
 
-PCF8523 Sensors::rtc;
-MAX17048 Sensors::fuel;
-MS5611 Sensors::baro;
+libpropeller::PCF8523 Sensors::rtc;
+libpropeller::MAX17048 Sensors::fuel;
+libpropeller::MS5611 Sensors::baro;
 
-MTK3339 Sensors::gps;
+libpropeller::MTK3339 Sensors::gps;
 
 volatile bool Sensors::killed;
 volatile bool Sensors::logging;

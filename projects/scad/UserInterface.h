@@ -21,9 +21,9 @@ public:
     }
 
     void Init(const int kPinLedWhite, const int kPinLedRed, const int kPinButton) {
-        ledWhite = Pin(kPinLedWhite);
-        ledRed = Pin(kPinLedRed);
-        button = Pin(kPinButton);
+        ledWhite = libpropeller::Pin(kPinLedWhite);
+        ledRed = libpropeller::Pin(kPinLedRed);
+        button = libpropeller::Pin(kPinButton);
 
 
         ledWhite.high();
@@ -133,10 +133,10 @@ public:
     }
 
 private:
-    Pin ledWhite, ledRed, button;
+    libpropeller::Pin ledWhite, ledRed, button;
 
     volatile DeviceState previousState;
-    Scheduler displayDeviceState;
+    libpropeller::Scheduler displayDeviceState;
 
 
     static const bool kUseCTRA = true;
@@ -145,7 +145,7 @@ private:
     static const int kSlowBlink = 8;
 
     int buttonDuration;
-    Stopwatch buttonTimer;
+    libpropeller::Stopwatch buttonTimer;
 
     DeviceState state;
 

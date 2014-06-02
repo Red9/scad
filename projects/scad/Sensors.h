@@ -125,22 +125,22 @@ private:
 
     /* Pin definitions */
 #ifdef GAMMA
-    static I2C bus1;
-    static I2C bus2;
+    static libpropeller::I2C bus1;
+    static libpropeller::I2C bus2;
 #elif BETA2
-    static I2C bus;
+    static libpropeller::I2C bus;
 #endif
 
 
 
-    static LSM303DLHC lsm;
-    static L3GD20 l3g;
+    static libpropeller::LSM303DLHC lsm;
+    static libpropeller::L3GD20 l3g;
 
-    static PCF8523 rtc;
-    static MAX17048 fuel;
-    static MS5611 baro;
+    static libpropeller::PCF8523 rtc;
+    static libpropeller::MAX17048 fuel;
+    static libpropeller::MS5611 baro;
 
-    static MTK3339 gps;
+    static libpropeller::MTK3339 gps;
 
     static volatile bool paused;
     static volatile bool logging;
@@ -172,12 +172,12 @@ private:
 #ifdef GAMMA
         bus1.Init(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1, 444000);
         bus2.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2, 444000);
-        I2C * bus1addr = &bus1;
-        I2C * bus2addr = &bus2;
+        libpropeller::I2C * bus1addr = &bus1;
+        libpropeller::I2C * bus2addr = &bus2;
 #elif BETA2
         bus.Init(board::kPIN_I2C_SCL, board::kPIN_I2C_SDA, 444000); //For Beta2 Boards
-        I2C * bus1addr = &bus;
-        I2C * bus2addr = &bus;
+        libpropeller::I2C * bus1addr = &bus;
+        libpropeller::I2C * bus2addr = &bus;
 #endif
 
         if (fuel.Init(bus2addr) == false) {
@@ -196,7 +196,7 @@ private:
 #endif
         }
 
-        if (l3g.Init(bus1addr, L3GD20::LSB_1) == false) {
+        if (l3g.Init(bus1addr, libpropeller::L3GD20::LSB_1) == false) {
             result = false;
 #ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init l3gd20.");
@@ -210,7 +210,7 @@ private:
 #endif
         }
 
-        if (baro.Init(bus2addr, MS5611::LSB_1) == false) {
+        if (baro.Init(bus2addr, libpropeller::MS5611::LSB_1) == false) {
             result = false;
 #ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init baro.");
@@ -237,11 +237,11 @@ private:
             /*Throw away stings*/
         }
 
-        Scheduler acclScheduler(150 * 10);
-        Scheduler gyroScheduler(100 * 10);
-        Scheduler magnScheduler(25 * 10);
-        Scheduler fuelScheduler(1); //10 second cycle
-        Scheduler timeScheduler(10); //1 second cycle
+        libpropeller::Scheduler acclScheduler(150 * 10);
+        libpropeller::Scheduler gyroScheduler(100 * 10);
+        libpropeller::Scheduler magnScheduler(25 * 10);
+        libpropeller::Scheduler fuelScheduler(1); //10 second cycle
+        libpropeller::Scheduler timeScheduler(10); //1 second cycle
 
 
         //Make sure to read fuel and time at least once...
@@ -343,6 +343,10 @@ private:
     
 
 };
+
+#ifdef SINGLE_TRANSLATION_UNIT
+#include "Sensors.cpp"
+#endif
 
 #endif	/* PROPGCC_SRLM_SENSORS_H */
 

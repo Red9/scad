@@ -32,7 +32,7 @@
 
 //TODO(SRLM): Add tests to beginning to not log when battery voltage is too low.
 
-//TODO(SRLM): Numbers::Dec is not thread safe... Check!
+//TODO(SRLM): libpropeller::Numbers::Dec is not thread safe... Check!
 
 //TODO(SRLM): Add some sort of detection for removal of charging during the loop...
 
@@ -51,14 +51,14 @@ Cog Usage:
 
 //TODO: Do any of these need to be volatile?
 
-Max8819 pmic;
-EEPROM eeprom;
+libpropeller::Max8819 pmic;
+libpropeller::EEPROM eeprom;
 DatalogController dc;
 UserInterface ui;
 Bluetooth bluetooth;
 
 #ifdef DEBUG_PORT
-Serial debug;
+libpropeller::Serial debug;
 #endif
 
 //TODO(SRLM): for some reason it suddenly can't find _thread_state_t!
@@ -118,6 +118,7 @@ void BeginRecording(void) {
             eeprom.PutNumber(board::kEepromCanonNumberAddress, config.canonNumber, 4); //Store canonFilenumber for persistence
 
             Sensors::AddScales();
+            waitcnt((CLKFREQ/1000) * 100 + CNT); // Wait for everything to settle down.
             Sensors::SetLogging(true);
             ui.SetState(UserInterface::kDatalogging);
         } else {
@@ -266,9 +267,9 @@ void ParseStoredVariable(const bool echo, const short kEepromAddress, const char
 #endif
     if (echo == true) {
         int value = eeprom.GetNumber(kEepromAddress, 4);
-        bluetooth.Put(Numbers::Dec(value));
+        bluetooth.Put(libpropeller::Numbers::Dec(value));
     } else {
-        int value = Numbers::Dec(userSpecifiedValue);
+        int value = libpropeller::Numbers::Dec(userSpecifiedValue);
         if (value != INT_MIN) {
             eeprom.PutNumber(kEepromAddress, value, 4);
         }
@@ -288,10 +289,10 @@ void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
         }
 
         char sign = userSpecifiedValue[0];
-        int minutes = Numbers::Dec(userSpecifiedValue + 3);
+        int minutes = libpropeller::Numbers::Dec(userSpecifiedValue + 3);
 
         const char hourBuffer[3] = {userSpecifiedValue[1], userSpecifiedValue[2], '\0'};
-        int hours = Numbers::Dec(hourBuffer);
+        int hours = libpropeller::Numbers::Dec(hourBuffer);
 
 
 
@@ -329,12 +330,12 @@ void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
         userSpecifiedValue[13] = '\0';
         userSpecifiedValue[16] = '\0';
 
-        int year = Numbers::Dec(userSpecifiedValue);
-        int month = Numbers::Dec(userSpecifiedValue + 5);
-        int day = Numbers::Dec(userSpecifiedValue + 8);
-        int hour = Numbers::Dec(userSpecifiedValue + 11);
-        int minute = Numbers::Dec(userSpecifiedValue + 14);
-        int second = Numbers::Dec(userSpecifiedValue + 17);
+        int year = libpropeller::Numbers::Dec(userSpecifiedValue);
+        int month = libpropeller::Numbers::Dec(userSpecifiedValue + 5);
+        int day = libpropeller::Numbers::Dec(userSpecifiedValue + 8);
+        int hour = libpropeller::Numbers::Dec(userSpecifiedValue + 11);
+        int minute = libpropeller::Numbers::Dec(userSpecifiedValue + 14);
+        int second = libpropeller::Numbers::Dec(userSpecifiedValue + 17);
 
         if (year < 0 || year > 9999
                 || month < 0 || month > 12
