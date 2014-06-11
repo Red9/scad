@@ -87,7 +87,7 @@ int GetUnitNumber(int oldNumber) {
     if (buffer[0] == '*') {
         unitNumber = oldNumber;
     } else {
-        unitNumber = Numbers::Dec(buffer);
+        unitNumber = libpropeller::Numbers::Dec(buffer);
     }
 
     return unitNumber;
@@ -111,7 +111,7 @@ int GetCanonNumber(int oldNumber) {
     if (buffer[0] == '*') {
         canonNumber = oldNumber;
     } else {
-        canonNumber = Numbers::Dec(buffer);
+        canonNumber = libpropeller::Numbers::Dec(buffer);
     }
 
     return canonNumber;
@@ -125,10 +125,10 @@ int GetTwoDigits(const char * caption) {
     num[1] = (char) getchar();
     num[2] = 0;
     getchar(); //Throw away enter
-    return Numbers::Dec(num);
+    return libpropeller::Numbers::Dec(num);
 }
 
-void SetTime(PCF8523 * rtc) {
+void SetTime(libpropeller::PCF8523 * rtc) {
     printf("Set time?\n(y)es\n*no\n>>> ");
 
     char choice = getchar();
@@ -225,7 +225,7 @@ bool IsKnownAddress(unsigned char address, char * buffer) {
  * @return    The number of known devices found.
  */
 int ScanBus(const int SCL, const int SDA) {
-    I2C bus;
+    libpropeller::I2C bus;
     bus.Init(SCL, SDA);
 
     int knownDevices = 0;
@@ -268,7 +268,7 @@ bool ScanBusRunner(const int SCL, const int SDA, const int deviceCount, const ch
 }
 
 bool TestSD(const int Do, const int Clk, const int Di, const int Cs) {
-    SD sd;
+    libpropeller::SD sd;
     sd.Mount(Do, Clk, Di, Cs);
     if (sd.HasError()) {
         printf("ERROR: SD could not mount. Error code %i\n", sd.GetError());
@@ -325,10 +325,32 @@ bool TestSQWDLIMcut() {
 #endif
 }
 
+bool TestButton(int pin){
+    libpropeller::Pin button = libpropeller::Pin(pin);
+    
+    if(button.input() == 1){
+        return false;
+    }
+    printf("Press button now");
+    
+    int counter = 0;
+    while(button.input() == 0 && counter < 1000){
+        waitcnt(CLKFREQ/100 + CNT);
+        counter++;
+    }
+    
+    if(button.input() == 1){
+        return true;
+    }else{
+        printf("ERROR: Button not pressed.");
+        return false;
+    }
+}
+
 void configureBoard() {
     printf("Let's configure!\n");
 
-    EEPROM eeprom;
+    libpropeller::EEPROM eeprom;
     eeprom.Init();
 
     int boardVersion = 0;
@@ -339,7 +361,7 @@ void configureBoard() {
     int timeZoneHours = 0;
     int timeZoneMinutes = 0;
 
-    I2C rtcBus;
+    libpropeller::I2C rtcBus;
 
 #ifdef GAMMA
     rtcBus.Init(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2);
@@ -348,7 +370,7 @@ void configureBoard() {
 #endif
 
 
-    PCF8523 rtc;
+    libpropeller::PCF8523 rtc;
     rtc.Init(&rtcBus);
 
     for (;;) {
@@ -390,6 +412,8 @@ void configureBoard() {
 
 }
 
+
+
 int main(void) {
 
 
@@ -411,9 +435,11 @@ int main(void) {
 
     pass = pass && TestSD(board::kPIN_SD_DO, board::kPIN_SD_CLK, board::kPIN_SD_DI, board::kPIN_SD_CS);
 
+    pass = pass && TestButton(board::kPIN_BUTTON);
+    
     if (pass) {
 #ifdef GAMMA
-        Pin led = Pin(board::kPIN_LEDW);
+        libpropeller::Pin led = libpropeller::Pin(board::kPIN_LEDW);
         led.high();
 #endif
 
@@ -429,7 +455,7 @@ int main(void) {
 
     } else {
 #ifdef GAMMA
-        Pin led = Pin(board::kPIN_LEDR);
+        libpropeller::Pin led = libpropeller::Pin(board::kPIN_LEDR);
         led.high();
 #endif
         printf("\nFAIL FAIL FAIL\n");
