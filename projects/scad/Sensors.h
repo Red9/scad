@@ -22,7 +22,7 @@
 #endif
 
 #ifdef DEBUG_PORT
-extern Serial debug;
+extern libpropeller::Serial debug;
 #endif
 
 class Sensors {
@@ -237,9 +237,9 @@ private:
             /*Throw away stings*/
         }
 
-        libpropeller::Scheduler acclScheduler(150 * 10);
-        libpropeller::Scheduler gyroScheduler(100 * 10);
-        libpropeller::Scheduler magnScheduler(25 * 10);
+        libpropeller::Scheduler acclScheduler(350 * 10);
+        libpropeller::Scheduler gyroScheduler(150 * 10);
+        libpropeller::Scheduler magnScheduler(100 * 10);
         libpropeller::Scheduler fuelScheduler(1); //10 second cycle
         libpropeller::Scheduler timeScheduler(10); //1 second cycle
 
@@ -247,10 +247,16 @@ private:
         //Make sure to read fuel and time at least once...
         ReadFuel();
         ReadDateTime();
+        
+        // These variables will get optimized out if DEBUG_PORT is not set.
+        int cycleHits = 0;
+        int cycles = 0;
+        int cycleTime = CNT;
 
         while (killed == false) {
 
             if (acclScheduler.Run()) {
+                cycleHits++;
                 ReadAccl();
                 if (logging == true) {
                     PIB::_3x2('A', CNT, accl_x, accl_y, accl_z);
@@ -258,6 +264,7 @@ private:
             }
 
             if (gyroScheduler.Run()) {
+                cycleHits++;
                 ReadGyro();
                 if (logging == true) {
                     PIB::_3x2('G', CNT, gyro_x, gyro_y, gyro_z);
@@ -265,27 +272,31 @@ private:
             }
 
             if (magnScheduler.Run()) {
+                cycleHits++;
                 ReadMagn();
                 if (logging == true) {
                     PIB::_3x2('M', CNT, magn_x, magn_y, magn_z);
                 }
             }
             if (fuelScheduler.Run()) {
+                cycleHits++;
                 ReadFuel();
             }
             if (timeScheduler.Run()) {
+                cycleHits++;
                 ReadDateTime();
             }
 
             if (baro.Touch() == true) {
+                cycleHits++;
                 ReadBaro();
                 if (logging == true) {
                     PIB::_2x4('E', CNT, pressure, temperature);
                 }
             }
 
-
             if ((gpsString = gps.Get()) != NULL) {
+                cycleHits++;
                 if (logging == true) {
                     PIB::_string('P', CNT, gpsString, '\0');
                 }
@@ -295,6 +306,16 @@ private:
                 rtc.SetClock(set_year, set_month, set_day, set_hour, set_minute, set_second);
                 set_clock = false;
             }
+            
+#ifdef DEBUG_PORT
+            cycles++;
+            if((CNT - cycleTime) > CLKFREQ * 5){
+              debug.PutFormatted("\r\ncycleHits: %i/%i; clocks: %i", cycleHits, cycles, CNT - cycleTime);
+              cycleHits = 0;
+              cycles = 0;
+              cycleTime = CNT;
+            }
+#endif
         }
 
     }

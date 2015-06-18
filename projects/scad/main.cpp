@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // Board configuration
 // ------------------------------------------------------------------------------
-//#define DEBUG_PORT
+// #define DEBUG_PORT
 
 
 // ------------------------------------------------------------------------------
@@ -17,7 +17,7 @@
 #include "libpropeller/max8819/max8819.h"
 #include "libpropeller/eeprom/eeprom.h"
 
-#include "rovingbluetooth.h"
+//#include "rovingbluetooth.h"
 #include "DatalogController.h"
 #include "Sensors.h"
 #include "UserInterface.h"
@@ -55,7 +55,7 @@ libpropeller::Max8819 pmic;
 libpropeller::EEPROM eeprom;
 DatalogController dc;
 UserInterface ui;
-Bluetooth bluetooth;
+//Bluetooth bluetooth;
 
 #ifdef DEBUG_PORT
 libpropeller::Serial debug;
@@ -76,7 +76,7 @@ void DatalogCogRunner(void * parameter) {
 
 void BeginRecording(void) {
 #ifdef DEBUG_PORT
-    debug.Put("\r\nTurnSDOn()");
+    //debug.Put("\r\nTurnSDOn()");
 #endif
     if (dc.DiskReady() == true && dc.IsRecording() == false) {
         pmic.On(); //Make sure we don't lose power while datalogging!
@@ -124,14 +124,14 @@ void BeginRecording(void) {
         } else {
             ui.SetState(UserInterface::kNoSD);
 #ifdef DEBUG_PORT
-            debug.Put("Recording start failed");
+            //debug.Put("Rec start fail");
 #endif
         }
 
     } else {
         ui.SetState(UserInterface::kNoSD);
 #ifdef DEBUG_PORT
-        debug.Put("Could not turn SDOn()");
+        //debug.Put("Failed SDOn()");
 #endif
     }
 
@@ -140,7 +140,7 @@ void BeginRecording(void) {
 void EndRecording(void) {
     if (dc.IsRecording() == true) {
 #ifdef DEBUG_PORT
-        debug.Put("\r\nEndRecording()");
+        //debug.Put("\r\nEndRecording()");
 #endif    
         Sensors::SetLogging(false);
         waitcnt(CLKFREQ / 10 + CNT); // Give everything some time to settle
@@ -152,7 +152,7 @@ void EndRecording(void) {
 
 void KillSelf(bool doNotReboot = true) {
 #ifdef DEBUG_PORT
-    debug.Put("\r\nKillSelf()");
+    //debug.Put("\r\nKillSelf()");
 #endif    
     EndRecording();
 
@@ -181,11 +181,11 @@ bool commandComplete = false;
 char parameter[board::kMAX_SIZE_PARAMETER + 1];
 int parameterIndex = 0;
 
-void BluetoothError(const char * const parameter) {
-#ifdef DEBUG_PORT
-    debug.PutFormatted("Error parsing bluetooth: '%s'\r\n", parameter);
-#endif
-}
+//void BluetoothError(const char * const parameter) {
+//#ifdef DEBUG_PORT
+//    //debug.PutFormatted("Error parsing bluetooth: '%s'\r\n", parameter);
+//#endif
+//}
 
 /**
  * 
@@ -194,242 +194,242 @@ void BluetoothError(const char * const parameter) {
  * @param kMAX_SIZE
  * @return true if word is complete, false otherwise.
  */
-bool ReadWordIntoBuffer(char * const buffer, int & index, const int kMAX_SIZE) {
-    bool result = false;
+//bool ReadWordIntoBuffer(char * const buffer, int & index, const int kMAX_SIZE) {
+//    bool result = false;
 
-    int c = bluetooth.Get(0);
-    if (c != -1) {
-        if (isspace(c) != 0) {
-            c = '\0';
-            result = true;
-        }
-        buffer[index] = (char) c;
-        index++;
+//    int c = bluetooth.Get(0);
+//    if (c != -1) {
+//        if (isspace(c) != 0) {
+//            c = '\0';
+//            result = true;
+//        }
+//        buffer[index] = (char) c;
+//        index++;
 
-        // Are we at the end of our buffer? If we are, then we need to return true.
-        if (index == kMAX_SIZE) {
-            result = true;
-        }
-    }
+//        // Are we at the end of our buffer? If we are, then we need to return true.
+//        if (index == kMAX_SIZE) {
+//            result = true;
+//        }
+//    }
 
-    if (result == true) { // Reset for next time.
-        index = 0;
-    }
-    return result;
-}
+//    if (result == true) { // Reset for next time.
+//        index = 0;
+//    }
+//    return result;
+//}
 
-// TODO: Figure out why this works but the following does not work...
-void ListFiles(const char * const parameter) {
-    dc.ListFiles();
-    //if (dc.ListFiles() == false) {
-        //BluetoothError("SD not available.");
-    //}
-}
+//// TODO: Figure out why this works but the following does not work...
+//void ListFiles(const char * const parameter) {
+//    dc.ListFiles();
+//    //if (dc.ListFiles() == false) {
+//        //BluetoothError("SD not available.");
+//    //}
+//}
 
-bool CopyFile(const char * const filename) {
-    bool successFlag = false;
-    if (dc.TransferFile(filename) != true) {
-        //BluetoothError("CopyFile failed");
-        successFlag = true;
-    }
-    return successFlag;
-}
+//bool CopyFile(const char * const filename) {
+//    bool successFlag = false;
+//    if (dc.TransferFile(filename) != true) {
+//        //BluetoothError("CopyFile failed");
+//        successFlag = true;
+//    }
+//    return successFlag;
+//}
 
-void DeleteFile(const char * const filename) {
-    dc.DeleteFile(filename);
-}
+//void DeleteFile(const char * const filename) {
+//    dc.DeleteFile(filename);
+//}
 
-void MoveFile(const char * const filename) {
-    if (CopyFile(filename) == true) {
-        // Only delete if we've successfully copied the file.
-        DeleteFile(filename);
-    }
-}
+//void MoveFile(const char * const filename) {
+//    if (CopyFile(filename) == true) {
+//        // Only delete if we've successfully copied the file.
+//        DeleteFile(filename);
+//    }
+//}
 
 /** Breaks a sting into two parts. Replaces the delimiter with \0
  * 
  * @param parameter A string of format outnehotnu=otuhaentsha (string + '=' + string)
  * @return the second string if found, NULL if not found.
  */
-char * BreakOnDelimiter(char * parameter) {
-    char * value = strchr(parameter, '=');
-    if (value == NULL) {
-        return NULL;
-    } else {
-        value[0] = '\0';
-        return value + 1;
-    }
-}
+//char * BreakOnDelimiter(char * parameter) {
+//    char * value = strchr(parameter, '=');
+//    if (value == NULL) {
+//        return NULL;
+//    } else {
+//        value[0] = '\0';
+//        return value + 1;
+//    }
+//}
 
-void ParseStoredVariable(const bool echo, const short kEepromAddress, const char * userSpecifiedValue) {
-#ifdef DEBUG_PORT
-    debug.Put("\r\nStored variable...");
-#endif
-    if (echo == true) {
-        int value = eeprom.GetNumber(kEepromAddress, 4);
-        bluetooth.Put(libpropeller::Numbers::Dec(value));
-    } else {
-        int value = libpropeller::Numbers::Dec(userSpecifiedValue);
-        if (value != INT_MIN) {
-            eeprom.PutNumber(kEepromAddress, value, 4);
-        }
-    }
-}
+//void ParseStoredVariable(const bool echo, const short kEepromAddress, const char * userSpecifiedValue) {
+//#ifdef DEBUG_PORT
+//    //debug.Put("\r\nStored variable...");
+//#endif
+//    if (echo == true) {
+//        int value = eeprom.GetNumber(kEepromAddress, 4);
+//        bluetooth.Put(libpropeller::Numbers::Dec(value));
+//    } else {
+//        int value = libpropeller::Numbers::Dec(userSpecifiedValue);
+//        if (value != INT_MIN) {
+//            eeprom.PutNumber(kEepromAddress, value, 4);
+//        }
+//    }
+//}
 
-void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
-    if (echo == true) {
-        char timeZoneSign = eeprom.GetNumber(board::kEepromTimeZoneSign, 4);
-        int timeZoneHours = eeprom.GetNumber(board::kEepromTimeZoneHours, 4);
-        int timeZoneMinutes = eeprom.GetNumber(board::kEepromTimeZoneMinutes, 4);
-        bluetooth.PutFormatted("%c%02i%02i", timeZoneSign, timeZoneHours, timeZoneMinutes);
-    } else {
-        if (strlen(userSpecifiedValue) != 5
-                || (userSpecifiedValue[0] != '+' && userSpecifiedValue[0] != '-')) {
-            return;
-        }
+//void ParseStoredTimezone(const bool echo, const char * userSpecifiedValue) {
+//    if (echo == true) {
+//        char timeZoneSign = eeprom.GetNumber(board::kEepromTimeZoneSign, 4);
+//        int timeZoneHours = eeprom.GetNumber(board::kEepromTimeZoneHours, 4);
+//        int timeZoneMinutes = eeprom.GetNumber(board::kEepromTimeZoneMinutes, 4);
+//        bluetooth.PutFormatted("%c%02i%02i", timeZoneSign, timeZoneHours, timeZoneMinutes);
+//    } else {
+//        if (strlen(userSpecifiedValue) != 5
+//                || (userSpecifiedValue[0] != '+' && userSpecifiedValue[0] != '-')) {
+//            return;
+//        }
 
-        char sign = userSpecifiedValue[0];
-        int minutes = libpropeller::Numbers::Dec(userSpecifiedValue + 3);
+//        char sign = userSpecifiedValue[0];
+//        int minutes = libpropeller::Numbers::Dec(userSpecifiedValue + 3);
 
-        const char hourBuffer[3] = {userSpecifiedValue[1], userSpecifiedValue[2], '\0'};
-        int hours = libpropeller::Numbers::Dec(hourBuffer);
+//        const char hourBuffer[3] = {userSpecifiedValue[1], userSpecifiedValue[2], '\0'};
+//        int hours = libpropeller::Numbers::Dec(hourBuffer);
 
 
 
-        if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
-            eeprom.PutNumber(board::kEepromTimeZoneSign, sign, 4);
-            eeprom.PutNumber(board::kEepromTimeZoneHours, hours, 4);
-            eeprom.PutNumber(board::kEepromTimeZoneMinutes, minutes, 4);
+//        if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+//            eeprom.PutNumber(board::kEepromTimeZoneSign, sign, 4);
+//            eeprom.PutNumber(board::kEepromTimeZoneHours, hours, 4);
+//            eeprom.PutNumber(board::kEepromTimeZoneMinutes, minutes, 4);
 
-        } else {
-        }
-    }
-}
+//        } else {
+//        }
+//    }
+//}
 
-void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
-    // Value is specified as in the following example:
-    // 0123456789012345678
-    // 2013-12-03T19:14:17
+//void ParseStoredTime(const bool echo, char * userSpecifiedValue) {
+//    // Value is specified as in the following example:
+//    // 0123456789012345678
+//    // 2013-12-03T19:14:17
 
-    if (echo == true) {
-        bluetooth.PutFormatted("%04i-%02i-%02iT%02i:%02i:%02i",
-                Sensors::year + 2000, Sensors::day, Sensors::hour, Sensors::minute, Sensors::second);
-    } else {
-        if (strlen(userSpecifiedValue) != 19
-                || userSpecifiedValue[4] != '-'
-                || userSpecifiedValue[7] != '-'
-                || userSpecifiedValue[10] != 'T'
-                || userSpecifiedValue[13] != ':'
-                || userSpecifiedValue[16] != ':') {
-            return;
-        }
+//    if (echo == true) {
+//        bluetooth.PutFormatted("%04i-%02i-%02iT%02i:%02i:%02i",
+//                Sensors::year + 2000, Sensors::day, Sensors::hour, Sensors::minute, Sensors::second);
+//    } else {
+//        if (strlen(userSpecifiedValue) != 19
+//                || userSpecifiedValue[4] != '-'
+//                || userSpecifiedValue[7] != '-'
+//                || userSpecifiedValue[10] != 'T'
+//                || userSpecifiedValue[13] != ':'
+//                || userSpecifiedValue[16] != ':') {
+//            return;
+//        }
 
-        userSpecifiedValue[4] = '\0';
-        userSpecifiedValue[7] = '\0';
-        userSpecifiedValue[10] = '\0';
-        userSpecifiedValue[13] = '\0';
-        userSpecifiedValue[16] = '\0';
+//        userSpecifiedValue[4] = '\0';
+//        userSpecifiedValue[7] = '\0';
+//        userSpecifiedValue[10] = '\0';
+//        userSpecifiedValue[13] = '\0';
+//        userSpecifiedValue[16] = '\0';
 
-        int year = libpropeller::Numbers::Dec(userSpecifiedValue);
-        int month = libpropeller::Numbers::Dec(userSpecifiedValue + 5);
-        int day = libpropeller::Numbers::Dec(userSpecifiedValue + 8);
-        int hour = libpropeller::Numbers::Dec(userSpecifiedValue + 11);
-        int minute = libpropeller::Numbers::Dec(userSpecifiedValue + 14);
-        int second = libpropeller::Numbers::Dec(userSpecifiedValue + 17);
+//        int year = libpropeller::Numbers::Dec(userSpecifiedValue);
+//        int month = libpropeller::Numbers::Dec(userSpecifiedValue + 5);
+//        int day = libpropeller::Numbers::Dec(userSpecifiedValue + 8);
+//        int hour = libpropeller::Numbers::Dec(userSpecifiedValue + 11);
+//        int minute = libpropeller::Numbers::Dec(userSpecifiedValue + 14);
+//        int second = libpropeller::Numbers::Dec(userSpecifiedValue + 17);
 
-        if (year < 0 || year > 9999
-                || month < 0 || month > 12
-                || day < 0 || day > 31
-                || hour < 0 || hour > 23
-                || minute < 0 || minute > 59
-                || second < 0 || second > 59) {
+//        if (year < 0 || year > 9999
+//                || month < 0 || month > 12
+//                || day < 0 || day > 31
+//                || hour < 0 || hour > 23
+//                || minute < 0 || minute > 59
+//                || second < 0 || second > 59) {
 
-        } else {
-            Sensors::SetClock(year, month, day, hour, minute, second);
-        }
-    }
-}
+//        } else {
+//            Sensors::SetClock(year, month, day, hour, minute, second);
+//        }
+//    }
+//}
 
-void ParseVariable(char * key) {
-    char * value = BreakOnDelimiter(key);
-    const bool echo = value == NULL;
-    if (strcasecmp(key, "$recording") == 0) {
-        if (echo == true) {
-            if (dc.IsRecording() == true) {
-                bluetooth.Put("true");
-            } else {
-                bluetooth.Put("false");
-            }
-        } else {
-            if (strcasecmp(value, "true") == 0) {
-                BeginRecording();
-            } else {
-                EndRecording();
-            }
-        }
+//void ParseVariable(char * key) {
+//    char * value = BreakOnDelimiter(key);
+//    const bool echo = value == NULL;
+//    if (strcasecmp(key, "$recording") == 0) {
+//        if (echo == true) {
+//            if (dc.IsRecording() == true) {
+//                bluetooth.Put("true");
+//            } else {
+//                bluetooth.Put("false");
+//            }
+//        } else {
+//            if (strcasecmp(value, "true") == 0) {
+//                BeginRecording();
+//            } else {
+//                EndRecording();
+//            }
+//        }
 
-    } else if (strcasecmp(key, "$recording_destination") == 0) {
-        if (echo == true) {
-            bluetooth.Put("sd");
-        } else {
+//    } else if (strcasecmp(key, "$recording_destination") == 0) {
+//        if (echo == true) {
+//            bluetooth.Put("sd");
+//        } else {
 
-        }
-    } else if (strcasecmp(key, "$timezone") == 0) {
-        ParseStoredTimezone(echo, value);
-    } else if (strcasecmp(key, "$hardware_version") == 0) {
-        ParseStoredVariable(echo, board::kEepromBoardAddress, value);
-    } else if (strcasecmp(key, "$unit_number") == 0) {
-        ParseStoredVariable(echo, board::kEepromUnitAddress, value);
-    } else if (strcasecmp(key, "$canon_number") == 0) {
-        ParseStoredVariable(echo, board::kEepromCanonNumberAddress, value);
-    } else if (strcasecmp(key, "$date_time") == 0) {
-        ParseStoredTime(echo, value);
-    } else {
-        //BluetoothError("Echo error: can't find key.");
-    }
-}
+//        }
+//    } else if (strcasecmp(key, "$timezone") == 0) {
+//        ParseStoredTimezone(echo, value);
+//    } else if (strcasecmp(key, "$hardware_version") == 0) {
+//        ParseStoredVariable(echo, board::kEepromBoardAddress, value);
+//    } else if (strcasecmp(key, "$unit_number") == 0) {
+//        ParseStoredVariable(echo, board::kEepromUnitAddress, value);
+//    } else if (strcasecmp(key, "$canon_number") == 0) {
+//        ParseStoredVariable(echo, board::kEepromCanonNumberAddress, value);
+//    } else if (strcasecmp(key, "$date_time") == 0) {
+//        ParseStoredTime(echo, value);
+//    } else {
+//        //BluetoothError("Echo error: can't find key.");
+//    }
+//}
 
-void ParseCommand(char * command, char * parameter) {
-#ifdef DEBUG_PORT
-    debug.Put("\r\nParseCommand: ");
-    debug.Put(command);
-    debug.Put(", parameter: ");
-    debug.Put(parameter);
-#endif
-    if (strcasecmp(command, "ls") == 0) {
-        ListFiles(parameter);
-    } else if (strcasecmp(command, "cp") == 0) {
-        CopyFile(parameter);
-    } else if (strcasecmp(command, "rm") == 0) {
-        DeleteFile(parameter);
-    } else if (strcasecmp(command, "mv") == 0) {
-        MoveFile(parameter);
-    } else if (strcasecmp(command, "export") == 0) {
-        ParseVariable(parameter);
-    } else if (strcasecmp(command, "echo") == 0) {
-        ParseVariable(parameter);
-    } else if (strcasecmp(command, "shutdown") == 0) {
-        KillSelf();
-    } else if (strcasecmp(command, "reboot") == 0) {
+//void ParseCommand(char * command, char * parameter) {
+//#ifdef DEBUG_PORT
+////    debug.Put("\r\nParseCommand: ");
+////    debug.Put(command);
+////    debug.Put(", parameter: ");
+////    debug.Put(parameter);
+//#endif
+//    if (strcasecmp(command, "ls") == 0) {
+//        ListFiles(parameter);
+//    } else if (strcasecmp(command, "cp") == 0) {
+//        CopyFile(parameter);
+//    } else if (strcasecmp(command, "rm") == 0) {
+//        DeleteFile(parameter);
+//    } else if (strcasecmp(command, "mv") == 0) {
+//        MoveFile(parameter);
+//    } else if (strcasecmp(command, "export") == 0) {
+//        ParseVariable(parameter);
+//    } else if (strcasecmp(command, "echo") == 0) {
+//        ParseVariable(parameter);
+//    } else if (strcasecmp(command, "shutdown") == 0) {
+//        KillSelf();
+//    } else if (strcasecmp(command, "reboot") == 0) {
 
-    } else {
-        //BluetoothError(command);
-    }
-}
+//    } else {
+//        //BluetoothError(command);
+//    }
+//}
 
-void ParseBluetoothCommands(void) {
+//void ParseBluetoothCommands(void) {
 
-    if (commandComplete == false) {
-        commandComplete = ReadWordIntoBuffer(command, commandIndex, board::kMAX_SIZE_COMMAND);
-    } else {
-        if (ReadWordIntoBuffer(parameter, parameterIndex, board::kMAX_SIZE_PARAMETER) == true) {
-            bluetooth.Put("<");
-            ParseCommand(command, parameter);
-            commandComplete = false;
-            bluetooth.Put(">\r\n");
-        }
-    }
-}
+//    if (commandComplete == false) {
+//        commandComplete = ReadWordIntoBuffer(command, commandIndex, board::kMAX_SIZE_COMMAND);
+//    } else {
+//        if (ReadWordIntoBuffer(parameter, parameterIndex, board::kMAX_SIZE_PARAMETER) == true) {
+//            bluetooth.Put("<");
+//            ParseCommand(command, parameter);
+//            commandComplete = false;
+//            bluetooth.Put(">\r\n");
+//        }
+//    }
+//}
 
 bool MountSD() {
     //Datalog Controller
@@ -451,7 +451,7 @@ void InnerLoop(void) {
     }
 
 
-    ParseBluetoothCommands();
+//    ParseBluetoothCommands();
 
     if (ui.CheckButton() == false
             && ui.GetButtonPressDuration() > 150
@@ -499,11 +499,11 @@ void Init(void) {
     debug.PutFormatted("\r\nBoard Version: %i", boardVersion);
 #endif
 
-    bluetooth.Start(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
-            board::kPIN_BLUETOOTH_CTS, board::kPIN_BLUETOOTH_CONNECT);
+//    bluetooth.Start(board::kPIN_BLUETOOTH_RX, board::kPIN_BLUETOOTH_TX,
+//            board::kPIN_BLUETOOTH_CTS, board::kPIN_BLUETOOTH_CONNECT);
 
 #ifdef DEBUG_PORT
-    debug.Put("\r\nBluetooth initialized.");
+//    debug.Put("\r\nBluetooth initialized.");
 #endif    
 
     MountSD();
