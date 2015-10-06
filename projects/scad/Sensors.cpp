@@ -8,7 +8,9 @@ volatile int Sensors::fuel_voltage;
 //Warning: these are not volatile!
 int Sensors::year, Sensors::month, Sensors::day, Sensors::hour, Sensors::minute, Sensors::second;
 
+#ifndef NOBARO
 int Sensors::pressure, Sensors::temperature;
+#endif
 
 int Sensors::gyro_x, Sensors::gyro_y, Sensors::gyro_z;
 int Sensors::accl_x, Sensors::accl_y, Sensors::accl_z;
@@ -28,7 +30,10 @@ libpropeller::L3GD20 Sensors::l3g;
 
 libpropeller::PCF8523 Sensors::rtc;
 libpropeller::MAX17048 Sensors::fuel;
+
+#ifndef NOBARO
 libpropeller::MS5611 Sensors::baro;
+#endif
 
 libpropeller::MTK3339 Sensors::gps;
 
@@ -87,7 +92,19 @@ const char * const Sensors::sensorJSON = R"SENSORS(
 				}
 			}
 		},
-		"barometer":{
+		"gps":{
+			"name":"GPS",
+			"id":"P",
+			"processor":{
+				"gpsString":{
+					"frequency":10
+				}
+			}
+		}
+)SENSORS"
+#ifndef NOBARO
+R"SENSORS(
+		,"barometer":{
 			"name":"BARO",
 			"id":"E",
 			"processor":{
@@ -99,14 +116,7 @@ const char * const Sensors::sensorJSON = R"SENSORS(
 					
 				}
 			}
-		},
-		"gps":{
-			"name":"GPS",
-			"id":"P",
-			"processor":{
-				"gpsString":{
-					"frequency":10
-				}
-			}
 		}
-)SENSORS";
+)SENSORS"
+#endif
+;

@@ -19,12 +19,6 @@
 #include "scadbeta2.h"
 #endif
 
-
-
-
-
-
-
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
 const unsigned short kEepromCanonNumberAddress = 0xFFF4;
@@ -424,7 +418,12 @@ int main(void) {
 #ifdef GAMMA
     pass = pass && ScanBusRunner(board::kPIN_EEPROM_SCL, board::kPIN_EEPROM_SDA, 1, "EEPROM");
     pass = pass && ScanBusRunner(board::kPIN_I2C_SCL_1, board::kPIN_I2C_SDA_1, 3, "1");
+    
+#ifdef NOBARO
+    pass = pass && ScanBusRunner(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2, 2, "2");
+#else
     pass = pass && ScanBusRunner(board::kPIN_I2C_SCL_2, board::kPIN_I2C_SDA_2, 3, "2");
+#endif
 
 
 #elif BETA2

@@ -9,7 +9,7 @@
 extern Bluetooth bluetooth; //TODO(SRLM): This should be a parameter, not an extern.
 
 #ifdef DEBUG_PORT
-extern Serial debug;
+extern libpropeller::Serial debug;
 #endif
 
 class DatalogController {
@@ -292,26 +292,7 @@ private:
 
     void OutputPreamble(Configuration & config) {
 
-        static const char * const preambleJSON = R"PREAMBLE({
-	"contentType":"RNC",
-	"timestampFormat":{
-		"frequency":%i,
-		"bitsPerTimestamp":%i
-	},
-	"createTime":{
-		"brokenTime":"%04i-%02i-%02iT%02i:%02i:%02i%c%02i%02i",
-		"timestamp":"%08x"
-	},
-	"scadUnit":%i,
-	"softwareVersion":"%s %s",
-	"createName":"%s",
-	"sensors":{
-                %s
-        }
-        }
-        )PREAMBLE";
-
-
+        static const char * const preambleJSON = R"PREAMBLE({"contentType":"RNC","timestampFormat":{"frequency":%i,"bitsPerTimestamp":%i},"createTime":{"brokenTime":"%04i-%02i-%02iT%02i:%02i:%02i%c%02i%02i","timestamp":"%08x"},"scadUnit":%i,"softwareVersion":"%s %s","createName":"%s","sensors":{%s}})PREAMBLE";
 
         sd.PutFormatted(preambleJSON,
                 CLKFREQ,
