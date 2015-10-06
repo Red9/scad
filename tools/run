@@ -9,18 +9,11 @@ parser.add_argument("-b", "--board", type=str, help="Select the hardware to load
 parser.add_argument("-e", "--eeprom", action="store_true", help="Load to EEPROM")
 parser.add_argument("-t", "--terminal", type=str, help="Open a terminal after loading. Must specify a baud.")
 parser.add_argument("-m", "--make", action="store_true", help="Make clean and make before loading. If board is specified make that board.")
+parser.add_argument("-n", "--nobaro", action="store_true", help="Some Gamma units have been built with no baro.")
 args = parser.parse_args()
 
-
-
-
-
-
-
-
 if args.make:
-	os.system("make clean")
-
+    os.system("make clean")
 
 clkfreq = ""
 elf = ""
@@ -28,24 +21,27 @@ eeprom = ""
 terminal = ""
 
 if args.board == "gamma":
-	clkfreq = "-D clkfreq=96000000"
-	elf = "main.gamma.elf"
-	if args.make:
-		os.system("make gamma")
+    clkfreq = "-D clkfreq=96000000"
+    if args.nobaro:
+        elf = "main.gamma.nobaro.elf"
+    else:
+        elf = "main.gamma.elf"
+    if args.make:
+        os.system("make gamma")
 elif args.board == "beta2":
-	elf = "main.beta2.elf"
-	if args.make:
-		os.system("make beta2")
+    elf = "main.beta2.elf"
+    if args.make:
+        os.system("make beta2")
 else:
-	elf = "main.elf"
-	if args.make:
-		os.system("make")
-	
+    elf = "main.elf"
+    if args.make:
+        os.system("make")
+    
 if args.eeprom:
-	eeprom = "-e"
-	
+    eeprom = "-e"
+    
 if args.terminal:
-	terminal = "-t" + args.terminal
+    terminal = "-t" + args.terminal
 
 
 

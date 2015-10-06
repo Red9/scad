@@ -19,12 +19,6 @@
 #include "scadbeta2.h"
 #endif
 
-
-
-#define NOBARO
-
-
-
 const unsigned short kEepromUnitAddress = 0xFFFC;
 const unsigned short kEepromBoardAddress = 0xFFF8;
 const unsigned short kEepromCanonNumberAddress = 0xFFF4;

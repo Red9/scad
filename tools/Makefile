@@ -64,7 +64,7 @@ CXXFLAGS = -m${MODEL} ${INCLUDE} ${INLINEFLAGS} ${DEBUGFLAGS} ${DEFINEFLAGS} ${O
 CLDFLAGS = -Wl,--gc-sections #-Wl,--print-gc-sections #-Wl,--verbose #-Wl,--script=${GCCUTILITIESPATH}main.ld 
 
 
-release: beta2 gamma
+release: beta2 gammanobaro gamma
 	
 beta2: buildbeta2
 	rm -f main.elf
@@ -78,12 +78,20 @@ gamma: buildgamma
 	${ELFSIZE} main.gamma.elf
 	${ELFHUBSIZE} main.gamma.elf
 	
+gammanobaro: buildgammanobaro
+	rm -f main.elf
+	ln -s main.gamma.nobaro.elf main.elf
+	${ELFSIZE} main.gamma.nobaro.elf
+	${ELFHUBSIZE} main.gamma.nobaro.elf	
+	
 buildbeta2:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D BETA2 -D SINGLE_TRANSLATION_UNIT -o main.beta2.elf ${SRCS} ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
 buildgamma:
 	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -D SINGLE_TRANSLATION_UNIT -o main.gamma.elf ${SRCS} ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 	
+buildgammanobaro:
+	${CXX} ${CXXFLAGS} ${CLDFLAGS} -D GAMMA -D NOBARO -D SINGLE_TRANSLATION_UNIT -o main.gamma.nobaro.elf ${SRCS} ${LIBPROPELLER}libpropeller/compile_tools/statics/*
 
 
 cleanDebug: clean

@@ -38,7 +38,9 @@ public:
     //Warning: these are not volatile!
     static int year, month, day, hour, minute, second;
 
+#ifndef NOBARO
     static int pressure, temperature;
+#endif
 
     static int gyro_x, gyro_y, gyro_z;
     static int accl_x, accl_y, accl_z;
@@ -70,12 +72,14 @@ public:
      * @TODO: Make sure this thread safe!
      */
     static void AddScales(void) {
+#ifndef NOBARO
         //Baro
         const float baroScaleFloatPressure = 1.0f; // 0.01millibar * 100pascals
         const float baroScaleFloatTemperature = 0.01f;
         const int baroScalePressure = *(int *) &baroScaleFloatPressure;
         const int baroScaleTemperature = *(int *) &baroScaleFloatTemperature;
         PIB::_2x4('E' | 0x80, CNT, baroScalePressure, baroScaleTemperature);
+#endif
 
         //Accl
         const float acclScaleFloat = 0.00735f; // 0.012g / 16 * 9.8m/s^2
@@ -138,7 +142,10 @@ private:
 
     static libpropeller::PCF8523 rtc;
     static libpropeller::MAX17048 fuel;
+    
+#ifndef NOBARO
     static libpropeller::MS5611 baro;
+#endif
 
     static libpropeller::MTK3339 gps;
 
@@ -210,12 +217,14 @@ private:
 #endif
         }
 
+#ifndef NOBARO
         if (baro.Init(bus2addr, libpropeller::MS5611::LSB_1) == false) {
             result = false;
 #ifdef DEBUG_PORT
             debug.Put("\r\nFailed to init baro.");
 #endif
         }
+#endif
 
         //GPS
         gps.Start(board::kPIN_GPS_RX, board::kPIN_GPS_TX);
@@ -287,6 +296,7 @@ private:
                 ReadDateTime();
             }
 
+#ifndef NOBARO
             if (baro.Touch() == true) {
                 cycleHits++;
                 ReadBaro();
@@ -294,6 +304,7 @@ private:
                     PIB::_2x4('E', CNT, pressure, temperature);
                 }
             }
+#endif
 
             if ((gpsString = gps.Get()) != NULL) {
                 cycleHits++;
@@ -342,9 +353,11 @@ private:
         fuel_rate = fuel.GetChargeRate();
     }
 
+#ifndef NOBARO
     static void ReadBaro(void) {
         baro.Get(pressure, temperature, true);
     }
+#endif
 
     /** This function serves requests for sensor data. When datalogging,
      * it automatically reads it's sensors.
